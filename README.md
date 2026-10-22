@@ -113,7 +113,8 @@ detection), mkimg (makes blank ADFS test images), guitest and guitest2 (offscree
 
 ## Licence
 Copyright (C) 2026 Daniel Jameson. Licensed under the GNU General Public License v3.0 or
-later - see LICENSE. The same notice is in every source file's header and in Help > About.
+later - see LICENSE.
+
 Requires Qt 5 (LGPLv3/GPLv3), which is compatible.
 
 ## For developers / agents
