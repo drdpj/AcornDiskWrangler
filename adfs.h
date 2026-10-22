@@ -58,6 +58,8 @@ bool isValidNameChar(QChar c);
 bool isValidName(const QString &name, QString *why = nullptr);
 QString sanitizeName(const QString &hostName);
 quint8 bcdInc(quint8 v);
+// Boot option (*OPT 4,n) names, shared by ADFS and DFS: 0 off, 1 *LOAD !BOOT, 2 *RUN !BOOT, 3 *EXEC !BOOT.
+QString bootOptionName(int opt);
 quint8 mapChecksum(const char *sector256);
 
 // One 26-byte directory entry
@@ -210,6 +212,9 @@ public:
     // Sets the disc name: the root directory title (max 10 printable characters; the title field is 19 bytes but only 10 is known to be safe). If the free space
     // map already carries a disc name, that is kept in step (first 10 characters).
     bool setDiscTitle(const QString &title, QString *err);
+    // Boot option (*OPT 4,n): byte &FD of free space map sector 1, on floppies and hard discs alike.
+    int bootOption() const;
+    bool setBootOption(int opt, QString *err);
     // Replaces name/attributes/load/exec of an entry (length, sector and seq are kept).
     bool replaceEntry(quint32 parent, const QString &oldName, const Entry &updated, QString *err);
 

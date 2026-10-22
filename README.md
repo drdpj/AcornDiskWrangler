@@ -123,6 +123,9 @@ Master 512 has not been tried yet.
 * Edit > Rename volume: ADFS tab sets the disc name (the root directory title shown by *CAT,
   max 10 characters; a disc name already stored in the free space map is kept in step).
   DOS tab sets the volume label (max 11 characters, blank removes it).
+* Edit > Boot option: what SHIFT+BREAK does (*OPT 4): off, *LOAD, *RUN or *EXEC !BOOT. Works on ADFS floppies
+  and hard discs (byte &FD of the free space map) and on each side of a DFS disc separately; the current
+  setting is shown in the status bar ("Boot: *RUN !BOOT").
 * Alt+Enter / Edit > Properties: ADFS = name, R W L E, load/exec; DOS = name and R H S A.
   Multi-select sets attributes in bulk.
 * Ctrl+S saves.
@@ -151,7 +154,8 @@ The viewer shows the first 1 MiB of very large files in Text/Hex.
 DFS: up to 31 files per side, names 7 characters plus a directory letter, one catalogue per side (Watford 62-file DFS is not supported).
 Tests (tests/): viewtest (detokeniser), selftest (ADFS), dostest and floptest (FAT), dfstest (DFS), detecttest (format
 detection), mkimg (makes blank ADFS test images), guitest and guitest2 (offscreen GUI, incl. multi-window copying),
-sidetest (new images of every type, side order detection and conversion) with sidecheck.py (independent check).
+sidetest (new images of every type, side order detection and conversion) with sidecheck.py (independent check),
+boottest (boot option).
 
 ## Licence
 Copyright (C) 2026 Daniel Jameson. Licensed under the GNU General Public License v3.0 or

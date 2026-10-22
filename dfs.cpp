@@ -311,6 +311,14 @@ bool Disc::setTitle(const QString &title, QString *err) {
     }());
 }
 
+bool Disc::setBootOption(int opt, QString *err) {
+    DFS_TXN([&]() -> bool {
+        if (opt < 0 || opt > 3) { *err = "the boot option must be 0 (off), 1 (*LOAD), 2 (*RUN) or 3 (*EXEC)"; return false; }
+        m_boot = opt;
+        return writeCatalogue(err);
+    }());
+}
+
 // -------------------------------------------------------------------- check
 
 Report Disc::check() {

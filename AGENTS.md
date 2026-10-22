@@ -143,6 +143,12 @@ and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopy
   checked on hand-made programs and one real program; report oddities rather than guess.
 
 ## GUI architecture
+- Boot option (Edit > Boot option): `MainWindow::bootOption()/setBootOption()` act on the current pane -
+  `Image::setBootOption` (ADFS floppy or hard disc: map sector 1 byte &FD, staged via `stageFsMap`, which
+  recomputes both checksums) or `Dfs::Disc::setBootOption` (catalogue sector 1 byte 6 bits 4-5, per side).
+  DOS panes have none; the locked ADFS side of a 640K DOS Plus disc refuses it. Note: every map save clears
+  unused free-list slots past the end-of-list pointer (a real hard disc had a stale entry there) - harmless,
+  ADFS ignores them.
 - Side order (Tools > Side order): *Read as* re-opens the file with `openImage(path, 0|1)` (nothing written);
   *Convert* stages `Image::setConvertOnSave`. The status bar shows "Sides: ..." with how it was settled.
   New image: `newImageDialog()` -> `NewDisc::create()` -> opened like File > Open.
@@ -209,6 +215,7 @@ differs in Qt6). Each test is its own project in `tests/`: `mkdir b && cd b && q
 | `guitest2` | `<dir>` [`<copy of a real 640K hybrid>`] containing `a.dsd b.adl c.img d.dat e.ssd f.hybrid g.a800` | copies of a blank DSD, ADFS L, PC 720K, **the real hard disc**, a truncated SSD, the hybrid and Acorn800 images; host files in `/tmp/drop/proj` (`make_testdata.py host`); offscreen |
 | `sidetest` | `<outdir>` [`<copy of a real 640K hybrid>` [`<copy of a real 800K disc>` [`<copies of real ADFS L discs, named t2_il_<name>.adl in <outdir>>` ...]]] | nothing else (a made-up DOSBOOT is used without the real hybrid; with it, new 640K discs are compared with it): makes every format with `NewDisc` in both side orders, fills, detects, converts both ways, reads in the wrong order, drives MainWindow (offscreen). The real discs are converted and back (must stay byte-identical). Then run `tests/sidecheck.py <outdir>`: an independent reader (own de-interleave, own ADFS/DFS parser, `fsck.fat` + `mtools` for FAT, with the Acorn formats wrapped in a BPB) |
 | `detecttest` | (see above) | also prints each image's side order and whether it could be told |
+| `boottest` | `<outdir>` [`<copy of a hard disc image>`] | ADFS S/M/L and the hard disc: options 0-3 set, saved, re-read, only byte &FD (+ checksums) changed; DFS sides independent; refusals; MainWindow per pane. Independently re-check the map checksums (Disc Image Manager's algorithm reproduces the stored ones on real discs) |
 
 `selftest`, `dostest`, `guitest` and `guitest2` assert details of the owner's image (12 root
 entries, 69 DOS root entries, `BeebSCSI`, `!Config`, ...). That image is **not** in the repo; if

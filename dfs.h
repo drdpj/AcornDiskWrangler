@@ -79,6 +79,7 @@ public:
     bool modify(QChar oldDir, const QString &oldName, QChar newDir, const QString &newName, bool locked,
                 quint32 load, quint32 exec, QString *err);
     bool setTitle(const QString &title, QString *err);
+    bool setBootOption(int opt, QString *err);       // 0 off, 1 *LOAD, 2 *RUN, 3 *EXEC (catalogue sector 1, byte 6 bits 4-5)
 
     Adfs::Report check();     // reads the staged state
 

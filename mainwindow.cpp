@@ -250,6 +250,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_actDelete = mk("&Delete", QKeySequence::Delete);
     m_actCheck = mk("&Check free space map...", QKeySequence("Ctrl+K"));
     m_actNewImage = mk("New &image...", QKeySequence("Ctrl+Alt+N"));
+    m_actBootOpt = mk("&Boot option...");
     m_actReadIl = mk("Read as &interleaved (sides alternate track by track)");
     m_actReadSeq = mk("Read as &sequential (all of side 0, then side 1)");
     m_actConvertSides = mk("&Convert to sequential...");
@@ -271,7 +272,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     mf->addSeparator();
     mf->addAction(m_actQuit);
     QMenu *me = menuBar()->addMenu("&Edit");
-    me->addActions({m_actView, m_actAddFiles, m_actAddFolder, m_actNewDir, m_actRename, m_actRenameVol, m_actProps, m_actExtract, m_actDelete});
+    me->addActions({m_actView, m_actAddFiles, m_actAddFolder, m_actNewDir, m_actRename, m_actRenameVol, m_actBootOpt, m_actProps, m_actExtract, m_actDelete});
     QMenu *mt = menuBar()->addMenu("&Tools");
     mt->addAction(m_actCheck);
     QMenu *ms = mt->addMenu("&Side order (double-sided images)");
@@ -307,6 +308,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     connect(m_actExtract, &QAction::triggered, this, &MainWindow::extractSelected);
     connect(m_actCheck, &QAction::triggered, this, &MainWindow::checkImage);
     connect(m_actNewImage, &QAction::triggered, this, &MainWindow::newImageDialog);
+    connect(m_actBootOpt, &QAction::triggered, this, &MainWindow::bootOptionDialog);
     connect(m_actReadIl, &QAction::triggered, this, [this] { readWithSideOrder(false); });
     connect(m_actReadSeq, &QAction::triggered, this, [this] { readWithSideOrder(true); });
     connect(m_actConvertSides, &QAction::triggered, this, [this] {
@@ -497,6 +499,45 @@ bool MainWindow::convertSideOrder(bool toSequential, bool confirm) {
     }
     updateUi();
     return true;
+}
+
+// ---------------------------------------------------------------- boot option
+
+int MainWindow::bootOption() const {
+    if (!m_img.isOpen() || dosActive()) return -1;
+    int ds = dfsSide();
+    if (ds >= 0) return m_dfs[ds].attached() ? m_dfs[ds].bootOption() : -1;
+    return m_img.isAdfs() ? m_img.bootOption() : -1;
+}
+
+bool MainWindow::setBootOption(int opt) {
+    QString err;
+    int ds = dfsSide();
+    bool ok;
+    if (dosActive() || !m_img.isOpen()) { err = "DOS discs have no boot option"; ok = false; }
+    else if (ds >= 0) ok = dfsEditable(ds) ? m_dfs[ds].setBootOption(opt, &err) : (err = "this DFS drive is read-only", false);
+    else ok = m_img.setBootOption(opt, &err);
+    if (!ok) QMessageBox::warning(this, "Boot option", err);
+    refreshTree();
+    updateUi();
+    return ok;
+}
+
+void MainWindow::bootOptionDialog() {
+    int cur = bootOption();
+    if (cur < 0) return;
+    QStringList items;
+    for (int i = 0; i < 4; ++i) items << Adfs::bootOptionName(i);
+    if (cur > 3) items << Adfs::bootOptionName(cur);           // keep an odd value visible rather than hide it
+    bool ok = false;
+    int ds = dfsSide();
+    QString which = ds >= 0 ? QString("DFS drive %1").arg(ds * 2) : QString("this disc");
+    QString pick = QInputDialog::getItem(this, "Boot option",
+                                         "What SHIFT+BREAK does with " + which + " (*OPT 4):",
+                                         items, cur > 3 ? 4 : cur, false, &ok);
+    if (!ok) return;
+    int opt = items.indexOf(pick);
+    if (opt != cur && opt <= 3) setBootOption(opt);
 }
 
 // ---------------------------------------------------------------- new image
@@ -803,6 +844,7 @@ void MainWindow::updateUi() {
     m_actView->setEnabled(has && sel);
     m_actRename->setEnabled(canEdit && !ct->selectedItems().isEmpty());
     m_actRenameVol->setEnabled(canEdit);
+    m_actBootOpt->setEnabled(canEdit && !dosPane);
     const Adfs::SideLayout &sl = m_img.sideLayout();
     bool twoSides = has && sl.doubleSided();
     m_actReadIl->setEnabled(twoSides);
@@ -827,10 +869,12 @@ void MainWindow::updateUi() {
         if (!m_dosOk) s += "   (volume has errors: read-only)";
     } else if (ds >= 0) {
         s = QString("DFS drive %1: free %2 of %3").arg(ds * 2).arg(fmtSectors(m_dfs[ds].freeSectors()), fmtSectors(m_dfs[ds].sectors()));
+        s += "   Boot: " + Adfs::bootOptionName(m_dfs[ds].bootOption()).mid(4);
         if (!m_dfsOk[ds]) s += "   (catalogue has errors: read-only)";
     } else if (m_img.isAdfs()) {
         s = QString("Free: %1 of %2   (largest block %3)")
                 .arg(fmtSectors(m_img.freeSectors()), fmtSectors(m_img.totalSectors()), fmtSectors(m_img.largestFreeRun()));
+        s += "   Boot: " + Adfs::bootOptionName(m_img.bootOption()).mid(4);
         if (m_img.adfsLocked()) s += "   (hybrid disc: ADFS side is read-only)";
     }
     if (twoSides) {

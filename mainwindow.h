@@ -80,6 +80,9 @@ public:
     // in the other order (done on Save). confirm = false skips the explanation box (tests).
     bool readWithSideOrder(bool sequential);
     bool convertSideOrder(bool toSequential, bool confirm = true);
+    // Boot option of the disc in the current pane (ADFS floppy or hard disc, or one DFS side): -1 if it has none.
+    int bootOption() const;
+    bool setBootOption(int opt);                     // staged like any edit; shows a message on failure
     void importPaths(const QStringList &paths, quint32 dirSector);
     Adfs::Image &image() { return m_img; }
     DropTree *tree() { return m_tree; }
@@ -107,6 +110,7 @@ private slots:
     void checkImage();
     void about();
     void newImageDialog();
+    void bootOptionDialog();
     void viewSelected();
     void renameSelected();
     void renameVolume();
@@ -211,6 +215,7 @@ private:
     QString m_dfsErr[2];
     QAction *m_actNewWin = nullptr;
     QAction *m_actNewImage = nullptr;
+    QAction *m_actBootOpt = nullptr;
     QAction *m_actReadIl = nullptr, *m_actReadSeq = nullptr, *m_actConvertSides = nullptr;
     QString m_sidesHow;            // how the side order was settled: "" (detected), "assumed", "set by hand"
 };

@@ -725,6 +725,29 @@ bool Image::deleteInner(quint32 parent, const QString &name, QString *err) {
     return writeDir(d);
 }
 
+QString bootOptionName(int opt) {
+    switch (opt) {
+    case 0: return "0 - off";
+    case 1: return "1 - *LOAD !BOOT";
+    case 2: return "2 - *RUN !BOOT";
+    case 3: return "3 - *EXEC !BOOT";
+    default: return QString("%1 - not a standard option").arg(opt);
+    }
+}
+
+int Image::bootOption() const {
+    return m_map.base.size() == 512 ? quint8(m_map.base[256 + 0xFD]) : 0;
+}
+
+bool Image::setBootOption(int opt, QString *err) {
+    if (!checkAdfs(err)) return false;
+    if (opt < 0 || opt > 3) { *err = "the boot option must be 0 (off), 1 (*LOAD), 2 (*RUN) or 3 (*EXEC)"; return false; }
+    if (m_map.base.size() != 512) { *err = "the free space map has not been read"; return false; }
+    m_map.base[256 + 0xFD] = char(opt);
+    stageFsMap();                                   // serialize() keeps byte &FD and recomputes both checksums
+    return true;
+}
+
 bool Image::setDiscTitle(const QString &title, QString *err) {
     if (!checkAdfs(err)) return false;
     if (title.size() > MaxNameLen) { *err = "the disc name can be at most 10 characters"; return false; }
