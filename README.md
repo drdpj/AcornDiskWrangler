@@ -16,24 +16,26 @@ Run:    ./acorndiskwrangler [image ...]          (each image gets its own window
        pacman -Syu
        pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-qt5-base
 
-   Use `qmake` (Qt 5), not `qmake6`, if Qt 6 is also installed.
+   MSYS2 gives the Qt 5 tools a `-qt5` suffix (`qmake-qt5`, `windeployqt-qt5`); plain `qmake` is
+   Qt 6 and may not be installed at all.
 
 2. Build a release from the source folder, in a separate build directory:
 
        mkdir build && cd build
-       qmake ../acorndiskwrangler.pro CONFIG+=release CONFIG-=debug_and_release
+       qmake-qt5 ../acorndiskwrangler.pro CONFIG+=release CONFIG-=debug_and_release
        mingw32-make -j$(nproc)
 
-   This gives `build/acorndiskwrangler.exe`, with its icon and version info (copyright) built in.
+   qmake prints `WARNING: Failure to find: acorndiskwrangler_resource_res.o`; that is harmless (the
+   icon/version resource is compiled by make). This gives `build/acorndiskwrangler.exe`, with its icon and version info (copyright) built in.
    It runs from the MINGW64 shell as it is, because that shell has the Qt and MinGW DLLs on its PATH.
 
-3. Deploy, so it runs anywhere (double-clicked from Explorer, or on another PC). `windeployqt`
+3. Deploy, so it runs anywhere (double-clicked from Explorer, or on another PC). `windeployqt-qt5`
    copies the Qt DLLs and plugins (`platforms/`, `styles/`); the `ldd` loop then copies the MinGW
    runtime and the other libraries Qt needs (ICU, HarfBuzz, FreeType, zlib ...) that it leaves out:
 
        mkdir deploy
        cp acorndiskwrangler.exe ../LICENSE deploy/
-       windeployqt --release --compiler-runtime --no-translations \
+       windeployqt-qt5 --release --compiler-runtime --no-translations \
            --no-system-d3d-compiler --no-opengl-sw --no-angle deploy/acorndiskwrangler.exe
        for f in deploy/acorndiskwrangler.exe deploy/platforms/*.dll deploy/styles/*.dll; do
            ldd "$f" | awk '/\/mingw64\// {print $3}'
@@ -54,11 +56,50 @@ For the UCRT64 environment instead, use the UCRT64 shell, replace `mingw-w64-x86
 |---|---|
 | ADFS old-map hard disc | e.g. BeebSCSI scsi0.dat; plus DOS Plus partition $.DOS.DRIVE_C as a second tab |
 | ADFS S / M / L floppy (160K, 320K, 640K) | .ads .adm .adl; same filesystem as the hard disc |
-| DFS single/double sided (.ssd, .dsd) | 40 or 80 track; a .dsd opens as two tabs, "DFS drive 0" and "DFS drive 2", each a separate disc; interleaved or sequential side order is detected |
+| DFS single/double sided (.ssd, .dsd) | 40 or 80 track; a .dsd opens as two tabs, "DFS drive 0" and "DFS drive 2", each a separate disc |
 | PC FAT floppy 360K / 720K / 1.2M / 1.44M | geometry from the boot sector, falling back to a size table |
 | Acorn DOS Plus 800K | 1024-byte sectors, no boot sector (layout and file contents checked against a real disc) |
-| Acorn 640K ADFS/DOS hybrid | ADFS catalogue + DOSBOOT + DOS Plus FAT12 on one disc (layout and file contents checked against a real Master 512 disc; the image is track-interleaved and handled transparently); ADFS tab is read-only, DOS tab editable |
+| Acorn 640K ADFS/DOS hybrid | ADFS catalogue + DOSBOOT + DOS Plus FAT12 on one disc (layout and file contents checked against a real Master 512 disc; DOS Plus numbers this disc's sectors side 0 first, which is handled transparently); ADFS tab is read-only, DOS tab editable |
+
 Not supported: ADFS D/E (new map) discs - they are recognised and refused with a message.
+
+## Double-sided images: side order
+An image file of an Acorn double-sided floppy (ADFS L, DFS .dsd, DOS Plus 800K and 640K) stores its tracks in one
+of two orders:
+
+* **interleaved** - cylinder 0 side 0, cylinder 0 side 1, cylinder 1 side 0, ... This is the usual layout,
+  and the one the real discs this tool was checked against use.
+* **sequential** - all of side 0 (cylinders 0-79), then all of side 1.
+
+PC floppy images (360K, 720K, 1.2M, 1.44M) are always interleaved, so they have no side order to detect or change.
+
+This is only about the image *file*. How each disc numbers its own sectors is handled separately: ADFS L and
+DOS Plus 640K discs count all of side 0, then side 1 (as the machine reads them), while DOS Plus 800K and PC
+discs count sector, side, track. Both are checked against real discs. The order is **detected** when an image is opened, by checking which order makes the
+structures beyond track 0 line up: DFS catalogues, ADFS directories, DOS directories and the FAT. It can't
+always be told: a blank ADFS L or DOS Plus 800K disc, or one with only a few files in the root directory, reads
+the same either way. Then the format's usual order is used - interleaved for every Acorn format - and the
+status bar says so ("Sides: interleaved (assumed)").
+
+Tools > Side order:
+* **Read as interleaved / Read as sequential** - re-reads the image the other way. Nothing is written; use it
+  when files look scrambled. It applies to this window only: the next time the image is opened it is detected
+  again.
+* **Convert to sequential / interleaved...** - rewrites the image file in the other order when you save (the
+  disc's contents don't change; Revert cancels it). Use it when an emulator or tool expects the other order.
+
+## New blank images
+File > New image... makes a blank, valid disc of any supported type: ADFS S/M/L; DFS 40/80-track single- or
+double-sided; Acorn DOS Plus 800K and 640K; PC 360K, 720K, 1.2M and 1.44M. You can give it a disc name, title
+or volume label and, for the Acorn double-sided formats, choose the side order (interleaved by default). PC
+discs get a standard boot sector (not bootable).
+
+A new DOS Plus 640K disc is set up like Acorn's own, with no DOS files: the ADFS free space map (2720 sectors,
+none free), the root directory "Acorn DOS Boot Disc" holding DOSBOOT, then an empty DOS Plus FAT and root
+directory. DOSBOOT is Acorn's boot code, so it isn't built in: under "Boot code from" choose either an existing
+DOS Plus 640K disc image (its whole boot track is copied exactly) or a DOSBOOT file (at most 2304 bytes), and a
+catalogue matching Acorn's is built around it (the field keeps your last choice). Booting a new disc on a real
+Master 512 has not been tried yet.
 
 ## Using it
 * **Several discs at once:** File > Open opens in a new window if this one already holds a disc
@@ -107,9 +148,10 @@ upper-case 8.3 (clashes become NAME~1.EXT). NAME.inf sidecars (NAME LOAD EXEC LE
 are read on ADFS add and written on ADFS extract (Tools menu). ADFS files need contiguous
 space; max 47 entries per ADFS directory. Only DRIVE_C is looked for as the DOS partition.
 The viewer shows the first 1 MiB of very large files in Text/Hex.
-DFS: up to 31 files per side, names 7 characters plus a directory letter, one catalogue per side (Watford 62-file DFS is not supported). There is no "new blank image" command yet.
+DFS: up to 31 files per side, names 7 characters plus a directory letter, one catalogue per side (Watford 62-file DFS is not supported).
 Tests (tests/): viewtest (detokeniser), selftest (ADFS), dostest and floptest (FAT), dfstest (DFS), detecttest (format
-detection), mkimg (makes blank ADFS test images), guitest and guitest2 (offscreen GUI, incl. multi-window copying).
+detection), mkimg (makes blank ADFS test images), guitest and guitest2 (offscreen GUI, incl. multi-window copying),
+sidetest (new images of every type, side order detection and conversion) with sidecheck.py (independent check).
 
 ## Licence
 Copyright (C) 2026 Daniel Jameson. Licensed under the GNU General Public License v3.0 or

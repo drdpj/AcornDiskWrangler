@@ -116,6 +116,35 @@ struct Report {
     bool ok() const { return errors.isEmpty(); }
 };
 
+// A double-sided floppy has two independent orderings, and Image keeps them apart:
+//  * how the DISC numbers its sectors (sideFirst) - what everything above Image (ADFS, DFS, DOS) works in:
+//      sideFirst = true:  all of side 0 (cylinders 0..n-1), then all of side 1. ADFS L and DOS Plus 640K: the
+//                         machine reads side 0 to the end, then side 1 (checked against real .adl discs).
+//      sideFirst = false: sides alternate cylinder by cylinder (sector, side, track): DOS Plus 800K, PC, and a
+//                         DFS .dsd (whose two sides are separate discs, mapped by Dfs::Disc on top of this).
+//  * how the image FILE stores the tracks (sequential):
+//      false: interleaved - cylinder 0 side 0, cylinder 0 side 1, cylinder 1 side 0, ...  (the usual layout)
+//      true:  sequential  - all of side 0, then all of side 1
+// Image translates between the two track by track as it reads and writes, and can rewrite the file in the other
+// order when saving (setConvertOnSave).
+struct SideLayout {
+    quint32 trackBytes = 0;          // one track (one side of one cylinder); 0 = not a double-sided floppy
+    quint32 cylinders = 0;
+    bool sequential = false;         // file order
+    bool sideFirst = false;          // disc's own sector numbering
+    bool doubleSided() const { return trackBytes != 0 && cylinders != 0; }
+    bool remaps() const { return doubleSided() && (sequential || sideFirst); }
+    quint64 discBytes() const { return quint64(trackBytes) * cylinders * 2; }
+    // file offset of a disc offset (in the disc's own numbering), and how many bytes from there stay in the same track
+    quint64 toFile(quint64 off, quint64 *room = nullptr) const;
+};
+// The image file for a whole disc given in its own numbering, laid out as lay says. Bytes beyond discBytes() are
+// kept as they are.
+QByteArray layoutFile(const QByteArray &disc, const SideLayout &lay);
+// Rearranges an interleaved image FILE into a sequential one (toSequential) or back - a pure reordering of the
+// file's tracks, whatever the disc's numbering. Bytes beyond discBytes() are kept as they are.
+QByteArray reorderSides(const QByteArray &file, const SideLayout &lay, bool toSequential);
+
 // A blank old-map ADFS image of totalSectors sectors (640 = S, 1280 = M, 2560 = L, or any size).
 // With allFree == false the free space map lists nothing free ("disc full"), as a hybrid disc needs.
 QByteArray makeBlankImage(quint32 totalSectors, const QString &title, bool allFree = true);
@@ -127,10 +156,15 @@ public:
 
     // forceFullSize (if non-zero) fixes the disc size instead of trusting the ADFS map, and tolerates a map that
     // claims more sectors than the file holds (Acorn DOS Plus hybrid discs do exactly that).
-    bool open(const QString &path, QString *err, quint64 forceFullSize = 0);
+    bool open(const QString &path, QString *err, quint64 forceFullSize = 0, const SideLayout &sides = SideLayout());
     // A non-ADFS container (DFS, PC FAT floppy, Acorn DOS disc): no ADFS map is read or checked.
     // The image is treated as fullSize bytes long even if the file is shorter.
-    bool openRaw(const QString &path, quint64 fullSize, QString *err);
+    bool openRaw(const QString &path, quint64 fullSize, QString *err, const SideLayout &sides = SideLayout());
+    // Side order of a double-sided floppy (see SideLayout). The file's current order is sideLayout().sequential;
+    // setConvertOnSave stages a rewrite of the whole file in the given order, done by commit() (revert() drops it).
+    const SideLayout &sideLayout() const { return m_sides; }
+    bool setConvertOnSave(bool toSequential, QString *err);
+    bool convertPending() const { return m_convert; }
     bool isAdfs() const { return m_isAdfs; }
     quint64 fullSize() const { return m_fullSize; }
     quint64 fileSize() const { return quint64(m_file.size()); }
@@ -142,7 +176,7 @@ public:
     void close();
     bool isOpen() const { return m_file.isOpen(); }
     bool editable() const { return m_editable; }
-    bool dirty() const { return !m_pending.isEmpty(); }
+    bool dirty() const { return !m_pending.isEmpty() || m_convert; }
     QString path() const { return m_path; }
     const Report &openReport() const { return m_openReport; }
 
@@ -181,6 +215,7 @@ public:
 
 private:
     QByteArray readRaw(quint32 start, quint32 count) const;
+    bool writeRaw(quint64 off, const QByteArray &data);    // interleaved-order offset; translated for a sequential file
     QByteArray readSectors(quint32 start, quint32 count) const;
     void writeSectors(quint32 start, QByteArray data);
     void stageFsMap();
@@ -203,6 +238,8 @@ private:
     FsMap m_map;
     QByteArray m_orig;            // sectors 0-1 as they were on disk when opened / last saved
     QList<Extent> m_pending;
+    SideLayout m_sides;           // how the file is laid out now
+    bool m_convert = false;       // rewrite the file in the other side order on the next commit
     Report m_openReport;
     std::function<QStringList()> m_extra;
 };

@@ -320,6 +320,44 @@ bool FsMap::release(quint32 start, quint32 n, QString *err) {
     return true;
 }
 
+quint64 SideLayout::toFile(quint64 off, quint64 *room) const {
+    if (!doubleSided()) { if (room) *room = ~quint64(0) - off; return off; }
+    quint64 t = off / trackBytes, in = off % trackBytes;
+    if (room) *room = trackBytes - in;
+    if (t >= 2ull * cylinders) return off;
+    quint64 cyl = sideFirst ? t % cylinders : t / 2, side = sideFirst ? t / cylinders : t % 2;
+    quint64 f = sequential ? side * cylinders + cyl : cyl * 2 + side;
+    return f * trackBytes + in;
+}
+
+QByteArray layoutFile(const QByteArray &disc, const SideLayout &lay) {
+    if (!lay.remaps()) return disc;
+    QByteArray out = disc;
+    const quint64 T = lay.trackBytes;
+    for (quint64 t = 0; t < 2ull * lay.cylinders && (t + 1) * T <= quint64(disc.size()); ++t) {
+        quint64 f = lay.toFile(t * T);
+        if (f + T <= quint64(out.size())) memcpy(out.data() + f, disc.constData() + t * T, size_t(T));
+    }
+    return out;
+}
+
+QByteArray reorderSides(const QByteArray &file, const SideLayout &lay, bool toSequential) {
+    if (!lay.doubleSided()) return file;
+    SideLayout il = lay, seq = lay;                    // file track t of an interleaved file <-> its place in a sequential one
+    il.sideFirst = seq.sideFirst = false;
+    il.sequential = false;
+    seq.sequential = true;
+    QByteArray out = file;
+    const quint64 T = lay.trackBytes;
+    for (quint64 t = 0; t < 2ull * lay.cylinders && (t + 1) * T <= quint64(file.size()); ++t) {
+        quint64 s = seq.toFile(t * T), i = il.toFile(t * T);
+        if (s + T > quint64(file.size())) continue;
+        if (toSequential) memcpy(out.data() + s, file.constData() + i, size_t(T));
+        else memcpy(out.data() + i, file.constData() + s, size_t(T));
+    }
+    return out;
+}
+
 QByteArray makeBlankImage(quint32 totalSectors, const QString &title, bool allFree) {
     QByteArray img(int(totalSectors) * SectorSize, 0);
     FsMap m;
@@ -344,8 +382,9 @@ QByteArray makeBlankImage(quint32 totalSectors, const QString &title, bool allFr
 
 // ------------------------------------------------------------------ Image
 
-bool Image::open(const QString &path, QString *err, quint64 forceFullSize) {
+bool Image::open(const QString &path, QString *err, quint64 forceFullSize, const SideLayout &sides) {
     close();
+    m_sides = sides;
     m_file.setFileName(path);
     m_editable = true;
     if (!m_file.open(QIODevice::ReadWrite)) {
@@ -383,8 +422,9 @@ bool Image::open(const QString &path, QString *err, quint64 forceFullSize) {
     return true;
 }
 
-bool Image::openRaw(const QString &path, quint64 fullSize, QString *err) {
+bool Image::openRaw(const QString &path, quint64 fullSize, QString *err, const SideLayout &sides) {
     close();
+    m_sides = sides;
     m_file.setFileName(path);
     m_editable = true;
     if (!m_file.open(QIODevice::ReadWrite)) {
@@ -410,6 +450,8 @@ bool Image::openRaw(const QString &path, quint64 fullSize, QString *err) {
 void Image::close() {
     if (m_file.isOpen()) m_file.close();
     m_pending.clear();
+    m_sides = SideLayout();
+    m_convert = false;
     m_map = FsMap();
     m_isAdfs = true;
     m_adfsLocked = false;
@@ -420,8 +462,45 @@ void Image::close() {
 }
 
 QByteArray Image::readRaw(quint32 start, quint32 count) const {
-    if (!m_file.isOpen() || !m_file.seek(qint64(start) * SectorSize)) return QByteArray();
-    return m_file.read(qint64(count) * SectorSize);
+    if (!m_file.isOpen()) return QByteArray();
+    if (!m_sides.remaps()) {
+        if (!m_file.seek(qint64(start) * SectorSize)) return QByteArray();
+        return m_file.read(qint64(count) * SectorSize);
+    }
+    // the file's track order differs from the disc's numbering: read track by track; a piece past the end of a
+    // short file reads as zeros
+    QByteArray out;
+    quint64 off = quint64(start) * SectorSize, left = quint64(count) * SectorSize;
+    while (left) {
+        quint64 room;
+        quint64 f = m_sides.toFile(off, &room);
+        qint64 n = qint64(qMin(left, room));
+        QByteArray piece;
+        if (m_file.seek(qint64(f))) piece = m_file.read(n);
+        if (piece.size() < n) piece.append(QByteArray(int(n - piece.size()), 0));
+        out.append(piece);
+        off += quint64(n); left -= quint64(n);
+    }
+    return out;
+}
+
+bool Image::writeRaw(quint64 off, const QByteArray &data) {
+    qint64 done = 0;
+    while (done < data.size()) {
+        quint64 room;
+        quint64 f = m_sides.toFile(off + quint64(done), &room);
+        qint64 n = qMin<qint64>(data.size() - done, qint64(qMin<quint64>(room, quint64(data.size()))));
+        if (!m_file.seek(qint64(f)) || m_file.write(data.constData() + done, n) != n) return false;
+        done += n;
+    }
+    return true;
+}
+
+bool Image::setConvertOnSave(bool toSequential, QString *err) {
+    if (!checkEditable(err)) return false;
+    if (!m_sides.doubleSided()) { *err = "only a double-sided floppy image has a side order"; return false; }
+    m_convert = toSequential != m_sides.sequential;
+    return true;
 }
 
 QByteArray Image::readSectors(quint32 start, quint32 count) const {
@@ -811,7 +890,7 @@ Report Image::validate() const {
 
 bool Image::commit(QString *err, bool makeBackup, Report *post) {
     if (!checkEditable(err)) return false;
-    if (m_pending.isEmpty() && !needsPadding()) return true;
+    if (m_pending.isEmpty() && !needsPadding() && !m_convert) return true;
 
     Report pre = validate();
     if (!pre.ok()) {
@@ -843,12 +922,32 @@ bool Image::commit(QString *err, bool makeBackup, Report *post) {
         return false;
     }
 
+    if (m_convert) {
+        // Rewrite the whole disc in the other side order: the disc (with everything staged) is laid out again and
+        // written over the file, sectors 0-1 last. Track 0 side 0 is first in both orders.
+        quint32 n = quint32((m_fullSize + SectorSize - 1) / SectorSize);
+        QByteArray disc = readSectors(0, n);
+        SideLayout to = m_sides;
+        to.sequential = !m_sides.sequential;
+        QByteArray file = layoutFile(disc, to);
+        file.truncate(int(m_fullSize));
+        if (!m_file.seek(512) || m_file.write(file.constData() + 512, file.size() - 512) != file.size() - 512 ||
+            !m_file.seek(0) || m_file.write(file.constData(), 512) != 512) {
+            *err = QString("Write failed while changing the side order: %1\nThe image may now be inconsistent - "
+                           "restore it from a backup.").arg(m_file.errorString());
+            return false;
+        }
+        m_sides = to;
+        m_convert = false;
+        m_pending.clear();
+    }
+
     // data and directories first, the free space map (sectors 0-1) last
     for (int pass = 0; pass < 2; ++pass)
         for (const Extent &e : m_pending) {
             bool isMap = e.start < 2;
             if ((pass == 0) == isMap) continue;
-            if (!m_file.seek(qint64(e.start) * SectorSize) || m_file.write(e.data) != e.data.size()) {
+            if (!writeRaw(quint64(e.start) * SectorSize, e.data)) {
                 *err = QString("Write failed at sector %1: %2\nThe image may now be inconsistent - "
                                "check it before using it.").arg(e.start).arg(m_file.errorString());
                 return false;
@@ -868,6 +967,7 @@ bool Image::commit(QString *err, bool makeBackup, Report *post) {
 
 void Image::revert() {
     m_pending.clear();
+    m_convert = false;
     if (!m_isAdfs) return;
     QStringList e, w;
     FsMap::parse(m_orig, &m_map, &e, &w);

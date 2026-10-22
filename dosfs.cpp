@@ -113,44 +113,11 @@ static DEntry parseEntry(const char *p) {
 
 // ------------------------------------------------------------- attach / FAT
 
-// Acorn 640K hybrid: DOS Plus numbers its sectors side 0 first (cylinders 0-79), then side 1, but the image file is
-// stored cylinder by cylinder (side 0, side 1, ...). So DOS logical track t lives in file track 2t (t < 80) or
-// 2(t-80)+1 (t >= 80). A "track" is 16 x 256 bytes. This was worked out by locating the contents of known files
-// (taken from a hard disc's DOS partition) inside a real hybrid image; see AGENTS.md.
-static bool ilvMap(quint64 off, quint64 *phys, quint32 *room) {
-    const quint64 T = 4096;
-    quint64 t = off / T;
-    if (t >= 160) return false;
-    *phys = (t < 80 ? 2 * t : 2 * (t - 80) + 1) * T + off % T;
-    *room = quint32(T - off % T);
-    return true;
-}
-
 bool Volume::rd(quint64 off, quint32 len, QByteArray *out, QString *err) const {
-    if (!m_ilv) return m_img->readFileBytes(m_sin, m_len, off, len, out, err);
-    out->clear();
-    while (len) {
-        quint64 p; quint32 room;
-        if (!ilvMap(off, &p, &room)) { *err = "read beyond the end of the disc"; return false; }
-        quint32 n = qMin(len, room);
-        QByteArray piece;
-        if (!m_img->readFileBytes(m_sin, m_len, p, n, &piece, err)) return false;
-        out->append(piece);
-        off += n; len -= n;
-    }
-    return true;
+    return m_img->readFileBytes(m_sin, m_len, off, len, out, err);
 }
 bool Volume::wr(quint64 off, const QByteArray &d, QString *err) {
-    if (!m_ilv) return m_img->writeFileBytes(m_sin, m_len, off, d, err);
-    qint64 done = 0;
-    while (done < d.size()) {
-        quint64 p; quint32 room;
-        if (!ilvMap(off + done, &p, &room)) { *err = "write beyond the end of the disc"; return false; }
-        qint64 n = qMin<qint64>(d.size() - done, room);
-        if (!m_img->writeFileBytes(m_sin, m_len, p, d.mid(done, n), err)) return false;
-        done += n;
-    }
-    return true;
+    return m_img->writeFileBytes(m_sin, m_len, off, d, err);
 }
 
 Params Volume::standard(Format f) {
@@ -161,7 +128,7 @@ Params Volume::standard(Format f) {
     case FmtPc1200:   p = {512, 1, 1, 2, 224, 7, 2400, 0xF9, false}; break;
     case FmtPc1440:   p = {512, 1, 1, 2, 224, 9, 2880, 0xF0, false}; break;
     case FmtAcorn800: p = {1024, 1, 0, 1, 192, 2, 800, 0xFD, false}; break;      // no boot record at all
-    case FmtAcorn640: p = {256, 8, 16, 1, 112, 2, 2560, 0xFF, false, true}; break;  // sectors 0-15: ADFS cat + DOSBOOT; FAT@16; track-interleaved (see rd())
+    case FmtAcorn640: p = {256, 8, 16, 1, 112, 2, 2560, 0xFF, false}; break;  // sectors 0-15: ADFS cat + DOSBOOT; FAT@16 (numbered side 0 first: see Adfs::SideLayout)
     }
     return p;
 }
@@ -201,7 +168,6 @@ bool Volume::attachFormat(Image *img, quint32 sin, quint32 length, Format f, QSt
 bool Volume::attachParams(Image *img, quint32 sin, quint32 length, const Params &p, QString *err) {
     m_img = img; m_sin = sin; m_len = length;
     m_hasBpb = p.bpb;
-    m_ilv = p.interleave;
     auto fail = [&](const QString &why) { *err = "not a FAT12/FAT16 DOS volume: " + why; m_img = nullptr; return false; };
     m_bps = p.bps; m_spc = p.spc; m_res = p.res; m_nfats = p.nfats; m_rootEnt = p.rootEnt; m_spf = p.spf;
     m_total = p.total; m_media = p.media;
@@ -665,6 +631,7 @@ Report Volume::check() {
         ++used;
         if (!owner[int(c)]) ++lost;
     }
+    m_lost = lost;
     if (lost) r.warnings << QString("%1 clusters are marked in use but belong to no file (lost space)").arg(lost);
     r.info << QString("DOS volume%1: %2 files, %3 directories, %4 of %5 clusters free (%6, %7-byte clusters)")
                   .arg(m_label.isEmpty() ? QString() : " '" + m_label + "'")

@@ -46,10 +46,11 @@ struct Params {
     quint32 bps, spc, res, nfats, rootEnt, spf, total;
     quint8 media;
     bool bpb;                    // true if read from a boot sector BPB
-    bool interleave;             // logical tracks are stored side-0-first but the file is cylinder-interleaved (Acorn 640K hybrid)
+    // (How a floppy's sides map onto the image file - e.g. DOS Plus 640K numbering side 0 first - is Image's job:
+    // see Adfs::SideLayout. A Volume only ever sees the disc in its own sector numbering.)
     Params(quint32 b = 0, quint32 s = 0, quint32 r = 0, quint32 n = 0, quint32 re = 0, quint32 sf = 0,
-           quint32 t = 0, quint8 m = 0, bool bp = false, bool il = false)
-        : bps(b), spc(s), res(r), nfats(n), rootEnt(re), spf(sf), total(t), media(m), bpb(bp), interleave(il) {}
+           quint32 t = 0, quint8 m = 0, bool bp = false)
+        : bps(b), spc(s), res(r), nfats(n), rootEnt(re), spf(sf), total(t), media(m), bpb(bp) {}
 };
 
 // The fixed layouts from the format table (PC floppies and the two Acorn DOS Plus floppy formats).
@@ -91,6 +92,7 @@ public:
     bool setLabel(const QString &label, QString *err);
 
     Adfs::Report check();     // reads the staged state
+    quint32 lostClusters() const { return m_lost; }   // from the last check(): in use in the FAT but in no file
 
     static bool validName(const QString &name, QString *why);
     static QString fromHost(const QString &hostName, bool directory = false);   // -> valid 8.3 name
@@ -133,9 +135,9 @@ private:
     quint32 m_bps = 0, m_spc = 0, m_res = 0, m_nfats = 0, m_rootEnt = 0, m_spf = 0, m_total = 0;
     quint32 m_rootSectors = 0, m_dataStart = 0, m_clusters = 0;
     bool m_fat16 = false;
-    bool m_ilv = false;          // see Params::interleave
     quint8 m_media = 0;
     bool m_hasBpb = false;
+    quint32 m_lost = 0;
     QByteArray m_fat;
     QString m_label;
 };

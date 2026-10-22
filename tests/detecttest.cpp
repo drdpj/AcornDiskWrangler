@@ -23,6 +23,8 @@ int main(int argc,char**argv){
     for(int i=1;i<argc;i++){ DiskInfo d=detectDisk(argv[i]);
         const char* k[]={"Unknown","Adfs","AdfsDosHybrid","Dfs","DosPc","DosAcorn800","AdfsNewMap"};
         printf("%-22s -> %-14s %s | full=%llu%s%s\n",argv[i],k[d.kind],qPrintable(d.description),(unsigned long long)d.fullSize,
-               d.kind==DiskInfo::Dfs?(d.dfs.doubleSided?(d.dfs.interleaved?" DSD interleaved":" DSD sequential"):" SSD"):"",
+               qPrintable(QString(d.kind==DiskInfo::Dfs?(d.dfs.doubleSided?" DSD":" SSD"):"") +
+                          (d.sides.doubleSided()?QString(" | sides %1%2").arg(d.sides.sequential?"sequential":"interleaved",
+                                                                                 d.sidesConfirmed?"":" (can't tell, assumed)"):QString())),
                d.notes.isEmpty()?"":qPrintable(" | NOTE: "+d.notes.join("; "))); }
 }

@@ -25,6 +25,8 @@ using namespace Adfs;
 static int fails=0;
 #define CHECK(c) do{ if(!(c)){printf("FAIL line %d: %s\n",__LINE__,#c);++fails;} }while(0)
 static QByteArray rnd(int n,int seed){ QByteArray b(n,0); quint32 s=seed*2654435761u+1; for(int i=0;i<n;i++){ s=s*1664525u+1013904223u; b[i]=char(s>>24);} return b; }
+// a 640K disc: 80 x 4096-byte tracks, numbered side 0 first, file interleaved
+static SideLayout L640(){ SideLayout l; l.trackBytes=4096; l.cylinders=80; l.sideFirst=true; return l; }
 static void dump(const Report&r){ for(auto&s:r.errors) printf("  ERR  %s\n",qPrintable(s)); for(auto&s:r.warnings) printf("  WARN %s\n",qPrintable(s)); for(auto&s:r.info) printf("  INFO %s\n",qPrintable(s)); }
 
 // exercise a volume: add, subdir, replace, delete, rename, label, check, commit, reopen
@@ -64,16 +66,16 @@ int main(int argc,char**argv){
         exercise(path,Dos::FmtAcorn800,false,"Acorn 800K (no boot record)");
     } else if(mode=="hybrid640"){
         QByteArray img=makeBlankImage(2560,"HYBRID",false); Dos::Params p=Dos::Volume::standard(Dos::FmtAcorn640);
-        int fat=2*4096; /* logical sector 16 = file track 2 (tracks interleaved) */ img[fat]=char(p.media); img[fat+1]=char(0xFF); img[fat+2]=char(0xFF);
+        int fat=2*4096; /* sector 16 = side 0 cylinder 1 = file track 2 (file interleaved) */ img[fat]=char(p.media); img[fat+1]=char(0xFF); img[fat+2]=char(0xFF);
         QFile f(path); f.open(QIODevice::WriteOnly); f.write(img); f.close();
         // ADFS side must still be valid, and DOS edits must not disturb it
-        Image a; QString e; CHECK(a.open(path,&e)); printf("  hybrid ADFS side:\n"); dump(a.openReport()); CHECK(a.openReport().ok()); a.setAdfsLocked(true);
+        Image a; QString e; CHECK(a.open(path,&e,0,L640())); printf("  hybrid ADFS side:\n"); dump(a.openReport()); CHECK(a.openReport().ok()); a.setAdfsLocked(true);
         Dos::Volume v; CHECK(v.attachFormat(&a,0,655360,Dos::FmtAcorn640,&e)); printf("  dos: clusters=%u free=%u cluster bytes=%u\n",v.totalClusters(),v.freeClusters(),v.clusterBytes());
         CHECK(v.check().ok());
         CHECK(v.addFile(0,"HELLO.TXT",rnd(5000,7),false,&e)); CHECK(v.makeDir(0,"D",&e));
         CHECK(!a.addFile(RootSector,"X",QByteArray("x"),0,0,3,false,&e)); printf("  ADFS write refused: %s\n",qPrintable(e));
         CHECK(a.commit(&e,false,nullptr)); a.close();
-        Image b; CHECK(b.open(path,&e)); CHECK(b.openReport().ok()); Dos::Volume w; CHECK(w.attachFormat(&b,0,655360,Dos::FmtAcorn640,&e)); CHECK(w.check().ok());
+        Image b; CHECK(b.open(path,&e,0,L640())); CHECK(b.openReport().ok()); Dos::Volume w; CHECK(w.attachFormat(&b,0,655360,Dos::FmtAcorn640,&e)); CHECK(w.check().ok());
         QVector<Dos::DEntry> L; w.listDir(0,&L,&e); CHECK(L.size()==2);
     } else if(mode=="plainl"){
         // an ordinary ADFS L floppy (blank or not) must NOT be mistaken for a DOS Plus hybrid
@@ -116,7 +118,7 @@ int main(int argc,char**argv){
         CHECK(before.size()==655360);
         DiskInfo info=detectDisk(path); printf("  detected: %s | full=%llu\n",qPrintable(info.description),(unsigned long long)info.fullSize);
         CHECK(info.kind==DiskInfo::AdfsDosHybrid); CHECK(info.fullSize==655360); CHECK(info.notes.isEmpty());   // never padded
-        Image a; QString e; CHECK(a.open(path,&e,info.fullSize)); printf("  ADFS side:\n"); dump(a.openReport()); CHECK(a.openReport().ok());
+        Image a; QString e; CHECK(a.open(path,&e,info.fullSize,info.sides)); printf("  ADFS side:\n"); dump(a.openReport()); CHECK(a.openReport().ok());
         CHECK(!a.needsPadding()); CHECK(a.fullSize()==655360); a.setAdfsLocked(true);
         Dir root; CHECK(a.readDir(RootSector,&root,&e)); CHECK(root.indexOf("dosboot")>=0); printf("  ADFS title '%s', %d entries\n",qPrintable(root.title()),root.entries.size());
         Dos::Volume v; CHECK(v.attachFormat(&a,0,655360,Dos::FmtAcorn640,&e));
@@ -144,7 +146,7 @@ int main(int argc,char**argv){
         CHECK(after.size()==655360);                                   // the file did not grow
         CHECK(after.left(16*256)==before.left(16*256));                // file track 0: ADFS catalogue + DOSBOOT untouched
         int changed=0; for(int s=0;s<2560;++s) if(after.mid(s*256,256)!=before.mid(s*256,256)) ++changed; printf("  sectors changed by the DOS edits: %d \n",changed);
-        Image b; CHECK(b.open(path,&e,655360)); CHECK(b.openReport().ok()); Dos::Volume w; CHECK(w.attachFormat(&b,0,655360,Dos::FmtAcorn640,&e)); Report r1=w.check(); dump(r1); CHECK(r1.ok());
+        Image b; CHECK(b.open(path,&e,655360,L640())); CHECK(b.openReport().ok()); Dos::Volume w; CHECK(w.attachFormat(&b,0,655360,Dos::FmtAcorn640,&e)); Report r1=w.check(); dump(r1); CHECK(r1.ok());
         QVector<Dos::DEntry> L1; w.listDir(0,&L1,&e); CHECK(L1.size()==L0.size()+2);
         QByteArray back; for(auto&x:L1) if(x.name=="HELLO.TXT"){ CHECK(w.readFile(x,&back,&e)); CHECK(back==rnd(5000,7)); }
     }

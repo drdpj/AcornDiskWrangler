@@ -73,7 +73,13 @@ public:
     bool exportRefs(int pane, const QVector<DragRef> &refs, QVector<XItem> *out, QString *err);
     bool paneEditable(int pane) const;
 
-    bool openImage(const QString &path);
+    // forceSequential: -1 = detect the side order (the format's usual order, interleaved, when the contents can't
+    // tell), 0 / 1 = read an Acorn double-sided image as interleaved / sequential.
+    bool openImage(const QString &path, int forceSequential = -1);
+    // Tools > Side order: re-read the image in the given order (nothing is written), or stage a rewrite of the file
+    // in the other order (done on Save). confirm = false skips the explanation box (tests).
+    bool readWithSideOrder(bool sequential);
+    bool convertSideOrder(bool toSequential, bool confirm = true);
     void importPaths(const QStringList &paths, quint32 dirSector);
     Adfs::Image &image() { return m_img; }
     DropTree *tree() { return m_tree; }
@@ -100,6 +106,7 @@ private slots:
     void extractSelected();
     void checkImage();
     void about();
+    void newImageDialog();
     void viewSelected();
     void renameSelected();
     void renameVolume();
@@ -203,4 +210,7 @@ private:
     bool m_dfsOk[2] = {false, false};
     QString m_dfsErr[2];
     QAction *m_actNewWin = nullptr;
+    QAction *m_actNewImage = nullptr;
+    QAction *m_actReadIl = nullptr, *m_actReadSeq = nullptr, *m_actConvertSides = nullptr;
+    QString m_sidesHow;            // how the side order was settled: "" (detected), "assumed", "set by hand"
 };

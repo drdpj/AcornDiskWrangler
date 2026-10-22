@@ -18,10 +18,19 @@
 #include "mainwindow.h"
 #include "mainwindow_p.h"
 #include "viewer.h"
+#include "newdisc.h"
 
 #include <QAction>
 #include <QApplication>
+#include <QActionGroup>
+#include <QButtonGroup>
 #include <QCheckBox>
+#include <QComboBox>
+#include <QHBoxLayout>
+#include <QPushButton>
+#include <QDialog>
+#include <QRadioButton>
+#include <QVBoxLayout>
 #include <QCloseEvent>
 #include <QDataStream>
 #include <QTimer>
@@ -240,6 +249,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_actExtract = mk("&Extract to host...", QKeySequence("Ctrl+E"));
     m_actDelete = mk("&Delete", QKeySequence::Delete);
     m_actCheck = mk("&Check free space map...", QKeySequence("Ctrl+K"));
+    m_actNewImage = mk("New &image...", QKeySequence("Ctrl+Alt+N"));
+    m_actReadIl = mk("Read as &interleaved (sides alternate track by track)");
+    m_actReadSeq = mk("Read as &sequential (all of side 0, then side 1)");
+    m_actConvertSides = mk("&Convert to sequential...");
+    for (QAction *a : {m_actReadIl, m_actReadSeq}) a->setCheckable(true);
+    auto *sideGroup = new QActionGroup(this);
+    sideGroup->addAction(m_actReadIl);
+    sideGroup->addAction(m_actReadSeq);
     m_optReadInf = mk("Read .inf sidecar files when adding");
     m_optWriteInf = mk("Write .inf sidecar files when extracting");
     m_optBackup = mk("Keep a .bak copy of the image when saving");
@@ -250,13 +267,17 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_optBackup->setChecked(st.value("backup", false).toBool());
 
     QMenu *mf = menuBar()->addMenu("&File");
-    mf->addActions({m_actNewWin, m_actOpen, m_actSave, m_actRevert});
+    mf->addActions({m_actNewWin, m_actNewImage, m_actOpen, m_actSave, m_actRevert});
     mf->addSeparator();
     mf->addAction(m_actQuit);
     QMenu *me = menuBar()->addMenu("&Edit");
     me->addActions({m_actView, m_actAddFiles, m_actAddFolder, m_actNewDir, m_actRename, m_actRenameVol, m_actProps, m_actExtract, m_actDelete});
     QMenu *mt = menuBar()->addMenu("&Tools");
     mt->addAction(m_actCheck);
+    QMenu *ms = mt->addMenu("&Side order (double-sided images)");
+    ms->addActions({m_actReadIl, m_actReadSeq});
+    ms->addSeparator();
+    ms->addAction(m_actConvertSides);
     mt->addSeparator();
     mt->addActions({m_optReadInf, m_optWriteInf, m_optBackup});
     QMenu *mh = menuBar()->addMenu("&Help");
@@ -285,6 +306,18 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     connect(m_actProps, &QAction::triggered, this, &MainWindow::editProperties);
     connect(m_actExtract, &QAction::triggered, this, &MainWindow::extractSelected);
     connect(m_actCheck, &QAction::triggered, this, &MainWindow::checkImage);
+    connect(m_actNewImage, &QAction::triggered, this, &MainWindow::newImageDialog);
+    connect(m_actReadIl, &QAction::triggered, this, [this] { readWithSideOrder(false); });
+    connect(m_actReadSeq, &QAction::triggered, this, [this] { readWithSideOrder(true); });
+    connect(m_actConvertSides, &QAction::triggered, this, [this] {
+        if (m_img.convertPending()) {                     // the action reads "Cancel ..." while one is staged
+            QString e;
+            m_img.setConvertOnSave(m_img.sideLayout().sequential, &e);
+            updateUi();
+        } else {
+            convertSideOrder(!m_img.sideLayout().sequential);
+        }
+    });
     connect(m_tree, &DropTree::pathsDropped, this, &MainWindow::onDropped);
     connect(m_tree, &QTreeWidget::itemSelectionChanged, this, &MainWindow::updateUi);
     connect(m_tree, &QWidget::customContextMenuRequested, this, &MainWindow::showContextMenu);
@@ -368,9 +401,11 @@ void MainWindow::openDialog() {
     if (!target->openImage(p) && target != this) target->close();
 }
 
-bool MainWindow::openImage(const QString &path) {
+bool MainWindow::openImage(const QString &path, int force) {
     if (!confirmDiscard()) return false;
-    DiskInfo info = detectDisk(path);
+    DiskInfo info = detectDisk(path, force);
+    // the contents can't always tell (e.g. a blank disc): then detection uses the format's usual order
+    QString sidesHow = force >= 0 ? "set by hand" : (info.sides.doubleSided() && !info.sidesConfirmed ? "assumed" : "");
     if (info.kind == DiskInfo::AdfsNewMap) {
         QMessageBox::information(this, "Not supported",
                                  info.description + "\n\nADFS D/E (new map) discs are not supported yet.");
@@ -378,8 +413,8 @@ bool MainWindow::openImage(const QString &path) {
     }
     QString err;
     bool raw = info.kind == DiskInfo::Dfs || info.kind == DiskInfo::DosPc || info.kind == DiskInfo::DosAcorn800;
-    bool ok = raw ? m_img.openRaw(path, info.fullSize, &err)
-                  : m_img.open(path, &err, info.kind == DiskInfo::AdfsDosHybrid ? info.fullSize : 0);
+    bool ok = raw ? m_img.openRaw(path, info.fullSize, &err, info.sides)
+                  : m_img.open(path, &err, info.kind == DiskInfo::AdfsDosHybrid ? info.fullSize : 0, info.sides);
     if (!ok) {
         QMessageBox::critical(this, "Cannot open image", err);
         m_info = DiskInfo();
@@ -387,6 +422,7 @@ bool MainWindow::openImage(const QString &path) {
         return false;
     }
     m_info = info;
+    m_sidesHow = info.sides.doubleSided() ? sidesHow : QString();
     if (info.kind == DiskInfo::AdfsDosHybrid) m_img.setAdfsLocked(true);
     QSettings().setValue("lastDir", QFileInfo(path).absolutePath());
     m_dosOk = false;
@@ -424,18 +460,153 @@ bool MainWindow::openImage(const QString &path) {
     } else if (m_img.isAdfs() && !r.warnings.isEmpty() && m_info.kind != DiskInfo::AdfsDosHybrid) {
         statusBar()->showMessage("Opened with warnings - see Tools > Check." + pad, 15000);
     } else {
-        statusBar()->showMessage("Opened " + path + " - " + (info.description.isEmpty() ? QString("ADFS") : info.description) + "." + pad, 15000);
+        QString sides;
+        if (m_sidesHow == "assumed")
+            sides = "  The side order can't be told from the contents, so the usual order (interleaved) is used - Tools > Side order to change.";
+        statusBar()->showMessage("Opened " + path + " - " + (info.description.isEmpty() ? QString("ADFS") : info.description) + "." + pad + sides, 15000);
     }
     return true;
+}
+
+// ---------------------------------------------------------------- side order
+
+bool MainWindow::readWithSideOrder(bool sequential) {
+    if (!m_img.isOpen() || !m_img.sideLayout().doubleSided()) return false;
+    if (m_img.sideLayout().sequential == sequential && !m_img.convertPending()) { updateUi(); return true; }
+    bool ok = openImage(m_img.path(), sequential ? 1 : 0);
+    updateUi();
+    return ok;
+}
+
+bool MainWindow::convertSideOrder(bool toSequential, bool confirm) {
+    if (!m_img.isOpen() || !m_img.sideLayout().doubleSided()) return false;
+    if (confirm) {
+        QString to = toSequential ? "sequentially (all of side 0, then all of side 1)"
+                                  : "interleaved (each cylinder's side 0 track, then its side 1 track)";
+        if (QMessageBox::question(this, "Convert side order",
+                                  "Rewrite the image file with its two sides stored " + to + "?\n\n"
+                                  "The disc's contents don't change, only the order of the tracks in the file. "
+                                  "Use this when an emulator or tool expects the other order.\n\n"
+                                  "It is done when you save; Revert cancels it.") != QMessageBox::Yes)
+            return false;
+    }
+    QString err;
+    if (!m_img.setConvertOnSave(toSequential, &err)) {
+        QMessageBox::warning(this, "Convert side order", err);
+        return false;
+    }
+    updateUi();
+    return true;
+}
+
+// ---------------------------------------------------------------- new image
+
+void MainWindow::newImageDialog() {
+    QDialog dlg(this);
+    dlg.setWindowTitle("New disc image");
+    auto *form = new QFormLayout;
+    auto *type = new QComboBox;
+    for (const NewDisc::TypeInfo &t : NewDisc::types()) type->addItem(t.name, int(t.type));
+    QSettings st;
+    type->setCurrentIndex(qBound(0, st.value("newType", 2).toInt(), type->count() - 1));
+    auto *title = new QLineEdit;
+    auto *titleLabel = new QLabel;
+    auto *il = new QRadioButton("Interleaved: each cylinder's side 0 track, then its side 1 track (usual)");
+    auto *seq = new QRadioButton("Sequential: all of side 0, then all of side 1");
+    il->setChecked(true);
+    auto *sideBox = new QWidget;
+    auto *sv = new QVBoxLayout(sideBox);
+    sv->setContentsMargins(0, 0, 0, 0);
+    sv->addWidget(il);
+    sv->addWidget(seq);
+    auto *note = new QLabel;
+    note->setWordWrap(false);         // explicit line breaks: wrapped labels in a form layout get clipped
+    // DOS Plus 640K: where to take DOSBOOT (Acorn's boot code) from
+    auto *bootBox = new QWidget;
+    auto *bh = new QHBoxLayout(bootBox);
+    bh->setContentsMargins(0, 0, 0, 0);
+    auto *boot = new QLineEdit(st.value("dosbootSource").toString());
+    auto *browse = new QPushButton("Browse...");
+    bh->addWidget(boot, 1);
+    bh->addWidget(browse);
+    auto *bootLabel = new QLabel("Boot code from:");
+    connect(browse, &QPushButton::clicked, &dlg, [&] {
+        QString p = QFileDialog::getOpenFileName(&dlg, "DOSBOOT from a DOS Plus 640K disc image, or a DOSBOOT file",
+                                                 boot->text().isEmpty() ? st.value("lastDir").toString() : boot->text(),
+                                                 "DOS Plus 640K disc or DOSBOOT (*.adl *.adf *.img *.dsk dosboot*);;All files (*)");
+        if (!p.isEmpty()) boot->setText(p);
+    });
+    form->addRow("Format:", type);
+    form->addRow(titleLabel, title);
+    form->addRow("Side order:", sideBox);
+    form->addRow(bootLabel, bootBox);
+    form->addRow(note);
+    auto upd = [&] {
+        const NewDisc::TypeInfo &t = NewDisc::info(NewDisc::Type(type->currentData().toInt()));
+        titleLabel->setText(QString(t.titleWhat) + ":");
+        title->setMaxLength(t.titleMax);
+        sideBox->setEnabled(t.doubleSided);
+        bool hyb = t.type == NewDisc::Acorn640;
+        bootLabel->setVisible(hyb);
+        bootBox->setVisible(hyb);
+        note->setText(hyb ? "Set up like Acorn's DOS Plus 640K discs, with no DOS files.\n"
+                            "DOSBOOT is Acorn's boot code, so it is copied from a disc you have:\n"
+                            "a DOS Plus 640K image (its boot track is copied exactly) or a DOSBOOT file." : QString());
+        note->setVisible(!note->text().isEmpty());
+    };
+    connect(type, QOverload<int>::of(&QComboBox::currentIndexChanged), &dlg, upd);
+    upd();
+    auto *bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+    auto *top = new QVBoxLayout(&dlg);
+    top->setSizeConstraint(QLayout::SetFixedSize);     // grow and shrink with the (wrapped) note
+    top->addLayout(form);
+    top->addWidget(bb);
+    if (dlg.exec() != QDialog::Accepted) return;
+    st.setValue("newType", type->currentIndex());
+    if (!boot->text().isEmpty()) st.setValue("dosbootSource", boot->text());
+
+    const NewDisc::TypeInfo &t = NewDisc::info(NewDisc::Type(type->currentData().toInt()));
+    QString ext = t.suffix;
+    QString path = QFileDialog::getSaveFileName(this, "Create disc image", st.value("lastDir").toString() + "/untitled." + ext,
+                                                QString("Disc image (*.%1);;All files (*)").arg(ext));
+    if (path.isEmpty()) return;
+    if (QFileInfo(path).suffix().isEmpty()) path += "." + ext;
+    QString abs = QFileInfo(path).absoluteFilePath();
+    for (MainWindow *w : windows())
+        if (w->m_img.isOpen() && QFileInfo(w->m_img.path()).absoluteFilePath() == abs) {
+            QMessageBox::warning(this, "New disc image", "That file is open in another window. Close it first, or choose another name.");
+            return;
+        }
+    bool sequential = t.doubleSided && seq->isChecked();
+    QString err;
+    if (!NewDisc::create(path, t.type, title->text(), sequential, &err, boot->text())) {
+        QMessageBox::critical(this, "New disc image", "Could not create the image:\n" + err);
+        return;
+    }
+    st.setValue("lastDir", QFileInfo(path).absolutePath());
+    MainWindow *target = this;
+    if (m_img.isOpen()) {
+        target = new MainWindow;
+        target->setAttribute(Qt::WA_DeleteOnClose);
+        target->show();
+    }
+    if (!target->openImage(path) && target != this) target->close();
 }
 
 bool MainWindow::save() {
     if (!m_img.isOpen() || !(m_img.dirty() || m_img.needsPadding())) return true;
     QString err;
     Report post;
+    bool converting = m_img.convertPending();
     QApplication::setOverrideCursor(Qt::WaitCursor);
     bool ok = m_img.commit(&err, m_optBackup->isChecked(), &post);
     QApplication::restoreOverrideCursor();
+    if (converting && !m_img.convertPending()) {      // the file's side order changed, whether or not all else went well
+        m_info.sides = m_img.sideLayout();
+        m_sidesHow.clear();
+    }
     if (!ok) {
         QMessageBox::critical(this, "Save failed", err);
         refreshTree(); updateUi();
@@ -632,6 +803,15 @@ void MainWindow::updateUi() {
     m_actView->setEnabled(has && sel);
     m_actRename->setEnabled(canEdit && !ct->selectedItems().isEmpty());
     m_actRenameVol->setEnabled(canEdit);
+    const Adfs::SideLayout &sl = m_img.sideLayout();
+    bool twoSides = has && sl.doubleSided();
+    m_actReadIl->setEnabled(twoSides);
+    m_actReadSeq->setEnabled(twoSides);
+    m_actReadIl->setChecked(twoSides && !sl.sequential);
+    m_actReadSeq->setChecked(twoSides && sl.sequential);
+    m_actConvertSides->setEnabled(twoSides && ed);
+    m_actConvertSides->setText(m_img.convertPending() ? "&Cancel the pending side order change"
+                                                       : (sl.sequential ? "&Convert to interleaved..." : "&Convert to sequential..."));
 
     QString title = "Acorn Disk Wrangler";
     if (has) {
@@ -652,6 +832,11 @@ void MainWindow::updateUi() {
         s = QString("Free: %1 of %2   (largest block %3)")
                 .arg(fmtSectors(m_img.freeSectors()), fmtSectors(m_img.totalSectors()), fmtSectors(m_img.largestFreeRun()));
         if (m_img.adfsLocked()) s += "   (hybrid disc: ADFS side is read-only)";
+    }
+    if (twoSides) {
+        s += QString("   Sides: %1").arg(sl.sequential ? "sequential" : "interleaved");
+        if (m_img.convertPending()) s += QString(" -> %1 on save").arg(sl.sequential ? "interleaved" : "sequential");
+        else if (!m_sidesHow.isEmpty()) s += " (" + m_sidesHow + ")";
     }
     if (!m_img.editable()) s += "   READ-ONLY";
     else if (m_img.dirty()) s += "   UNSAVED CHANGES";

@@ -9,6 +9,6 @@ if(WIN32)                      # the .exe's own icon (Explorer / taskbar) comes 
     enable_language(RC)
     set(ACORNDISKWRANGLER_RC acorndiskwrangler.rc)
 endif()
-add_executable(acorndiskwrangler ${ACORNDISKWRANGLER_RC} main.cpp mainwindow.cpp mainwindow_dos.cpp mainwindow_dfs.cpp dfs.cpp diskformat.cpp viewer.cpp viewtext.cpp dosfs.cpp adfs.cpp icon.cpp
-    icon.h mainwindow.h mainwindow_p.h viewer.h viewtext.h dosfs.h dfs.h diskformat.h adfs.h)
+add_executable(acorndiskwrangler ${ACORNDISKWRANGLER_RC} main.cpp mainwindow.cpp mainwindow_dos.cpp mainwindow_dfs.cpp dfs.cpp diskformat.cpp viewer.cpp viewtext.cpp dosfs.cpp adfs.cpp icon.cpp newdisc.cpp
+    icon.h mainwindow.h mainwindow_p.h viewer.h viewtext.h dosfs.h dfs.h diskformat.h adfs.h newdisc.h)
 target_link_libraries(acorndiskwrangler Qt5::Widgets)

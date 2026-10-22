@@ -18,7 +18,8 @@ and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopy
 | `adfs.h/.cpp` | `Adfs::Image`: the staged sector store used by **every** format, plus the ADFS old-map filesystem (`FsMap`, `Dir`, `Entry`), validation, commit |
 | `dosfs.h/.cpp` | `Dos::Volume`: FAT12/FAT16 inside an `Image` (BPB, table-driven `Dos::Format`, Acorn layouts); browse/add/mkdir/delete/rename/label/check |
 | `dfs.h/.cpp` | `Dfs::Disc`: one side of a DFS disc (catalogue in sectors 0-1); a .dsd = two `Disc`s |
-| `diskformat.h/.cpp` | `detectDisk(path)` -> `DiskInfo` (kind, full size, layout). Decides how a file is opened |
+| `diskformat.h/.cpp` | `detectDisk(path, force)` -> `DiskInfo` (kind, full size, DFS layout, side layout + whether the side order was confirmed). Decides how a file is opened |
+| `newdisc.h/.cpp` | `NewDisc::create()`: blank images of every format (File > New image); pure QtCore, checks its own output with `detectDisk`. The 640K DOS Plus disc needs a `bootSource` (an existing 640K disc to copy the boot track from, or a DOSBOOT file): DOSBOOT is Acorn's code and must never be put in the repo |
 | `viewtext.*` | text / hex / BBC BASIC detokeniser (pure QtCore, no GUI) |
 | `viewer.*` | the read-only viewer window |
 | `icon.*` | the application icon (a 5.25" floppy), drawn with QPainter; `icons/` holds PNG exports (`tests/mkicon <dir>` regenerates them) and a matching `acorndiskwrangler.svg` - keep the SVG in step if the geometry changes |
@@ -69,6 +70,10 @@ and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopy
   sector count and the second catalogue's plausibility decide, then the file suffix.
 - **PC FAT**: standard; checked against `fsck.fat` and `mtools`. FAT12/16 chosen by cluster
   count. `Dos::Volume::attach` reads the BPB; `attachFormat` uses the table in `dosfs.cpp`.
+- **New DOS Plus 640K discs** copy the real layout: track 0 side 0 = free space map (total 2720, no free runs),
+  root "Acorn DOS Boot Disc" with one entry `dosboot` (WR, load/exec &04000000, length of the DOSBOOT file - 2303
+  on the real disc - at sector 7), DOSBOOT in sectors 7-15; then the empty FAT at interleaved track 2. From a disc
+  image the 4096-byte boot track is copied byte for byte (`sidetest` checks this against `M512_1.ADL`).
 - **Acorn 640K ADFS/DOS Plus hybrid** (real Master 512 disc `M512_1.ADL`, 655360 bytes; **file content
   verified**: 39 files are byte-identical to the same files on the hard disc's `DRIVE_C`, and the edited
   image passes `fsck.fat` / `mtools` after de-interleaving). A *valid* ADFS catalogue (title "Acorn DOS
@@ -79,9 +84,10 @@ and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopy
   - **Track interleave (the bug that corrupted every file):** DOS Plus numbers sectors side 0 first
     (cylinders 0-79), then side 1, but the image file is stored cylinder by cylinder (side 0, side 1, ...).
     A track is 16 x 256 = 4096 bytes; **logical track t is at file track 2t (t < 80) or 2(t-80)+1
-    (t >= 80)**. `Dos::Params::interleave` / `ilvMap()` in `dosfs.cpp` do this inside `Volume::rd/wr`;
-    everything above them uses logical offsets. Detection (`diskformat.cpp`) looks for the FAT signature
-    at *file* offset 8192 (= logical sector 16).
+    (t >= 80)**. This is now done by `Adfs::Image` (`SideLayout::sideFirst`, the same as for ADFS L - see the
+    side order notes below); `Dos::Volume` only ever sees the disc's own numbering. Detection
+    (`diskformat.cpp`) looks for the FAT signature at *file* offset 8192 (= logical sector 16; 4096 in a
+    sequential file).
   - **How it was found:** extract the DOS files from the hard disc's `DRIVE_C` (`tests/extract_hd_dos.py`),
     search the hybrid for each cluster's first 64 bytes, compare with the cluster the FAT says. Two earlier
     "verified" versions (16 reserved sectors from a table, then FAT at file offset 8192 read as sector 32)
@@ -93,15 +99,53 @@ and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopy
 - **Acorn DOS Plus 800K** (1024-byte sectors, no boot sector, 1 FAT, 192 root entries, media FD): built
   verified against a real GEM disc (`M512_3.IMG`, 819200 bytes, label "M512 Disk 3"): logical layout is
   FAT at sector 0-1, root dir 2-7 (192 entries), data from **sector 8**, **1 sector (1024 bytes) per cluster**,
-  792 clusters. Unlike the hybrid it is stored **sequentially** (no track interleave): ISSUE.BAT, GEM
+  792 clusters. The file is **interleaved** (the usual layout), and DOS Plus numbers this format's sectors in that
+  same order (sector, side, track), so no remapping is needed - unlike the hybrid. (An earlier version of this
+  note called it "sequential", meaning "no remap"; that was misleading.) ISSUE.BAT, GEM
   fonts (`DIBHSS07.FNT` header "Swiss") and the `.RSC` file all read correctly, FAT chain lengths match
   every file size, and after edits `fsck.fat`/`mtools` (via a prepended BPB sector) are clean.
   `floptest real800 <copy of the disc>` checks all of that. The image is not in the repo.
+- **Side order of the image FILE** (Acorn double-sided floppies only: ADFS L, DFS .dsd, DOS Plus 800K / 640K.
+  The owner's rule: **PC floppies (360K/720K/1.2M/1.44M) are always interleaved** - they get no `SideLayout`, so
+  no detection, Read as, Convert or sequential creation; only the Acorn formats can be odd): *interleaved* = cylinder 0 side 0, cylinder 0
+  side 1, ...; *sequential* = all of side 0, then all of side 1. Two separate things must not be mixed up,
+  and `Adfs::Image` handles both (`SideLayout`, translated in `readRaw`/`writeRaw`; everything above `Image`
+  sees the disc in its own sector numbering): (1) the file's side order (`sequential`); (2) how the disc
+  numbers its sectors (`sideFirst`). **ADFS L and DOS Plus 640K number side 0 first** - the machine reads all
+  of side 0, then side 1 - so even an interleaved file is always remapped (verified on real discs: the Master
+  Welcome disc, Acorn User Tau85 and ARM Evaluation disc 4, from b-em's `discs/` and oaknut's test data: only
+  this mapping gives a valid directory tree, and every BBC BASIC program on them reads intact end to end).
+  **DOS Plus 800K (and PC FAT) number sector, side, track**, i.e. the same as an interleaved file (verified on
+  the real 800K disc). A DFS .dsd's sides are separate discs, mapped by `Dfs::Disc` on top of an interleaved
+  view (`sideFirst` false). Geometry (track bytes x cylinders): ADFS L / hybrid 4096 x 80, DFS 2560 x 40|80,
+  Acorn 800K 5120 x 80.
+  - **Bug fixed with this (owner, please note):** earlier versions read and wrote ADFS L floppies as if ADFS
+    numbered sides alternately. Real .adl discs with data beyond the first track failed validation (and so
+    opened read-only), and ADFS L discs created blank (tests/mkimg, or by hand) and then filled by those
+    versions are self-consistent in the tool but scrambled on a real machine or an emulator.
+  - **Detection** (`diskformat.cpp`) reads the disc both ways and keeps the order in which structures *beyond
+    track 0* line up (track 0 side 0 is first in both orders, so the boot sector, ADFS map and side-0 DFS
+    catalogue prove nothing): DFS - the side-1 catalogue at file sector 10 vs <sectors per side>; hybrid - the
+    DOS FAT signature at file offset 8192 vs 4096; ADFS L - `validate()` of the directory tree; FAT - `check()`
+    plus correct `.`/`..` in every subdirectory, then the order with **fewer lost clusters** wins (needed for
+    1.44M, whose root directory is entirely on side 1 of cylinder 0: read the wrong way it is an empty, "valid"
+    directory while the FAT says the disc is full). When both orders pass equally (blank discs; files only in a
+    root directory on track 0) `sidesConfirmed` is false and the format's usual order is used: interleaved for
+    every Acorn format (ADFS L, DSD, DOS Plus 800K and 640K - MAME's Acorn formats and Gerald Holdsworth's
+    disc-image notes agree). The owner's rule: **never** fall back on an order used before for that file - no
+    per-file memory. `sidetest` asserts the rule that matters: detection may say it can't tell, but it must
+    **never be sure of the wrong order**.
+  - **Conversion** (`Image::setConvertOnSave`) is staged like any edit (`dirty()`); `commit()` rewrites the whole
+    file from the interleaved view (pending edits included), sectors 0-1 last. Converting and converting back
+    must give a byte-identical file (`sidetest`, also on the real discs).
 - **ADFS D/E (new map)** is detected and refused; Watford 62-file DFS is not supported.
 - The BBC BASIC token table and line-number encoding (`viewtext.cpp`) are from memory,
   checked on hand-made programs and one real program; report oddities rather than guess.
 
 ## GUI architecture
+- Side order (Tools > Side order): *Read as* re-opens the file with `openImage(path, 0|1)` (nothing written);
+  *Convert* stages `Image::setConvertOnSave`. The status bar shows "Sides: ..." with how it was settled.
+  New image: `newImageDialog()` -> `NewDisc::create()` -> opened like File > Open.
 - One `MainWindow` = one disc. `m_img` is the `Image`. Tabs (`m_tabs`) are managed only by
   `ensureTab()` in canonical order ADFS, DOS, DFS drive 0, DFS drive 2; which exist depends on
   `m_info.kind`. `refreshTree()` is the single refresh entry point (it calls `refreshDos()` and
@@ -163,6 +207,8 @@ differs in Qt6). Each test is its own project in `tests/`: `mkdir b && cd b && q
 | `screenshot` | `<outdir> <dsd> [<image> ...]` | renders PNGs of each pane for eyeballing (see GUI layout conventions); host files from `make_testdata.py host` |
 | `guitest` | `<hard-disc img>` | **the real `scsi0.dat`**; run with `QT_QPA_PLATFORM=offscreen` |
 | `guitest2` | `<dir>` [`<copy of a real 640K hybrid>`] containing `a.dsd b.adl c.img d.dat e.ssd f.hybrid g.a800` | copies of a blank DSD, ADFS L, PC 720K, **the real hard disc**, a truncated SSD, the hybrid and Acorn800 images; host files in `/tmp/drop/proj` (`make_testdata.py host`); offscreen |
+| `sidetest` | `<outdir>` [`<copy of a real 640K hybrid>` [`<copy of a real 800K disc>` [`<copies of real ADFS L discs, named t2_il_<name>.adl in <outdir>>` ...]]] | nothing else (a made-up DOSBOOT is used without the real hybrid; with it, new 640K discs are compared with it): makes every format with `NewDisc` in both side orders, fills, detects, converts both ways, reads in the wrong order, drives MainWindow (offscreen). The real discs are converted and back (must stay byte-identical). Then run `tests/sidecheck.py <outdir>`: an independent reader (own de-interleave, own ADFS/DFS parser, `fsck.fat` + `mtools` for FAT, with the Acorn formats wrapped in a BPB) |
+| `detecttest` | (see above) | also prints each image's side order and whether it could be told |
 
 `selftest`, `dostest`, `guitest` and `guitest2` assert details of the owner's image (12 root
 entries, 69 DOS root entries, `BeebSCSI`, `!Config`, ...). That image is **not** in the repo; if
@@ -204,7 +250,7 @@ and compare file hashes. Our own reader agreeing with our own writer proves litt
   tokens) in any summary to the owner.
 
 ## Known gaps / ideas
-No "new blank image" command (blank images were needed mostly for tests); ADFS D/E; Watford
+ADFS D/E; Watford
 DFS; boot-option editing for DFS/ADFS; compacting a fragmented ADFS/DFS disc; dragging files
 *out* to the desktop.
 
@@ -215,6 +261,8 @@ corrupted the file, and (found only when the owner opened a file) the track inte
 file read as garbage although the FAT and directory were perfectly valid. Synthetic images prove
 self-consistency only, and **a valid directory/FAT does not prove the data is where you think it is:
 always compare file CONTENT with a known-good copy** (`floptest real640 <copy> <dir from
-tests/extract_hd_dos.py>`). The real disc is not in
+tests/extract_hd_dos.py>`). The same thing happened again with ADFS L: synthetic images were consistent with the
+wrong sector numbering, and only real .adl discs (b-em `discs/`, oaknut `tests/`) showed it - check new disc
+formats against real images from those repos before trusting them. The real disc is not in
 the repo (it contains Acorn's DOS Plus software), so `floptest real640` and `guitest2`'s optional
 argument take its path; ask the owner for one if you need to change anything hybrid-related.
