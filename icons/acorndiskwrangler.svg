@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 5.25" floppy disc icon; same geometry as icon.cpp (keep them in step) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="256" height="256">
+  <path fill="#2f3138" d="M9 6H91A3 3 0 0 1 94 9V23.5H91.2V30.5H94V91A3 3 0 0 1 91 94H9A3 3 0 0 1 6 91V9A3 3 0 0 1 9 6Z"/>
+  <rect x="8" y="7.3" width="84" height="2.4" rx="1.2" fill="#3d4049"/>
+  <rect x="15" y="12" width="56" height="19" rx="2" fill="#f1e7c9"/>
+  <path fill="#d6402f" d="M17 12H69A2 2 0 0 1 71 14V17.5H15V14A2 2 0 0 1 17 12Z"/>
+  <rect x="19" y="21" width="40" height="1.5" fill="#8a8470"/>
+  <rect x="19" y="25.5" width="31" height="1.5" fill="#8a8470"/>
+  <circle cx="50" cy="49" r="13.2" fill="#55565c"/>
+  <circle cx="50" cy="49" r="10.2" fill="#ecece8"/>
+  <circle cx="50" cy="49" r="6.2" fill="#17181c"/>
+  <circle cx="66.4" cy="54.3" r="2" fill="#55565c"/>
+  <rect x="46" y="69.7" width="8" height="21.7" rx="4" fill="#55565c"/>
+</svg>

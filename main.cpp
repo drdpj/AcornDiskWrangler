@@ -1,0 +1,41 @@
+/*
+ * Acorn Disk Wrangler - view and edit Acorn disc images (ADFS, DFS, DOS Plus, PC FAT)
+ * Copyright (C) 2026 Daniel Jameson
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+#include <QApplication>
+#include "mainwindow.h"
+#include "icon.h"
+
+int main(int argc, char *argv[]) {
+    QApplication app(argc, argv);
+    QApplication::setOrganizationName("acorndiskwrangler");
+    QApplication::setApplicationName("acorndiskwrangler");
+    QApplication::setWindowIcon(appIcon());          // inherited by every window and dialog
+    MainWindow w;
+    w.show();
+    for (int i = 1; i < argc; ++i) {
+        QString p = QString::fromLocal8Bit(argv[i]);
+        if (i == 1) {
+            w.openImage(p);
+        } else {                       // further images each get their own window
+            auto *x = new MainWindow;
+            x->setAttribute(Qt::WA_DeleteOnClose);
+            x->show();
+            x->openImage(p);
+        }
+    }
+    return app.exec();
+}
