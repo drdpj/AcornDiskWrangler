@@ -19,6 +19,8 @@
 #include "mainwindow_p.h"
 #include "viewer.h"
 #include "newdisc.h"
+#include "dragout.h"
+#include <QPointer>
 
 #include <QAction>
 #include <QApplication>
@@ -78,6 +80,26 @@ QStringList DropTree::mimeTypes() const { return QStringList() << WRANGLER_MIME_
 Qt::DropActions DropTree::supportedDropActions() const { return Qt::CopyAction; }   // copying never removes the source
 QMimeData *DropTree::mimeData(const QList<QTreeWidgetItem *> items) const { return makeMime(items); }
 
+static QByteArray sourceTag(quint64 owner, int pane) {
+    return QByteArray::number(qint64(QCoreApplication::applicationPid())) + ":" + QByteArray::number(qulonglong(owner)) +
+           ":" + QByteArray::number(pane);
+}
+
+bool DropTree::fromThisProcess(const QMimeData *m) {
+    if (!m->hasFormat(WRANGLER_MIME_SOURCE) || !m->hasFormat(WRANGLER_MIME_ITEMS)) return false;
+    QList<QByteArray> f = m->data(WRANGLER_MIME_SOURCE).split(':');
+    // window ids are addresses, so the same id can exist in another copy of the program: check the process too
+    return f.size() == 3 && f[0].toLongLong() == qint64(QCoreApplication::applicationPid()) &&
+           MainWindow::byId(f[1].toULongLong()) != nullptr;
+}
+
+void DropTree::startDrag(Qt::DropActions supported) {
+    m_lastDrag.reset();
+    QTreeWidget::startDrag(supported);           // runs the whole drag
+    if (m_lastDrag && m_lastDrag->extracted) emit dragOutFinished(m_lastDrag->files, m_lastDrag->dirs, m_lastDrag->errors);
+    m_lastDrag.reset();
+}
+
 QMimeData *DropTree::makeMime(const QList<QTreeWidgetItem *> &items) const {
     QList<QTreeWidgetItem *> sel;
     for (QTreeWidgetItem *it : items) {
@@ -91,19 +113,35 @@ QMimeData *DropTree::makeMime(const QList<QTreeWidgetItem *> &items) const {
     QByteArray payload;
     QDataStream ds(&payload, QIODevice::WriteOnly);
     ds << quint64(m_owner) << qint32(m_pane) << qint32(sel.size());
-    for (QTreeWidgetItem *it : sel)
-        ds << quint32(it->data(0, RoleParent).toUInt()) << it->data(0, RoleName).toString() << it->data(0, RoleIsDir).toBool();
-    auto *m = new QMimeData;
+    QVector<DragRef> refs;
+    for (QTreeWidgetItem *it : sel) {
+        DragRef r;
+        r.parent = it->data(0, RoleParent).toUInt();
+        r.name = it->data(0, RoleName).toString();
+        r.isDir = it->data(0, RoleIsDir).toBool();
+        refs << r;
+        ds << quint32(r.parent) << r.name << r.isDir;
+    }
+    // the files themselves, for the host or another program: exported from the window when (if) they're asked for
+    QPointer<MainWindow> win = MainWindow::byId(m_owner);
+    int pane = m_pane;
+    RetroFiles::DragOutMime::Exporter exporter = [win, pane, refs](QVector<XItem> *out, QString *err) {
+        if (!win) { *err = "the disc's window was closed during the drag"; return false; }
+        return win->exportRefs(pane, refs, out, err);
+    };
+    auto *m = new RetroFiles::DragOutMime(exporter, win && win->writeInfOnExtract(),
+                                          win ? QFileInfo(win->image().path()).fileName() : QString(), m_pane);
     m->setData(WRANGLER_MIME_ITEMS, payload);
-    m->setData(WRANGLER_MIME_SOURCE, QByteArray::number(qulonglong(m_owner)) + ":" + QByteArray::number(m_pane));
+    m->setData(WRANGLER_MIME_SOURCE, sourceTag(m_owner, m_pane));
+    m_lastDrag = m->state();
     return m;
 }
 
 bool DropTree::acceptable(const QMimeData *m) const {
-    if (m->hasUrls()) return true;
-    if (m->hasFormat(WRANGLER_MIME_SOURCE))      // items from another tree (but not dropped back onto their own)
-        return m->data(WRANGLER_MIME_SOURCE) != QByteArray::number(qulonglong(m_owner)) + ":" + QByteArray::number(m_pane);
-    return false;
+    // Only format names are looked at here: asking for a drag's file list would make its source write the files.
+    if (fromThisProcess(m))                      // items from another tree (but not dropped back onto their own)
+        return m->data(WRANGLER_MIME_SOURCE) != sourceTag(m_owner, m_pane);
+    return m->hasFormat(RetroFiles::MimeType) || m->hasUrls();
 }
 
 void DropTree::dragEnterEvent(QDragEnterEvent *e) {
@@ -118,12 +156,21 @@ void DropTree::dragMoveEvent(QDragMoveEvent *e) {
 }
 
 void DropTree::dropEvent(QDropEvent *e) {
-    if (e->mimeData()->hasFormat(WRANGLER_MIME_ITEMS)) {
-        if (!acceptable(e->mimeData())) return;
+    if (!acceptable(e->mimeData())) return;
+    if (fromThisProcess(e->mimeData())) {        // one of this program's own windows: copy directly
         e->setDropAction(Qt::CopyAction);
         e->accept();
         emit internalDrop(e->mimeData()->data(WRANGLER_MIME_ITEMS), itemAt(e->pos()));
         return;
+    }
+    if (e->mimeData()->hasFormat(RetroFiles::MimeType)) {   // another copy of this program, or another tool
+        QByteArray json = e->mimeData()->data(RetroFiles::MimeType);
+        if (!json.isEmpty()) {
+            e->setDropAction(Qt::CopyAction);
+            e->accept();
+            emit retroFilesDropped(json, itemAt(e->pos()));
+            return;
+        }
     }
     QStringList paths;
     for (const QUrl &u : e->mimeData()->urls())
@@ -354,6 +401,20 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
             quint32 dir = dropTarget(pane, it);
             QTimer::singleShot(0, this, [this, pane, dir, payload] { onInternalDrop(pane, dir, payload); });
         });
+    for (DropTree *t : {m_tree, m_dosTree, m_dfsTree[0], m_dfsTree[1]}) {
+        connect(t, &DropTree::retroFilesDropped, this, [this, t](const QByteArray &json, QTreeWidgetItem *it) {
+            int pane = t->pane();
+            quint32 dir = dropTarget(pane, it);
+            QTimer::singleShot(0, this, [this, pane, dir, json] { onRetroFilesDrop(pane, dir, json); });
+        });
+        connect(t, &DropTree::dragOutFinished, this, [this](int files, int dirs, const QStringList &errors) {
+            if (!errors.isEmpty())
+                QMessageBox::warning(this, "Drag", "Some items could not be written for the drag:\n\n" + errors.join("\n"));
+            else
+                statusBar()->showMessage(QString("Dragged out %1 file(s)%2.").arg(files)
+                                             .arg(dirs ? QString(" in %1 folder(s)").arg(dirs) : QString()), 6000);
+        });
+    }
     // a save is vetoed if the DOS partition was touched and fails its own consistency check
     m_img.setExtraValidator([this]() -> QStringList {
         QStringList out;
@@ -500,6 +561,8 @@ bool MainWindow::convertSideOrder(bool toSequential, bool confirm) {
     updateUi();
     return true;
 }
+
+bool MainWindow::writeInfOnExtract() const { return m_optWriteInf->isChecked(); }
 
 // ---------------------------------------------------------------- boot option
 

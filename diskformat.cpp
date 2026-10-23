@@ -127,10 +127,18 @@ DiskInfo detectDisk(const QString &path, int force) {
     QByteArray s01 = rdAt(f, 0, 512);
     FsMap m;
     QStringList e, w;
-    if (FsMap::parse(s01, &m, &e, &w) && m.total >= 8) {
-        Dir d;
-        QString perr;
-        if (Dir::parse(RootSector, rdAt(f, RootSector * SectorSize, DirBytes), &d, &perr)) {
+    bool mapOk = FsMap::parse(s01, &m, &e, &w) && m.total >= 8;
+    Dir d;
+    QString perr;
+    bool rootOk = Dir::parse(RootSector, rdAt(f, RootSector * SectorSize, DirBytes), &d, &perr);
+    if (!mapOk && rootOk) {
+        // A damaged free space map (it opens read-only) on a disc whose root directory is fine: still ADFS, so that
+        // it is read with the right geometry. Take the size the map claims, or failing that the file's.
+        m.total = quint8(s01[0xFC]) | (quint8(s01[0xFD]) << 8) | (quint8(s01[0xFE]) << 16);
+        if (m.total < 8 || quint64(m.total) * SectorSize > size + 655360) m.total = quint32(size / SectorSize);
+    }
+    if ((mapOk || rootOk) && m.total >= 8) {
+        if (rootOk) {
             quint64 want = quint64(m.total) * SectorSize;
             // pad a short file only up to a standard floppy size; never trust an odd map size to grow a real image
             info.fullSize = (want == 163840 || want == 327680 || want == 655360) ? qMax(size, want) : size;

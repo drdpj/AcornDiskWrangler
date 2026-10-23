@@ -9,5 +9,5 @@ QMAKE_TARGET_PRODUCT = Acorn Disk Wrangler
 QMAKE_TARGET_DESCRIPTION = Acorn Disk Wrangler
 QMAKE_TARGET_COPYRIGHT = Copyright (C) 2026 Daniel Jameson. Licensed under the GNU GPL v3 or later.
 SOURCES += main.cpp mainwindow.cpp mainwindow_dos.cpp mainwindow_dfs.cpp viewer.cpp viewtext.cpp \
-           dosfs.cpp dfs.cpp diskformat.cpp adfs.cpp icon.cpp newdisc.cpp
-HEADERS += icon.h mainwindow.h mainwindow_p.h viewer.h viewtext.h dosfs.h dfs.h diskformat.h adfs.h newdisc.h
+           dosfs.cpp dfs.cpp diskformat.cpp adfs.cpp icon.cpp newdisc.cpp dragout.cpp
+HEADERS += icon.h mainwindow.h mainwindow_p.h viewer.h viewtext.h dosfs.h dfs.h diskformat.h adfs.h newdisc.h dragout.h

@@ -18,12 +18,14 @@
 #include <QApplication>
 #include "mainwindow.h"
 #include "icon.h"
+#include "dragout.h"
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     QApplication::setOrganizationName("acorndiskwrangler");
     QApplication::setApplicationName("acorndiskwrangler");
     QApplication::setWindowIcon(appIcon());          // inherited by every window and dialog
+    RetroFiles::cleanStale();                        // drag folders left behind by a crash
     MainWindow w;
     w.show();
     for (int i = 1; i < argc; ++i) {

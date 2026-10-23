@@ -111,6 +111,16 @@ Master 512 has not been tried yet.
   ADFS files get load/exec 0 on DFS.
 * Drop files/folders from your file manager onto the tree (onto a directory row to target
   it; onto empty space for the root). Works on both tabs.
+* **Drag files out** onto Explorer, the desktop or any program that accepts dropped files. They come out
+  exactly as Extract to host writes them (names made safe for the host, directories as folders, `.inf`
+  sidecars if *Write .inf sidecar files when extracting* is on, dates from the disc where it has them). This
+  works from read-only images too, and a drag only ever copies. The files are written to a temporary folder
+  only when another program asks for them (on Windows, as soon as the drag passes over another program or the
+  desktop); they are deleted when Disk Wrangler exits.
+* Between copies of Disk Wrangler, and to other tools that support it, a drag also carries the files'
+  attributes (load/exec, access, DFS directory, DOS attributes) in the open
+  [retro-files](docs/retro-files-format.md) format, so nothing is lost; `tests/retrofilescheck.py` checks a
+  drag against that spec.
 * ADFS tab: the whole disc. If $.DOS.DRIVE_C exists and is a FAT12/FAT16 volume, a
   second tab "DOS Plus (DRIVE_C)" appears showing C:\ - browse, drop files/folders in,
   New directory, Delete, Properties (rename 8.3 name, R/H/S/A), Extract.
@@ -155,7 +165,8 @@ DFS: up to 31 files per side, names 7 characters plus a directory letter, one ca
 Tests (tests/): viewtest (detokeniser), selftest (ADFS), dostest and floptest (FAT), dfstest (DFS), detecttest (format
 detection), mkimg (makes blank ADFS test images), guitest and guitest2 (offscreen GUI, incl. multi-window copying),
 sidetest (new images of every type, side order detection and conversion) with sidecheck.py (independent check),
-boottest (boot option).
+boottest (boot option), dragtest (dragging out) with retrofilescheck.py (checks a drag against the
+retro-files spec).
 
 ## Licence
 Copyright (C) 2026 Daniel Jameson. Licensed under the GNU General Public License v3.0 or

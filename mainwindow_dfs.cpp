@@ -425,6 +425,10 @@ bool MainWindow::exportAdfs(quint32 parent, const QString &name, XItem *x, QStri
     x->locked = e.flag(Entry::L);
     x->adfsFlags = quint8((e.flag(Entry::R) ? FlagR : 0) | (e.flag(Entry::W) ? FlagW : 0) |
                           (e.flag(Entry::L) ? FlagL : 0) | (e.flag(Entry::E) ? FlagE : 0));
+    if (!e.isDir() && e.hasStamp()) {               // as the tree shows it: only plausible RISC OS dates
+        QDateTime t = e.stamp();
+        if (t.date().year() >= 1981 && t.date().year() <= 2100) x->when = QDateTime(t.date(), t.time(), Qt::LocalTime);
+    }
     if (e.isDir()) {
         if (depth > 32) { *err = "directory nesting too deep"; return false; }
         Dir c;
@@ -448,6 +452,9 @@ bool MainWindow::exportDos(quint32 parent, const QString &name, XItem *x, QStrin
         x->src = PaneDos;
         x->isDir = e.isDir();
         x->locked = (e.attr & Dos::AttrR) != 0;
+        x->dosAttr = e.attr;
+        QDateTime w = e.when();
+        if (w.isValid()) x->when = QDateTime(w.date(), w.time(), Qt::LocalTime);
         if (e.isDir()) {
             if (depth > 32) { *err = "directory nesting too deep"; return false; }
             QVector<Dos::DEntry> C;
@@ -564,6 +571,23 @@ void MainWindow::importXDfs(int side, const XItem &x, ImportCtx &c) {
     quint32 load = 0, exec = 0;
     if (x.hasAddr && !looksStamped(x.load, x.exec)) { load = x.load & 0x3FFFF; exec = x.exec & 0x3FFFF; }
     dfsAddOne(side, dir, name, x.data, load, exec, x.locked, true, x.name, c);
+}
+
+// Files dragged from another copy of this program or from another tool, described by the retro-files JSON
+// (docs/retro-files-format.md): imported like a copy between two of this program's windows.
+void MainWindow::onRetroFilesDrop(int pane, quint32 dir, const QByteArray &json) {
+    if (!paneEditable(pane)) {
+        QMessageBox::warning(this, "Read-only", "The destination is read-only, so nothing was copied.");
+        return;
+    }
+    QVector<XItem> items;
+    QString err;
+    if (!RetroFiles::readJson(json, &items, &err)) { QMessageBox::warning(this, "Copy", err); return; }
+    ImportCtx c;
+    importX(pane, dir, items, c);
+    refreshTree();
+    updateUi();
+    importSummary(c, true);
 }
 
 void MainWindow::importX(int pane, quint32 dir, const QVector<XItem> &items, ImportCtx &c) {

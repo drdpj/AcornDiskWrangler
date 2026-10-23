@@ -138,6 +138,9 @@ and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopy
   - **Conversion** (`Image::setConvertOnSave`) is staged like any edit (`dirty()`); `commit()` rewrites the whole
     file from the interleaved view (pending edits included), sectors 0-1 last. Converting and converting back
     must give a byte-identical file (`sidetest`, also on the real discs).
+- **A damaged ADFS map** with a valid root directory is still detected as ADFS (and opens read-only) so that it is
+  read with the right geometry - an ADFS L floppy needs its side-first numbering even to be inspected
+  (`dragtest` caught this: before, such a disc read scrambled beyond the first track).
 - **ADFS D/E (new map)** is detected and refused; Watford 62-file DFS is not supported.
 - The BBC BASIC token table and line-number encoding (`viewtext.cpp`) are from memory,
   checked on hand-made programs and one real program; report oddities rather than guess.
@@ -170,6 +173,21 @@ and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopy
   `(window id, pane, parent, name)` in a custom MIME type; the target looks up the source
   window in `MainWindow::windows()` (same process). The drop is queued (`QTimer::singleShot`)
   so no modal dialog runs inside the drop handler.
+- **Dragging out** (`dragout.h/.cpp`, spec in `docs/retro-files-format.md` - keep the two in step): `makeMime`
+  returns a `RetroFiles::DragOutMime` carrying the private formats *and* `text/uri-list` + the retro-files JSON.
+  Those two are produced lazily in `retrieveData()`: the selection is exported (`exportRefs`) and written by
+  `writeHost()` (same names/.inf as Extract to host; clashing names get `_2`; Windows device names and trailing
+  dots made safe in `hostSafeName`) into a `QTemporaryDir` kept until exit (`cleanStale()` at start-up removes
+  ones older than a day). Rules: (1) `acceptable()`/`dropEvent()` must only look at format *names*, never ask
+  for a drag's URLs or JSON unless it is about to import them - asking makes the source write its files.
+  (2) The private tag is `pid:window:pane`; `fromThisProcess()` decides a direct copy, because window ids are
+  addresses and another copy of the program can have a window at the same address. (3) A drop from another
+  process / tool goes through `onRetroFilesDrop` -> `RetroFiles::readJson` (path-safety checked) -> `importX`,
+  so it behaves exactly like a copy between windows. **Windows**: Qt answers a drop target's "can you give me
+  files?" (QueryGetData / EnumFormatEtc for `CF_HDROP`) by calling `urls()`, so the files are written when the
+  drag first passes over another program or the desktop, not at the drop (checked in qtbase 5.15
+  `qwindowsmime.cpp`); in-process drops use the source `QMimeData` directly and write nothing. Not testable
+  here: a real drag into Explorer (ask the owner).
 - To add an operation to a pane kind: add the pane-specific function, add a dispatch line at
   the top of the slot, extend `updateUi()`, and add a GUI test. To add a new disc format: add
   a `DiskInfo::Kind`, detect it in `diskformat.cpp`, open it with `Image::openRaw`, add a
@@ -215,6 +233,7 @@ differs in Qt6). Each test is its own project in `tests/`: `mkdir b && cd b && q
 | `guitest2` | `<dir>` [`<copy of a real 640K hybrid>`] containing `a.dsd b.adl c.img d.dat e.ssd f.hybrid g.a800` | copies of a blank DSD, ADFS L, PC 720K, **the real hard disc**, a truncated SSD, the hybrid and Acorn800 images; host files in `/tmp/drop/proj` (`make_testdata.py host`); offscreen |
 | `sidetest` | `<outdir>` [`<copy of a real 640K hybrid>` [`<copy of a real 800K disc>` [`<copies of real ADFS L discs, named t2_il_<name>.adl in <outdir>>` ...]]] | nothing else (a made-up DOSBOOT is used without the real hybrid; with it, new 640K discs are compared with it): makes every format with `NewDisc` in both side orders, fills, detects, converts both ways, reads in the wrong order, drives MainWindow (offscreen). The real discs are converted and back (must stay byte-identical). Then run `tests/sidecheck.py <outdir>`: an independent reader (own de-interleave, own ADFS/DFS parser, `fsck.fat` + `mtools` for FAT, with the Acorn formats wrapped in a BPB) |
 | `detecttest` | (see above) | also prints each image's side order and whether it could be told |
+| `dragtest` | `<outdir>` | nothing else: makes its own discs. Drives the drag data as Explorer / another instance / another tool would: lazy writing, names, .inf, dates, JSON, direct copy in-process, JSON path cross-process with attributes kept (ADFS, DFS, DOS), self-drop refused, a foreign (cpm) list, unsafe lists refused, read-only image, stale cleanup. Then run `tests/retrofilescheck.py <outdir>/drag-*` (independent check against the spec) |
 | `boottest` | `<outdir>` [`<copy of a hard disc image>`] | ADFS S/M/L and the hard disc: options 0-3 set, saved, re-read, only byte &FD (+ checksums) changed; DFS sides independent; refusals; MainWindow per pane. Independently re-check the map checksums (Disc Image Manager's algorithm reproduces the stored ones on real discs) |
 
 `selftest`, `dostest`, `guitest` and `guitest2` assert details of the owner's image (12 root
@@ -257,9 +276,8 @@ and compare file hashes. Our own reader agreeing with our own writer proves litt
   tokens) in any summary to the owner.
 
 ## Known gaps / ideas
-ADFS D/E; Watford
-DFS; boot-option editing for DFS/ADFS; compacting a fragmented ADFS/DFS disc; dragging files
-*out* to the desktop.
+ADFS D/E; Watford DFS; compacting a fragmented ADFS/DFS disc; the clipboard (copy/paste) could carry the same
+retro-files data as a drag.
 
 ## Lesson: test against real discs as soon as you can
 The 640K hybrid was implemented from a table and passed every synthetic test (they all used the same

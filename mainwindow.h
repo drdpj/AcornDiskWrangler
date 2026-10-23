@@ -25,6 +25,8 @@
 #include "diskformat.h"
 #include "dosfs.h"
 #include "mainwindow_p.h"
+#include "dragout.h"
+#include <memory>
 
 class QAction;
 class QLabel;
@@ -38,10 +40,16 @@ public:
     explicit DropTree(QWidget *parent = nullptr);
     void setPane(quint64 owner, int pane) { m_owner = owner; m_pane = pane; }
     int pane() const { return m_pane; }
-    QMimeData *makeMime(const QList<QTreeWidgetItem *> &items) const;   // the payload of a drag from this tree
+    // The payload of a drag from this tree: the private formats (copying between this program's windows) plus the
+    // files themselves, written only if a drop target asks for them (see dragout.h).
+    QMimeData *makeMime(const QList<QTreeWidgetItem *> &items) const;
+    // A drag carries "pid:window:pane" so a drop can tell whether it came from this process.
+    static bool fromThisProcess(const QMimeData *m);
 signals:
     void pathsDropped(const QStringList &paths, QTreeWidgetItem *target);
     void internalDrop(const QByteArray &payload, QTreeWidgetItem *target);
+    void retroFilesDropped(const QByteArray &json, QTreeWidgetItem *target);    // from another program / instance
+    void dragOutFinished(int files, int dirs, const QStringList &errors);      // a drag whose files were written
 protected:
     void dragEnterEvent(QDragEnterEvent *e) override;
     void dragMoveEvent(QDragMoveEvent *e) override;
@@ -49,8 +57,10 @@ protected:
     QStringList mimeTypes() const override;
     QMimeData *mimeData(const QList<QTreeWidgetItem *> items) const override;
     Qt::DropActions supportedDropActions() const override;
+    void startDrag(Qt::DropActions supported) override;
 private:
     bool acceptable(const QMimeData *m) const;
+    mutable std::shared_ptr<RetroFiles::DragState> m_lastDrag;
     quint64 m_owner = 0;
     int m_pane = 0;
 };
@@ -93,6 +103,7 @@ public:
     DropTree *dosTree() { return m_dosTree; }
     QTabWidget *tabs() { return m_tabs; }
     bool dosEditable() const { return m_img.editable() && m_dosOk; }
+    bool writeInfOnExtract() const;
     bool dosActive() const;
 
 protected:
@@ -174,6 +185,7 @@ private:
     int paneOf(const QTreeWidget *t) const;
     quint32 dropTarget(int pane, QTreeWidgetItem *it) const;
     void onInternalDrop(int pane, quint32 dir, const QByteArray &payload);
+    void onRetroFilesDrop(int pane, quint32 dir, const QByteArray &json);
     bool exportAdfs(quint32 parent, const QString &name, XItem *x, QString *err, int depth);
     bool exportDos(quint32 parent, const QString &name, XItem *x, QString *err, int depth);
     bool exportDfs(int side, QChar dir, const QString &name, XItem *x, QString *err);

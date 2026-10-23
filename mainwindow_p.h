@@ -112,7 +112,13 @@ inline QString rootLabel(const QString &base, const QString &title) {
 inline QString hostSafeName(const QString &n) {
     QString s = n;
     for (QChar &c : s)
-        if (QString("/\\:*?\"<>|").contains(c)) c = '_';
+        if (QString("/\\:*?\"<>|").contains(c) || c.unicode() < 0x20) c = '_';
+    // names Windows reserves for devices, with or without an extension (an ADFS file can be called "Aux")
+    static const QStringList dev = {"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
+                                    "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"};
+    if (dev.contains(s.section('.', 0, 0), Qt::CaseInsensitive)) s.insert(s.indexOf('.') < 0 ? s.size() : s.indexOf('.'), '_');
+    if (s.isEmpty() || s == "." || s == "..") s = "_" + s;
+    while (s.endsWith('.') || s.endsWith(' ')) s[s.size() - 1] = '_';     // Windows drops these silently
     return s;
 }
 
@@ -141,6 +147,8 @@ struct XItem {
     bool locked = false;        // ADFS L / DFS locked / DOS read-only
     quint8 adfsFlags = 0;       // Adfs::FlagR.. bits (ADFS sources)
     int src = PaneAdfs;         // which kind of disc it came from
+    quint8 dosAttr = 0;         // FAT attribute bits (DOS sources)
+    QDateTime when;             // the date the source records, as shown in the tool (invalid if none); local, no zone
     QVector<XItem> kids;
 };
 
