@@ -38,6 +38,8 @@
 #include <QTimer>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QCursor>
+#include <QDrag>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
@@ -93,10 +95,30 @@ bool DropTree::fromThisProcess(const QMimeData *m) {
            MainWindow::byId(f[1].toULongLong()) != nullptr;
 }
 
-void DropTree::startDrag(Qt::DropActions supported) {
-    m_lastDrag.reset();
-    QTreeWidget::startDrag(supported);           // runs the whole drag
-    if (m_lastDrag && m_lastDrag->extracted) emit dragOutFinished(m_lastDrag->files, m_lastDrag->dirs, m_lastDrag->errors);
+// Our own drag, rather than QAbstractItemView's, so that we know whether the drop was accepted: on Windows the files
+// may already have been written while the drag passed over another program, and a drag that then comes back and is
+// let go of here (or anywhere it isn't accepted) must not report "dragged out".
+void DropTree::startDrag(Qt::DropActions) {
+    QList<QTreeWidgetItem *> items = selectedItems();
+    QMimeData *data = makeMime(items);
+    if (!data) return;
+    std::shared_ptr<RetroFiles::DragState> state = m_lastDrag;
+    auto *drag = new QDrag(this);
+    drag->setMimeData(data);
+    if (QTreeWidgetItem *first = currentItem() && currentItem()->isSelected() ? currentItem() : items.value(0)) {
+        QRect r = visualItemRect(first).intersected(viewport()->rect());
+        if (r.isValid()) {                       // a picture of the row being dragged, as Qt's own drag shows
+            r.setWidth(qMin(r.width(), columnWidth(0)));
+            drag->setPixmap(viewport()->grab(r));
+            drag->setHotSpot(viewport()->mapFromGlobal(QCursor::pos()) - r.topLeft());
+        }
+    }
+    Qt::DropAction result = drag->exec(Qt::CopyAction, Qt::CopyAction);   // copy only: never "move" off the disc
+    // Don't delete the drag: on X11 the drop target fetches the files after exec() returns, and Qt deletes the
+    // drag itself when that is over (QAbstractItemView doesn't delete its drags either). It is a child of this
+    // tree, so it goes at the latest when the window closes.
+    if (state && state->extracted && result == Qt::CopyAction)
+        emit dragOutFinished(state->files, state->dirs, state->errors);
     m_lastDrag.reset();
 }
 
@@ -673,7 +695,9 @@ void MainWindow::newImageDialog() {
 
     const NewDisc::TypeInfo &t = NewDisc::info(NewDisc::Type(type->currentData().toInt()));
     QString ext = t.suffix;
-    QString path = QFileDialog::getSaveFileName(this, "Create disc image", st.value("lastDir").toString() + "/untitled." + ext,
+    // suggest a file name from the title: "Games Disc" -> "Games Disc.adl"
+    QString base = title->text().trimmed().isEmpty() ? QString("untitled") : hostSafeName(title->text().trimmed());
+    QString path = QFileDialog::getSaveFileName(this, "Create disc image", st.value("lastDir").toString() + "/" + base + "." + ext,
                                                 QString("Disc image (*.%1);;All files (*)").arg(ext));
     if (path.isEmpty()) return;
     if (QFileInfo(path).suffix().isEmpty()) path += "." + ext;

@@ -91,7 +91,8 @@ Tools > Side order:
 ## New blank images
 File > New image... makes a blank, valid disc of any supported type: ADFS S/M/L; DFS 40/80-track single- or
 double-sided; Acorn DOS Plus 800K and 640K; PC 360K, 720K, 1.2M and 1.44M. You can give it a disc name, title
-or volume label and, for the Acorn double-sided formats, choose the side order (interleaved by default). PC
+or volume label (the save dialog then suggests it as the file name) and, for the Acorn double-sided formats, choose
+the side order (interleaved by default). PC
 discs get a standard boot sector (not bootable).
 
 A new DOS Plus 640K disc is set up like Acorn's own, with no DOS files: the ADFS free space map (2720 sectors,
@@ -166,7 +167,7 @@ Tests (tests/): viewtest (detokeniser), selftest (ADFS), dostest and floptest (F
 detection), mkimg (makes blank ADFS test images), guitest and guitest2 (offscreen GUI, incl. multi-window copying),
 sidetest (new images of every type, side order detection and conversion) with sidecheck.py (independent check),
 boottest (boot option), dragtest (dragging out) with retrofilescheck.py (checks a drag against the
-retro-files spec).
+retro-files spec), xdragtest (real drags on X11 under Xvfb).
 
 ## Licence
 Copyright (C) 2026 Daniel Jameson. Licensed under the GNU General Public License v3.0 or

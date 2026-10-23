@@ -38,7 +38,13 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QMap>
+#include <QComboBox>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFileDialog>
+#include <QLineEdit>
 #include <QSettings>
+#include <QTimer>
 #include <cstdio>
 #include <functional>
 using namespace Adfs;
@@ -317,6 +323,28 @@ int main(int argc, char **argv) {
             QVector<Dos::DEntry> L; CHECK(o.dos.listDir(0, &L, &e)); CHECK(L.isEmpty());             // no DOS files
         }
         CHECK(detectDisk(b).sides.sequential);
+    }
+
+    // ---- File > New image: the save dialog suggests a file name from the title (or "untitled")
+    for (const QString &title : {QString("Games Disc"), QString("A/B:C"), QString()}) {
+        MainWindow w;
+        QString suggested;
+        QTimer::singleShot(200, [&] {                                 // the New image dialog: pick ADFS L, type the title
+            QDialog *d = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            if (!d) { printf("  (no New image dialog)\n"); ++fails; return; }
+            QComboBox *type = d->findChild<QComboBox *>();
+            for (int i = 0; type && i < type->count(); ++i) if (type->itemData(i).toInt() == int(NewDisc::AdfsL)) type->setCurrentIndex(i);
+            for (QLineEdit *le : d->findChildren<QLineEdit *>()) if (le->maxLength() == 10) le->setText(title);
+            QTimer::singleShot(300, [&] {                             // the save dialog: read its suggestion, cancel
+                QFileDialog *fd = qobject_cast<QFileDialog *>(QApplication::activeModalWidget());
+                if (fd) { suggested = fd->selectedFiles().value(0); fd->reject(); } else { printf("  (no save dialog)\n"); ++fails; }
+            });
+            d->accept();
+        });
+        QMetaObject::invokeMethod(&w, "newImageDialog", Qt::DirectConnection);
+        QString want = title.isEmpty() ? "untitled.adl" : title == "Games Disc" ? "Games Disc.adl" : "A_B_C.adl";
+        printf("  New image titled '%s': save dialog suggests '%s'\n", qPrintable(title), qPrintable(QFileInfo(suggested).fileName()));
+        CHECK(QFileInfo(suggested).fileName() == want);
     }
 
     // ---- MainWindow: the usual order for a blank Acorn disc (nothing remembered), Read as, Convert + Save; PC: no side order

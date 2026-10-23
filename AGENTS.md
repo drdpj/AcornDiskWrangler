@@ -186,8 +186,12 @@ and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopy
   so it behaves exactly like a copy between windows. **Windows**: Qt answers a drop target's "can you give me
   files?" (QueryGetData / EnumFormatEtc for `CF_HDROP`) by calling `urls()`, so the files are written when the
   drag first passes over another program or the desktop, not at the drop (checked in qtbase 5.15
-  `qwindowsmime.cpp`); in-process drops use the source `QMimeData` directly and write nothing. Not testable
-  here: a real drag into Explorer (ask the owner).
+  `qwindowsmime.cpp`); in-process drops use the source `QMimeData` directly and write nothing. (4)
+  `DropTree::startDrag` runs its own `QDrag` so it knows the result: "Dragged out" is reported only if the files
+  were written **and** the drop was accepted (the owner saw the message after a drag that passed over Explorer
+  and was let go back in the window). (5) Never delete the `QDrag` after `exec()`: on X11 the target fetches the
+  data after `exec()` returns and Qt deletes the drag itself (`xdragtest` caught this). Not testable here: a real
+  drag into Explorer (ask the owner).
 - To add an operation to a pane kind: add the pane-specific function, add a dispatch line at
   the top of the slot, extend `updateUi()`, and add a GUI test. To add a new disc format: add
   a `DiskInfo::Kind`, detect it in `diskformat.cpp`, open it with `Image::openRaw`, add a
@@ -234,6 +238,7 @@ differs in Qt6). Each test is its own project in `tests/`: `mkdir b && cd b && q
 | `sidetest` | `<outdir>` [`<copy of a real 640K hybrid>` [`<copy of a real 800K disc>` [`<copies of real ADFS L discs, named t2_il_<name>.adl in <outdir>>` ...]]] | nothing else (a made-up DOSBOOT is used without the real hybrid; with it, new 640K discs are compared with it): makes every format with `NewDisc` in both side orders, fills, detects, converts both ways, reads in the wrong order, drives MainWindow (offscreen). The real discs are converted and back (must stay byte-identical). Then run `tests/sidecheck.py <outdir>`: an independent reader (own de-interleave, own ADFS/DFS parser, `fsck.fat` + `mtools` for FAT, with the Acorn formats wrapped in a BPB) |
 | `detecttest` | (see above) | also prints each image's side order and whether it could be told |
 | `dragtest` | `<outdir>` | nothing else: makes its own discs. Drives the drag data as Explorer / another instance / another tool would: lazy writing, names, .inf, dates, JSON, direct copy in-process, JSON path cross-process with attributes kept (ADFS, DFS, DOS), self-drop refused, a foreign (cpm) list, unsafe lists refused, read-only image, stale cleanup. Then run `tests/retrofilescheck.py <outdir>/drag-*` (independent check against the spec) |
+| `xdragtest` | `<outdir>`, run as `xvfb-run -a -s "-screen 0 1280x800x24" xdragtest <outdir>` | Linux/X11 only, needs Xvfb and xdotool. Real drags with the real pointer to a stand-in Explorer in another process: dropped (files arrive, message), passed over and let go back in the window (no message), refused (message not reliable on X11 - printed only) |
 | `boottest` | `<outdir>` [`<copy of a hard disc image>`] | ADFS S/M/L and the hard disc: options 0-3 set, saved, re-read, only byte &FD (+ checksums) changed; DFS sides independent; refusals; MainWindow per pane. Independently re-check the map checksums (Disc Image Manager's algorithm reproduces the stored ones on real discs) |
 
 `selftest`, `dostest`, `guitest` and `guitest2` assert details of the owner's image (12 root
