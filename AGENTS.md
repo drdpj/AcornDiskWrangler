@@ -169,7 +169,11 @@ and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopy
 - **Copying between discs** (`mainwindow_dfs.cpp`): source pane -> `exportRefs()` -> neutral
   `XItem` tree (data + attributes) -> `importX()` -> `importXAdfs/Dos/Dfs`, which convert names
   and attributes and reuse the normal add paths (`addOne`, `dosAddOne`, `dfsAddOne`) so the
-  overwrite prompts and error reporting behave identically to host drops. Drags carry only
+  overwrite prompts and error reporting behave identically to host drops. DFS -> ADFS: a file whose
+  DFS directory isn't `$` goes into a subdirectory of the drop target named after the letter (found or
+  created; a *file* of that name in the way is an error, never renamed around). This is in
+  `importXAdfs`, so the in-process and the retro-files JSON paths both do it. DFS -> DOS still keeps
+  the name only. Drags carry only
   `(window id, pane, parent, name)` in a custom MIME type; the target looks up the source
   window in `MainWindow::windows()` (same process). The drop is queued (`QTimer::singleShot`)
   so no modal dialog runs inside the drop handler.
@@ -237,7 +241,7 @@ differs in Qt6). Each test is its own project in `tests/`: `mkdir b && cd b && q
 | `guitest2` | `<dir>` [`<copy of a real 640K hybrid>`] containing `a.dsd b.adl c.img d.dat e.ssd f.hybrid g.a800` | copies of a blank DSD, ADFS L, PC 720K, **the real hard disc**, a truncated SSD, the hybrid and Acorn800 images; host files in `/tmp/drop/proj` (`make_testdata.py host`); offscreen |
 | `sidetest` | `<outdir>` [`<copy of a real 640K hybrid>` [`<copy of a real 800K disc>` [`<copies of real ADFS L discs, named t2_il_<name>.adl in <outdir>>` ...]]] | nothing else (a made-up DOSBOOT is used without the real hybrid; with it, new 640K discs are compared with it): makes every format with `NewDisc` in both side orders, fills, detects, converts both ways, reads in the wrong order, drives MainWindow (offscreen). The real discs are converted and back (must stay byte-identical). Then run `tests/sidecheck.py <outdir>`: an independent reader (own de-interleave, own ADFS/DFS parser, `fsck.fat` + `mtools` for FAT, with the Acorn formats wrapped in a BPB) |
 | `detecttest` | (see above) | also prints each image's side order and whether it could be told |
-| `dragtest` | `<outdir>` | nothing else: makes its own discs. Drives the drag data as Explorer / another instance / another tool would: lazy writing, names, .inf, dates, JSON, direct copy in-process, JSON path cross-process with attributes kept (ADFS, DFS, DOS), self-drop refused, a foreign (cpm) list, unsafe lists refused, read-only image, stale cleanup. Then run `tests/retrofilescheck.py <outdir>/drag-*` (independent check against the spec) |
+| `dragtest` | `<outdir>` | nothing else: makes its own discs. Drives the drag data as Explorer / another instance / another tool would: lazy writing, names, .inf, dates, JSON, direct copy in-process, JSON path cross-process with attributes kept (ADFS, DFS, DOS), DFS directory letters -> ADFS subdirectories (drop on a directory row, reuse, JSON path), self-drop refused, a foreign (cpm) list, unsafe lists refused, read-only image, stale cleanup. Then run `tests/retrofilescheck.py <outdir>/drag-*` (independent check against the spec) |
 | `xdragtest` | `<outdir>`, run as `xvfb-run -a -s "-screen 0 1280x800x24" xdragtest <outdir>` | Linux/X11 only, needs Xvfb and xdotool. Real drags with the real pointer to a stand-in Explorer in another process: dropped (files arrive, message), passed over and let go back in the window (no message), refused (message not reliable on X11 - printed only) |
 | `boottest` | `<outdir>` [`<copy of a hard disc image>`] | ADFS S/M/L and the hard disc: options 0-3 set, saved, re-read, only byte &FD (+ checksums) changed; DFS sides independent; refusals; MainWindow per pane. Independently re-check the map checksums (Disc Image Manager's algorithm reproduces the stored ones on real discs) |
 

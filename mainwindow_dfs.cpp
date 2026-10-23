@@ -523,6 +523,31 @@ void MainWindow::importXAdfs(quint32 dir, const XItem &x, ImportCtx &c) {
         for (const XItem &k : x.kids) { if (c.cancelled) return; importXAdfs(sector, k, c); }
         return;
     }
+    // A DFS file in a directory other than $ goes into a subdirectory named after the letter, so $.P.FILE
+    // dropped on $.Library becomes $.Library.P.FILE. The subdirectory is reused if it is already there.
+    if ((x.src == PaneDfs0 || x.src == PaneDfs1) && x.dfsDir != '$') {
+        QString err, letter = sanitizeName(QString(x.dfsDir.toUpper()));
+        Dir d;
+        if (!m_img.readDir(dir, &d, &err)) { c.errors << QString("%1: %2").arg(x.name, err); return; }
+        int idx = d.indexOf(letter);
+        quint32 sector = 0;
+        if (idx >= 0) {
+            if (!d.entries[idx].isDir()) {
+                c.errors << QString("%1.%2: a file called '%3' is in the way of directory %3")
+                                .arg(QString(x.dfsDir), x.name, letter);
+                return;
+            }
+            sector = d.entries[idx].sin;
+        } else {
+            if (!m_img.makeDir(dir, letter, &err, &sector)) {
+                c.errors << QString("%1.%2: %3").arg(QString(x.dfsDir), x.name, err);
+                return;
+            }
+            c.dirs++;
+        }
+        c.created.insert(keyFor(dir, letter));
+        dir = sector;
+    }
     quint32 load = 0, exec = 0;
     quint8 flags = FlagR | FlagW;
     if (x.src == PaneAdfs) {

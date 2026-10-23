@@ -112,8 +112,10 @@ Master 512 has not been tried yet.
   on another window's tree (or on the other tab/side of the same window) to **copy**. Names and
   attributes are converted: ADFS/DOS/DFS names are mapped to the target's rules (and made unique),
   load/exec addresses are widened or narrowed (DFS keeps 18 bits), locked <-> read-only. DFS has
-  no subdirectories, so folders dropped on a DFS disc are flattened. RISC OS style time-stamped
-  ADFS files get load/exec 0 on DFS.
+  no subdirectories, so folders dropped on a DFS disc are flattened. The other way, a DFS file's
+  directory letter becomes an ADFS subdirectory of wherever it is dropped: `P.FILE` dropped on `$`
+  becomes `$.P.FILE`, and on `$.Library` becomes `$.Library.P.FILE` (an existing `P` directory is
+  reused; files in `$` go straight in). RISC OS style time-stamped ADFS files get load/exec 0 on DFS.
 * Drop files/folders from your file manager onto the tree (onto a directory row to target
   it; onto empty space for the root). Works on both tabs.
 * **Drag files out** onto Explorer, the desktop or any program that accepts dropped files. They come out

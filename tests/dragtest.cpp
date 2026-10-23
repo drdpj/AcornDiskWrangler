@@ -57,6 +57,13 @@ static void sendDrop(QTreeWidget* tree,QMimeData* mime){
     QDropEvent ev(QPointF(pt),Qt::CopyAction,mime,Qt::LeftButton,Qt::NoModifier); QApplication::sendEvent(tree->viewport(),&ev);
     pump();
 }
+static void sendDropOn(QTreeWidget* tree,QTreeWidgetItem* it,QMimeData* mime){      // onto a row (e.g. a directory)
+    tree->scrollToItem(it); QPoint pt=tree->visualItemRect(it).center();
+    QDragEnterEvent en(pt,Qt::CopyAction,mime,Qt::LeftButton,Qt::NoModifier); QApplication::sendEvent(tree->viewport(),&en);
+    QDragMoveEvent mv(pt,Qt::CopyAction,mime,Qt::LeftButton,Qt::NoModifier); QApplication::sendEvent(tree->viewport(),&mv);
+    QDropEvent ev(QPointF(pt),Qt::CopyAction,mime,Qt::LeftButton,Qt::NoModifier); QApplication::sendEvent(tree->viewport(),&ev);
+    pump();
+}
 static int dragDirs(){ QFileInfo p(RetroFiles::dragDirPrefix()); return QDir(p.absolutePath()).entryList({p.fileName()+"*"},QDir::Dirs|QDir::NoDotAndDotDot).size(); }
 static RetroFiles::DragOutMime* mimeFor(MainWindow& w, DropTree* t, QList<QTreeWidgetItem*> items){
     w.tabs()->setCurrentWidget(t); pump();
@@ -232,6 +239,36 @@ int main(int argc,char**argv){
       { QVector<Dos::DEntry> L; CHECK(dp.dos().listDir(0,&L,&e)); quint32 sub=0; for(auto&x:L) if(x.name=="SUB") sub=x.cluster; CHECK(sub);
         QVector<Dos::DEntry> S; CHECK(dp.dos().listDir(sub,&S,&e)); bool ok=false; for(auto&x:S) if(x.name=="X.BIN"){ ok=true; CHECK(x.attr&Dos::AttrR); QByteArray b; CHECK(dp.dos().readFile(x,&b,&e)); CHECK(b==xbin);} CHECK(ok); }
       delete f3; delete m3;
+
+      // DFS -> ADFS: a file in directory A goes into a subdirectory A of wherever it is dropped
+      printf("== DFS directory letters -> ADFS subdirectories\n");
+      auto adfsDir=[&](Image& im,quint32 dir,const QString& n)->quint32{ Dir r; QString er; if(!im.readDir(dir,&r,&er)) return 0;
+          int i=r.indexOf(n); return i>=0 && r.entries[i].isDir() ? r.entries[i].sin : 0; };
+      auto adfsFile=[&](Image& im,quint32 dir,const QString& n,Entry* out)->bool{ Dir r; QString er; if(!im.readDir(dir,&r,&er)) return false;
+          int i=r.indexOf(n); if(i<0||r.entries[i].isDir()) return false; *out=r.entries[i]; return true; };
+      {   // same process, dropped on the Games directory row: $.BOOT -> $.Games.BOOT, A.BOOT -> $.Games.A.BOOT
+          auto* m4=mimeFor(sd,sd.dfsTree(0),{find(sd.dfsTree(0),"$.BOOT"),find(sd.dfsTree(0),"A.BOOT")});
+          d.tabs()->setCurrentWidget(d.tree()); pump(); sendDropOn(d.tree(),find(d.tree(),"Games"),m4);
+          quint32 g=adfsDir(d.image(),RootSector,"Games"); CHECK(g);
+          Entry x; CHECK(adfsFile(d.image(),g,"BOOT",&x)); CHECK(x.load==0xFFFF1900u && x.exec==0xFFFF8023u && !x.flag(Entry::L));
+          quint32 a=adfsDir(d.image(),g,"A"); CHECK(a);
+          CHECK(adfsFile(d.image(),a,"BOOT",&x)); CHECK(x.load==0x1100 && x.exec==0x1200 && x.flag(Entry::L));
+          { QByteArray b; CHECK(d.image().readFile(x,&b,&e)); CHECK(b==aboot); }
+          CHECK(!adfsDir(d.image(),RootSector,"A"));                                   // nothing at the root
+          delete m4; }
+      {   // the directory is reused if it is already there (no A~1)
+          quint32 pre=0; CHECK(d.image().makeDir(RootSector,"A",&e,&pre)); d.refreshTree(); pump();
+          auto* m5=mimeFor(sd,sd.dfsTree(0),{find(sd.dfsTree(0),"A.BOOT")});
+          d.tabs()->setCurrentWidget(d.tree()); pump(); sendDrop(d.tree(),m5);
+          Entry x; CHECK(adfsFile(d.image(),pre,"BOOT",&x)); CHECK(!adfsDir(d.image(),RootSector,"A~1"));
+          delete m5; }
+      {   // from another process (the retro-files JSON): the same, at the root
+          auto* m6=mimeFor(sd,sd.dfsTree(0),{find(sd.dfsTree(0),"$.BOOT"),find(sd.dfsTree(0),"A.BOOT")}); QMimeData* f6=asForeign(m6);
+          d2.tabs()->setCurrentWidget(d2.tree()); pump(); sendDrop(d2.tree(),f6);
+          Entry x; CHECK(adfsFile(d2.image(),RootSector,"BOOT",&x));
+          quint32 a=adfsDir(d2.image(),RootSector,"A"); CHECK(a); CHECK(adfsFile(d2.image(),a,"BOOT",&x) && x.load==0x1100 && x.flag(Entry::L));
+          QString err; CHECK(d2.image().commit(&err,false,nullptr)); if(!err.isEmpty()) printf("  commit: %s\n",qPrintable(err));
+          delete f6; delete m6; }
     }
 
     // ---- a list from a tool this program doesn't know (CP/M): plain files, readonly honoured
