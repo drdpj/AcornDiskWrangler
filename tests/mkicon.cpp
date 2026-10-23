@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-// Writes the application icon as PNGs: mkicon <outdir>   (used to refresh icons/*.png and to eyeball the result)
+// Writes the application icon as PNGs: mkicon <outdir>   (used to refresh icons/*.png and the .ico/.icns, and to eyeball the result)
 #include <QGuiApplication>
 #include <QDir>
 #include "icon.h"
@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
     QGuiApplication app(argc, argv);
     if (argc < 2) return 2;
     QDir().mkpath(argv[1]);
-    for (int s : {16, 24, 32, 48, 64, 128, 256, 512})
+    for (int s : {16, 24, 32, 48, 64, 128, 256, 512, 1024})   // 1024 only feeds the macOS .icns (see icons/README)
         if (!floppyIconImage(s).save(QString("%1/acorndiskwrangler-%2.png").arg(argv[1]).arg(s))) return 1;
     return 0;
 }

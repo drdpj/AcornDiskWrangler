@@ -23,6 +23,8 @@ and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopy
 | `viewtext.*` | text / hex / BBC BASIC detokeniser (pure QtCore, no GUI) |
 | `viewer.*` | the read-only viewer window |
 | `icon.*` | the application icon (a 5.25" floppy), drawn with QPainter; `icons/` holds PNG exports (`tests/mkicon <dir>` regenerates them) and a matching `acorndiskwrangler.svg` - keep the SVG in step if the geometry changes |
+| `acorndiskwrangler.desktop` | Linux/BSD: name and icon for docks and menus (GNOME ignores the window icon and shows a gear without it). Installed with the hicolor PNGs + SVG by `make install` (qmake `INSTALLS`, CMake `install()`); matched to the windows by `StartupWMClass` (X11 `WM_CLASS` is `acorndiskwrangler`) and `QGuiApplication::setDesktopFileName` (Wayland). Check with `desktop-file-validate` |
+| `icons/acorndiskwrangler.icns` | macOS: the .app's icon (qmake `ICON`, CMake `MACOSX_BUNDLE_ICON_FILE`). Made by `tests/make_icns.py` from `mkicon`'s PNGs, 32-1024 px, every size an exact rendering. Not tested on a Mac |
 | `acorndiskwrangler.rc`, `icons/acorndiskwrangler.ico` | Windows only: the .exe icon in Explorer/taskbar. CMake compiles `acorndiskwrangler.rc`; qmake uses `RC_ICONS` in the `.pro` (it generates its own .rc, so the two are independent). Regenerate the .ico from the PNGs with Pillow if the design changes. Not testable on Linux |
 | `mainwindow.h/.cpp` | main window, `DropTree`, open/save/refresh/updateUi, ADFS pane |
 | `mainwindow_dos.cpp` | DOS pane, viewer hookup, renaming, import summary |

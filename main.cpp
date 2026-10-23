@@ -24,6 +24,9 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     QApplication::setOrganizationName("acorndiskwrangler");
     QApplication::setApplicationName("acorndiskwrangler");
+    // Ties the windows to acorndiskwrangler.desktop, which is where Linux docks and task bars (GNOME, KDE) take the
+    // icon and name from; the window icon below is not enough there. (X11 matches StartupWMClass, Wayland this.)
+    QGuiApplication::setDesktopFileName("acorndiskwrangler");
     QApplication::setWindowIcon(appIcon());          // inherited by every window and dialog
     RetroFiles::cleanStale();                        // drag folders left behind by a crash
     MainWindow w;

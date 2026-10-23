@@ -13,6 +13,24 @@ Build:  qmake acorndiskwrangler.pro && make      (or: cmake -S . -B build && cma
 Needs:  Qt 5 widgets dev package (Ubuntu: qtbase5-dev)
 Run:    ./acorndiskwrangler [image ...]          (each image gets its own window)
 
+## Installing on Linux (menu entry and dock icon)
+GNOME, KDE and other Linux desktops take an application's name and icon from a `.desktop` file, not from the
+running program, so a program run straight from the build folder shows a generic icon (a gear in Ubuntu's
+dock). `make install` puts the program, `acorndiskwrangler.desktop` and the icons where they look:
+
+    qmake PREFIX=$HOME/.local acorndiskwrangler.pro && make && make install      # just for you
+    qmake acorndiskwrangler.pro && make && sudo make install                     # everyone (/usr/local)
+
+(CMake: `cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$HOME/.local && cmake --build build && cmake --install build`.)
+It then appears in the applications menu, and its windows get the floppy icon in the dock, also when you run a
+copy from the build folder. `~/.local/bin` must be on your PATH for the menu entry to start it (Ubuntu adds it at
+login once the folder exists). If the dock still shows a gear, log out and in again.
+
+## macOS
+Untested so far. A qmake or CMake build makes `acorndiskwrangler.app` with the floppy icon
+(`icons/acorndiskwrangler.icns`) for Finder and the Dock; `macdeployqt acorndiskwrangler.app` makes it
+self-contained.
+
 ## Building on Windows (MSYS2 / MinGW64)
 1. Install [MSYS2](https://www.msys2.org/), then open the **MSYS2 MINGW64** shell (not "MSYS2 MSYS"
    or "UCRT64") and install the compiler and Qt 5:

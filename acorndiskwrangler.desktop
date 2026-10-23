@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Acorn Disk Wrangler
+GenericName=Disc image editor
+Comment=View and edit Acorn disc images (ADFS, DFS, DOS Plus, PC FAT)
+Exec=acorndiskwrangler %F
+Icon=acorndiskwrangler
+Terminal=false
+Categories=Utility;Archiving;
+StartupWMClass=acorndiskwrangler
