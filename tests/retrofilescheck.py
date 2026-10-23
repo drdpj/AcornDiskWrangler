@@ -21,7 +21,7 @@
                                     line, relative to base). tests/dragtest leaves such dumps as <outdir>/drag-*.
 
 Checks: format/version/required keys; every item path is safe, exists, has the stated type and size, and comes
-after its parent; attribute namespaces are well-formed (acorn, dfs, fat, cpm); "modified" is well-formed and
+after its parent; DFS names are D.NAME; attribute namespaces are well-formed (acorn, fat, cpm; no file-type key - it lives in load/exec); "modified" is well-formed and
 matches the host file's time; files in the base folder that aren't items are only Acorn .inf sidecars, and
 each sidecar agrees with its item's acorn attributes; text/uri-list holds exactly the top-level items (plus
 their sidecars). Standard library only.
@@ -61,6 +61,7 @@ def check(d):
         full = os.path.join(base, *parts)
         if os.path.realpath(full) != os.path.join(os.path.realpath(base), *parts): bad('%r: leaves the base folder' % p)
         if not isinstance(it.get('name'), str) or not it['name']: bad('%r: no name' % p)
+        elif fs == 'dfs' and not re.match(r'^[!-~]\.[^.]{1,7}$', it['name']): bad('%r: DFS name %r is not D.NAME' % (p, it['name']))
         if t == 'directory':
             if not os.path.isdir(full): bad('%r: not a folder on the host' % p)
         elif t == 'file':
@@ -82,8 +83,8 @@ def check(d):
                 if k in ac and not (isinstance(ac[k], str) and HEX8.match(ac[k])): bad('%r: acorn.%s %r is not 8 hex digits' % (p, k, ac[k]))
             if 'access' in ac and not re.match(r'^D?L?W?R?E?$', ac['access']): bad('%r: acorn.access %r' % (p, ac['access']))
             if t == 'file' and not ('load' in ac and 'exec' in ac): bad('%r: acorn file without load/exec' % p)
-        df = a.get('dfs')
-        if df is not None and not (isinstance(df.get('directory'), str) and len(df['directory']) == 1): bad('%r: dfs.directory' % p)
+            if 'filetype' in ac: bad('%r: acorn.filetype is not part of the format (the type is in load)' % p)
+        if 'dfs' in a: bad('%r: there is no dfs namespace (the directory is part of the name)' % p)
         for ns, keys in (('fat', ('readonly', 'hidden', 'system', 'archive')), ('cpm', ('readonly', 'system', 'archive'))):
             o = a.get(ns)
             if o is not None:
@@ -95,7 +96,7 @@ def check(d):
         inf = full + '.inf'
         if t == 'file' and ac is not None and os.path.isfile(inf):
             f = open(inf, encoding='latin-1').read().split()
-            want_name = (a['dfs']['directory'] + '.' if df else '') + it['name']
+            want_name = it['name']
             if f[0] != want_name: bad('%r: .inf name %r, expected %r' % (p, f[0], want_name))
             if (f[1], f[2]) != (ac['load'], ac['exec']): bad('%r: .inf addresses %s %s differ from the JSON' % (p, f[1], f[2]))
             if int(f[3], 16) != it['size']: bad('%r: .inf length differs' % p)

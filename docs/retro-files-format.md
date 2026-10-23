@@ -36,7 +36,7 @@ disc it came from". This format fills that gap:
   narrowing addresses) and drops the rest knowingly, rather than guessing from a bare file.
 * **Nothing breaks for other programs.** The same drag also carries ordinary files, so Explorer, file
   managers and editors work as they always did.
-* **One format for many tools.** Attributes are grouped by filesystem (`acorn`, `dfs`, `fat`, `cpm`), so a
+* **One format for many tools.** Attributes are grouped by filesystem (`acorn`, `fat`, `cpm`), so a
   tool for a new kind of disc only has to add its own group and read the ones it understands.
 * **Open and self-describing.** A small, versioned JSON document that anyone can implement or inspect
   without this program's source.
@@ -94,13 +94,14 @@ UTF-8, one JSON object. Example (a directory and a file dragged from an ADFS dis
 }
 ```
 
-The same for a file dragged from a DFS disc: it has load and exec addresses too (here widened to 32 bits, see
-`acorn` below), and its DFS directory letter is kept separately:
+The same for two files dragged from a DFS disc (`"filesystem": "dfs"`). They have load and exec addresses too
+(here widened to 32 bits, see `acorn` below), and `name` is the full DFS name, directory letter included:
 
 ```json
-{ "path": "A.BOOT", "type": "file", "name": "BOOT", "size": 300,
-  "attributes": { "acorn": { "load": "FFFF1900", "exec": "FFFF8023", "access": "L" },
-                  "dfs":   { "directory": "A" } } }
+{ "path": "BOOT", "type": "file", "name": "$.BOOT", "size": 300,
+  "attributes": { "acorn": { "load": "00001900", "exec": "00008023", "access": "WR" } } },
+{ "path": "A.BOOT", "type": "file", "name": "A.BOOT", "size": 1234,
+  "attributes": { "acorn": { "load": "FFFF1900", "exec": "FFFF8023", "access": "L" } } }
 ```
 
 | Key | Required | Meaning |
@@ -119,23 +120,39 @@ Each item:
 |---|---|---|
 | `path` | yes | path of the item relative to `base`, `/`-separated, exactly as written on the host. It never contains `..`, never starts with `/`, and a receiver must refuse an item whose path leaves the base folder. Its last component may differ from `name` (characters the host can't hold are replaced, and clashing names are made unique). |
 | `type` | yes | `"file"` or `"directory"` |
-| `name` | yes | the item's name on the source filesystem, unchanged (it may contain characters the host can't) |
+| `name` | yes | the item's full name on the source filesystem, unchanged (it may contain characters the host can't). How to read it depends on `source.filesystem`; see *Names* below. |
 | `size` | files | the file's length in bytes; equal to the size of the host file |
 | `modified` | no | the item's date as the source filesystem records it, ISO 8601 `YYYY-MM-DDThh:mm:ss`, **no time zone** (retro filesystems don't record one; take it as the time shown on the original machine). The host file's modification time is set to the same value where the sender can. |
 | `attributes` | no | an object of **namespaces**, each an object of filesystem-specific attributes. A receiver uses the namespaces it knows and ignores the rest. An item may carry several. |
 
+### Names
+
+`name` is the name as the source filesystem knows it, the one that tells the item apart from the others
+beside it.
+
+* **`adfs`, `fat`, `cpm`:** the leaf name (`"Elite"`, `"README.TXT"`). The directory it is in is given by the
+  item's parent in `items`.
+* **`dfs`:** always `D.NAME`: the directory character, a dot, then the name (`"$.BOOT"`, `"A.BOOT"`), the way
+  DFS and `.inf` files write it. The directory letter is part of a DFS file's identity: `$.BOOT` and `A.BOOT`
+  are different files. DFS names can't contain a dot, so the first character and dot are always the directory
+  and the rest is the name. What a receiver does with the letter depends on where the file is going: a DFS
+  receiver keeps it, an ADFS receiver can make it a subdirectory (Acorn Disk Wrangler does), and a receiver for
+  a non-Acorn filesystem just drops it and uses the name.
+
+The host file's name (the last part of `path`) is a separate thing: what the sender could write on the host.
+Acorn Disk Wrangler writes `BOOT` for `$.BOOT` and `A.BOOT` for `A.BOOT`, matching `.inf` practice.
+
 ## Attribute namespaces
 
-### `acorn` - Acorn file attributes (ADFS, DFS, and RISC OS)
+### `acorn` - Acorn file attributes (ADFS, DFS)
 
 The attributes every Acorn filesystem has in common. **Both ADFS and DFS files carry `load` and `exec`**, and a
 sender whose source is either of them must give both for every file.
 
 | Key | Meaning |
 |---|---|
-| `load`, `exec` | load and execution addresses, 8 upper-case hex digits (32 bits). Files only. These are the authoritative values: everything else in this namespace is derived from them or is optional. |
+| `load`, `exec` | load and execution addresses, 8 upper-case hex digits (32 bits). Files only. Stored exactly as on the disc, including RISC OS file types and dates (see below). |
 | `access` | access letters, any of `L` (locked), `W`, `R`, `E` (ADFS execute-only), plus `D` on a directory (informative). DFS has only *locked*: a locked DFS file is `"L"`, an unlocked one `"WR"`. |
-| `filetype` | optional, RISC OS files only: the file type as 3 upper-case hex digits, e.g. `"FFF"`. See below. |
 
 **ADFS and DFS addresses.** ADFS keeps full 32-bit addresses. DFS keeps 18 bits (`&00000`-`&3FFFF`), so a
 sender widens them the way `.inf` files do: an address with bits 16-17 both set (`&3xxxx`) is written as
@@ -144,52 +161,47 @@ DFS narrows them again (keeps the low 18 bits). A receiver moving a file between
 when the target is ADFS, and has no place for them if they won't fit an 18-bit DFS address. That is a loss the
 receiver should report, not hide.
 
-**RISC OS file types.** ADFS floppies and hard discs are also written by RISC OS, which doesn't store a
-file type as a separate field. It packs the type and a date into the load and exec addresses (a "typed and
-time-stamped" file):
+#### RISC OS file types and dates
+
+There is no file-type key, on purpose. RISC OS stores a file's type and date *in* its load and exec addresses,
+so `load` and `exec` already carry them, and a second copy could only disagree. This section describes the
+encoding so that tools can read and write it correctly.
+
+A "typed and time-stamped" file has:
 
 ```
-load = &FFFtttdd      FFF in the top 12 bits marks the file as typed; ttt = the file type; dd = bits 32-39 of the time
-exec = &xxxxxxxx      bits 0-31 of the time
-time = centiseconds since 1900-01-01 00:00:00 (a 40-bit number; no time zone)
+load = &FFFtttdd    top 12 bits all set: the file is typed
+                    ttt = the file type (12 bits)
+                    dd  = bits 32-39 of the time
+exec = &xxxxxxxx    bits 0-31 of the time
+time = centiseconds since 1900-01-01 00:00:00, a 40-bit number, no time zone
 ```
 
-For example, `load` `FFFFFF5A` with any `exec` is a Text file (type `FFF`, dated in the 2020s); `FFB` is BBC BASIC,
-`FF8` an absolute (machine-code) program, `FFD` data, `FFA` a module, `FEB` an Obey script, `FF9` a sprite file,
-`DDC` an archive. (Registered types are listed by RISC OS Open.) Acorn Disk Wrangler doesn't interpret any of
-this itself. It keeps `load` and `exec` exactly as they are on the disc and shows the stamp as `modified`, so a
-typed file passes between two ADFS discs, or out to a tool that understands it, without losing the type.
-The rules for a tool that does handle types are:
+So `type = (load >> 8) & 0xFFF` and `time = ((load & 0xFF) << 32) | exec`. A file whose `load` doesn't have
+the top 12 bits set has an ordinary load and execution address and no type.
 
-* **Sending.** `load` and `exec` stay raw, as above. `modified` is the date held in the stamp, as calendar time with no
-  zone (the machine's own clock reading). A sender may also add
-  `filetype` (just the `ttt` digits) so that receivers don't have to decode `load`. It is redundant, and if it
-  disagrees with `load`, `load` wins.
-* **Receiving with no `load`/`exec`.** A tool that only knows a file's type (for example a host file named
-  `Name,ffb`: RPCEmu's host file system writes a typed file's type as a comma and three hex digits after the
-  name, leaves the suffix off for Text, `&FFF`, and takes the date from the host file's time) may send `filetype` and
-  `modified` and leave `load` and `exec` out. A receiver that stores Acorn addresses builds them from the
-  formula above, using `modified` as the time (or its own clock if there is none). A receiver that doesn't
-  understand types ignores `filetype` and stores the file with no addresses.
-* **Which `load` values are typed.** A file is *typed* if the top 12 bits of `load` are all set. That is
-  RISC OS's own rule, and it has one wrinkle: BBC I/O-processor addresses (`&FFFF1900`, `&FFFF8023`) satisfy
-  it too, and a DFS file widened as above always does. A reader must therefore read `load` as a typed stamp
-  only when `source.filesystem` is `"adfs"` and the date it gives is plausible (the program uses 1981-2100). A
-  DFS file never has a file type. Acorn Disk Wrangler uses the same test when it copies an ADFS stamped file to
-  DFS: the file gets load/exec `0`, because the stamp isn't an address.
-* **Untyped files.** The same emulator writes a file that has plain load and exec addresses as
-  `Name,LLLL-EEEE` (both in hex). That is a host-file convention, not part of this format: such a file is just
-  `load` and `exec`, with no `filetype`.
-* **Directories** don't have load and exec and so have no type.
+Common types: `FFF` Text, `FFB` BBC BASIC, `FF8` absolute (machine code), `FFD` data, `FFA` module, `FEB` Obey,
+`FF9` sprite, `DDC` archive. RISC OS Open keeps the register of allocated types. For example, `load`
+`FFFFFF5A` is a Text file dated between June 2022 and November 2023 (the low 32 bits of the time, in `exec`, say exactly when).
 
-### `dfs` - Acorn DFS
+* **Reading.** Treat `load` as a type and date only when `source.filesystem` is `"adfs"` and the date it gives
+  is plausible (Acorn Disk Wrangler uses 1981-2100). The top-12-bits rule on its own is RISC OS's, but BBC
+  I/O-processor addresses such as `&FFFF1900` satisfy it too, and so does every DFS address widened as above.
+  A DFS file never has a file type. Directories have no load or exec and so no type.
+* **Writing.** A sender that has a type but no load/exec (for example from a host file named `Name,ffb`, see
+  below) builds them from the formula above: `time` from the file's date in centiseconds since 1900 (or
+  the current time if it has no date), then `load = 0xFFF00000 | type << 8 | time >> 32` and
+  `exec = time & 0xFFFFFFFF`. It also gives that date as `modified`.
+* **`modified`.** For a typed file, the sender gives the date held in the stamp as `modified`, as calendar time
+  with no zone (the machine's own clock reading). `load` and `exec` remain the authority.
+* **Copying to DFS.** A stamp isn't an address, so a receiver that stores a typed ADFS file in DFS gives it
+  load/exec `0` (Acorn Disk Wrangler does).
 
-| Key | Meaning |
-|---|---|
-| `directory` | the single-character DFS directory, e.g. `"$"` or `"A"`. `name` is the name without it (`"ELITE"`, not `"$.ELITE"`). |
-
-A DFS file's load and exec addresses are in the `acorn` namespace, not here, so a tool that reads Acorn files
-needs one code path for ADFS and DFS. `dfs` holds only what DFS has and ADFS hasn't.
+**Host file names.** On the host, RISC OS emulators keep the type in the file name. RPCEmu's host file system
+writes a typed file as `Name,ttt` (a comma and three hex digits, left off for Text, `FFF`), takes the date
+from the host file's time, and writes an untyped file as `Name,llllllll-eeeeeeee` (load and exec in hex).
+That is a host-file convention, not part of this format: a tool that reads or writes such files converts the
+suffix to and from `load` and `exec`.
 
 ### `fat` - DOS FAT attributes (PC, Acorn DOS Plus)
 
@@ -220,5 +232,4 @@ here.
 
 ## History
 
-* Version 1 (2026): first version, Acorn Disk Wrangler. `acorn.filetype` (RISC OS) is an optional key added to
-  version 1 without a version change, as the rules above allow.
+* Version 1 (2026): first version, Acorn Disk Wrangler.

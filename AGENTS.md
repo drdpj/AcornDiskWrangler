@@ -190,7 +190,9 @@ and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopy
   (2) The private tag is `pid:window:pane`; `fromThisProcess()` decides a direct copy, because window ids are
   addresses and another copy of the program can have a window at the same address. (3) A drop from another
   process / tool goes through `onRetroFilesDrop` -> `RetroFiles::readJson` (path-safety checked) -> `importX`,
-  so it behaves exactly like a copy between windows. **Windows**: Qt answers a drop target's "can you give me
+  so it behaves exactly like a copy between windows. (4a) The owner's rule for the JSON: **no redundant keys**. A
+  DFS item's `name` is `D.NAME` (the letter is part of its identity; no `dfs` namespace), and there is no
+  file-type key (RISC OS types live in `load`/`exec`; the spec only explains the encoding). **Windows**: Qt answers a drop target's "can you give me
   files?" (QueryGetData / EnumFormatEtc for `CF_HDROP`) by calling `urls()`, so the files are written when the
   drag first passes over another program or the desktop, not at the drop (checked in qtbase 5.15
   `qwindowsmime.cpp`); in-process drops use the source `QMimeData` directly and write nothing. (4)

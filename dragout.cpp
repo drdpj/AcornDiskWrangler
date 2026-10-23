@@ -76,7 +76,7 @@ static void writeOne(const XItem &x, const QString &absDir, const QString &relDi
     QJsonObject j;
     j["path"] = rel;
     j["type"] = x.isDir ? "directory" : "file";
-    j["name"] = x.name;
+    j["name"] = shown;                          // a DFS name always carries its directory: "$.BOOT", "A.BOOT"
     QJsonObject attrs;
     if (x.src == PaneAdfs) {
         QJsonObject a;
@@ -84,13 +84,11 @@ static void writeOne(const XItem &x, const QString &absDir, const QString &relDi
         a["access"] = adfsAccess(x.adfsFlags, x.isDir);
         attrs["acorn"] = a;
     } else if (dfs) {
-        QJsonObject a, d;
+        QJsonObject a;
         a["load"] = hex8(extendDfsAddr(x.load));
         a["exec"] = hex8(extendDfsAddr(x.exec));
         a["access"] = x.locked ? "L" : "WR";
-        d["directory"] = QString(x.dfsDir);
         attrs["acorn"] = a;
-        attrs["dfs"] = d;
     } else {
         QJsonObject f;
         f["readonly"] = (x.dosAttr & Dos::AttrR) != 0;
@@ -212,9 +210,13 @@ bool readJson(const QByteArray &json, QVector<XItem> *out, QString *err) {
             x.locked = access.contains('L');
             x.adfsFlags = quint8((access.contains('R') ? Adfs::FlagR : 0) | (access.contains('W') ? Adfs::FlagW : 0) |
                                  (access.contains('L') ? Adfs::FlagL : 0) | (access.contains('E') ? Adfs::FlagE : 0));
-            if (src == PaneDfs0) {
-                QString d = attrs["dfs"].toObject()["directory"].toString();
-                x.dfsDir = d.size() == 1 ? d[0] : QChar('$');
+            if (src == PaneDfs0) {                  // "D.NAME": the directory is part of a DFS name
+                if (x.name.size() >= 3 && x.name[1] == '.' && Dfs::validDir(x.name[0])) {
+                    x.dfsDir = x.name[0];
+                    x.name = x.name.mid(2);
+                } else {
+                    x.dfsDir = '$';
+                }
             }
         } else {
             QJsonObject fat = attrs["fat"].toObject();

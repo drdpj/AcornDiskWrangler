@@ -196,8 +196,8 @@ int main(int argc,char**argv){
       QJsonObject j=jsonOf(m); QString base=QUrl(j["base"].toString()).toLocalFile();
       CHECK(slurp(base+"/BOOT")==boot); CHECK(slurp(base+"/A.BOOT")==aboot);
       CHECK(slurp(base+"/BOOT.inf")=="$.BOOT    FFFF1900 FFFF8023 0000012C 03\n");
-      QJsonObject a=itemAt(j,"A.BOOT"); CHECK(a["name"].toString()=="BOOT");
-      CHECK(a["attributes"].toObject()["dfs"].toObject()["directory"].toString()=="A");
+      QJsonObject a=itemAt(j,"A.BOOT"); CHECK(a["name"].toString()=="A.BOOT");     // the directory is part of a DFS name
+      CHECK(itemAt(j,"BOOT")["name"].toString()=="$.BOOT"); CHECK(!a["attributes"].toObject().contains("dfs"));
       CHECK(a["attributes"].toObject()["acorn"].toObject()["access"].toString()=="L");
       CHECK(itemAt(j,"BOOT")["attributes"].toObject()["acorn"].toObject()["exec"].toString()=="FFFF8023");
       CHECK(j["source"].toObject()["filesystem"].toString()=="dfs");
