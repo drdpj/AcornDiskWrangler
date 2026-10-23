@@ -114,9 +114,10 @@ int main(int argc,char**argv){
       auto sd=src.entries[src.indexOf("BeebSCSI")]; int k=dst.indexOf("BeebSCSI"); CHECK(k>=0 && dst.entries[k].isDir());
       Dir sc,dc; D->image().readDir(sd.sin,&sc,&e); if(k>=0) B->image().readDir(dst.entries[k].sin,&dc,&e); CHECK(sc.entries.size()==dc.entries.size() && sc.entries.size()==2);
       for(auto&x:sc.entries){ int q=dc.indexOf(x.name()); CHECK(q>=0); if(q>=0){ QByteArray a,b; D->image().readFile(x,&a,&e); B->image().readFile(dc.entries[q],&b,&e); CHECK(a==b && dc.entries[q].load==x.load); } } }
-    // stamped RISC OS style file -> DFS: no meaningful address, so zero
+    // stamped RISC OS style file -> DFS: narrowed to 18 bits like any address, never zeroed on a guess
     drag(*D,D->tree(),{"!Config"},*E,E->dfsTree(0));
-    { int i=E->dfs(0).indexOf('$',"!Config"); CHECK(i>=0 && E->dfs(0).files()[i].load==0 && E->dfs(0).files()[i].exec==0 && E->dfs(0).files()[i].length==128); }
+    { Dir src; QString e; D->image().readDir(RootSector,&src,&e); auto s=src.entries[src.indexOf("!Config")];
+      int i=E->dfs(0).indexOf('$',"!Config"); CHECK(i>=0 && E->dfs(0).files()[i].load==(s.load&0x3FFFF) && E->dfs(0).files()[i].exec==(s.exec&0x3FFFF) && E->dfs(0).files()[i].length==128); }
     // DOS partition inside the hard disc -> DFS side 1 and ADFS floppy
     drag(*D,D->dosTree(),{"ALARM.DAT"},*A,A->dfsTree(1)); CHECK(A->dfs(1).indexOf('$',"ALARM_D")>=0);
     drag(*D,D->dosTree(),{"ALARM.DAT"},*B,B->tree()); { Dir r; QString e; B->image().readDir(RootSector,&r,&e); CHECK(r.indexOf("ALARM_DAT")>=0); }

@@ -44,8 +44,9 @@ QString filesystemName(int srcPane) {
 
 static QString hex8(quint32 v) { return QString("%1").arg(v, 8, 16, QChar('0')).toUpper(); }
 
-static QString adfsAccess(quint8 flags, bool dir) {
-    QString s = dir ? "D" : "";
+// Access letters as in the Stardot .inf format (owner upper case; this program has no public bits to give).
+static QString adfsAccess(quint8 flags) {
+    QString s;
     if (flags & Adfs::FlagL) s += 'L';
     if (flags & Adfs::FlagW) s += 'W';
     if (flags & Adfs::FlagR) s += 'R';
@@ -81,7 +82,7 @@ static void writeOne(const XItem &x, const QString &absDir, const QString &relDi
     if (x.src == PaneAdfs) {
         QJsonObject a;
         if (!x.isDir) { a["load"] = hex8(x.load); a["exec"] = hex8(x.exec); }
-        a["access"] = adfsAccess(x.adfsFlags, x.isDir);
+        a["access"] = adfsAccess(x.adfsFlags);
         attrs["acorn"] = a;
     } else if (dfs) {
         QJsonObject a;
@@ -207,7 +208,7 @@ bool readJson(const QByteArray &json, QVector<XItem> *out, QString *err) {
         QString access = acorn["access"].toString();
         if (src == PaneAdfs || src == PaneDfs0) {
             x.hasAddr = !x.isDir && parseHex(acorn["load"], &x.load) && parseHex(acorn["exec"], &x.exec);
-            x.locked = access.contains('L');
+            x.locked = access.contains('L');       // case-sensitive: lower case letters are public access
             x.adfsFlags = quint8((access.contains('R') ? Adfs::FlagR : 0) | (access.contains('W') ? Adfs::FlagW : 0) |
                                  (access.contains('L') ? Adfs::FlagL : 0) | (access.contains('E') ? Adfs::FlagE : 0));
             if (src == PaneDfs0) {                  // "D.NAME": the directory is part of a DFS name

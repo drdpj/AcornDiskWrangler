@@ -117,7 +117,8 @@ Master 512 has not been tried yet.
   directory `F` (`F.NAME`) instead of `$` (Yes / No, or to all such directories in the drop). The other way, a DFS file's
   directory letter becomes an ADFS subdirectory of wherever it is dropped: `P.FILE` dropped on `$`
   becomes `$.P.FILE`, and on `$.Library` becomes `$.Library.P.FILE` (an existing `P` directory is
-  reused; files in `$` go straight in). RISC OS style time-stamped ADFS files get load/exec 0 on DFS.
+  reused; files in `$` go straight in). Load/exec addresses keep their low 18 bits on DFS (RISC OS
+  style time-stamped files too: a stamp can't be told from an address for certain, so it is never zeroed).
 * Drop files/folders from your file manager onto the tree (onto a directory row to target
   it; onto empty space for the root). Works on both tabs.
 * **Drag files out** onto Explorer, the desktop or any program that accepts dropped files. They come out

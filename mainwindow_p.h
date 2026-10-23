@@ -199,11 +199,3 @@ inline QString uniqueDfsName(const QString &base, QChar dir, const Dfs::Disc &d,
 
 // DFS keeps 18-bit addresses; values with bits 16 and 17 set stand for 0xFFFFxxxx (I/O processor).
 inline quint32 extendDfsAddr(quint32 v) { return (v & 0x30000u) == 0x30000u ? (v | 0xFFFC0000u) : v; }
-
-// RISC OS style "typed and time-stamped" load/exec pairs (0xFFFtttdd) have no real address.
-inline bool looksStamped(quint32 load, quint32 exec) {
-    if ((load & 0xFFF00000u) != 0xFFF00000u) return false;
-    quint64 cs = (quint64(load & 0xFF) << 32) | exec;
-    int year = QDateTime(QDate(1900, 1, 1), QTime(0, 0), Qt::UTC).addSecs(qint64(cs / 100)).date().year();
-    return year >= 1981 && year <= 2100;
-}

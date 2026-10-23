@@ -81,7 +81,8 @@ def check(d):
         if ac is not None:
             for k in ('load', 'exec'):
                 if k in ac and not (isinstance(ac[k], str) and HEX8.match(ac[k])): bad('%r: acorn.%s %r is not 8 hex digits' % (p, k, ac[k]))
-            if 'access' in ac and not re.match(r'^D?L?W?R?E?$', ac['access']): bad('%r: acorn.access %r' % (p, ac['access']))
+            acc_ok = isinstance(ac.get('access', ''), str) and all(c in 'RWELrwel' for c in ac.get('access', '')) and len(set(ac.get('access', ''))) == len(ac.get('access', ''))
+            if 'access' in ac and not acc_ok: bad('%r: acorn.access %r is not Stardot access letters (RWEL rwel, each once)' % (p, ac['access']))
             if t == 'file' and not ('load' in ac and 'exec' in ac): bad('%r: acorn file without load/exec' % p)
             if 'filetype' in ac: bad('%r: acorn.filetype is not part of the format (the type is in load)' % p)
         if 'dfs' in a: bad('%r: there is no dfs namespace (the directory is part of the name)' % p)
@@ -101,8 +102,8 @@ def check(d):
             if (f[1], f[2]) != (ac['load'], ac['exec']): bad('%r: .inf addresses %s %s differ from the JSON' % (p, f[1], f[2]))
             if int(f[3], 16) != it['size']: bad('%r: .inf length differs' % p)
             bits = int(f[4], 16)
-            acc = ''.join(c for c, b in (('L', 8), ('W', 2), ('R', 1), ('E', 4)) if bits & b)
-            if acc != ac['access'].lstrip('D'): bad('%r: .inf access %s, JSON %s' % (p, acc, ac['access']))
+            acc = set(c for c, b in (('R', 1), ('W', 2), ('E', 4), ('L', 8), ('r', 16), ('w', 32), ('e', 64), ('l', 128)) if bits & b)
+            if acc != set(ac['access']): bad('%r: .inf access %s, JSON %s' % (p, ''.join(sorted(acc)), ac['access']))
 
     # everything in the base folder is an item or a sidecar
     listed = set(seen)

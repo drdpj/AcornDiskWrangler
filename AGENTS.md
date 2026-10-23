@@ -192,7 +192,13 @@ and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopy
   process / tool goes through `onRetroFilesDrop` -> `RetroFiles::readJson` (path-safety checked) -> `importX`,
   so it behaves exactly like a copy between windows. (4a) The owner's rule for the JSON: **no redundant keys**. A
   DFS item's `name` is `D.NAME` (the letter is part of its identity; no `dfs` namespace), and there is no
-  file-type key (RISC OS types live in `load`/`exec`; the spec only explains the encoding). **Windows**: Qt answers a drop target's "can you give me
+  file-type key (RISC OS types live in `load`/`exec`; the spec only explains the encoding). Agreed after
+  feedback from oaknut's author (GitHub issue #1): `access` uses the Stardot `.inf` letters, case-sensitive
+  (`RWEL` owner, `rwel` public, no `D`); names carry the disc's bytes one character per byte (U+0000-U+00FF,
+  what `fromLatin1`/`toLatin1` do), never converted; a load that might be a RISC OS stamp is treated as an
+  address when unsure and **never changed on a guess** (so ADFS -> DFS keeps the low 18 bits of a stamped
+  file's load/exec instead of zeroing them). Disc-level properties (DFS title, boot option) are out of scope
+  for drags. **Windows**: Qt answers a drop target's "can you give me
   files?" (QueryGetData / EnumFormatEtc for `CF_HDROP`) by calling `urls()`, so the files are written when the
   drag first passes over another program or the desktop, not at the drop (checked in qtbase 5.15
   `qwindowsmime.cpp`); in-process drops use the source `QMimeData` directly and write nothing. (4)

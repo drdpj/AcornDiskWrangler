@@ -169,6 +169,7 @@ int main(int argc,char**argv){
       CHECK(itemAt(j,"Aux_")["name"].toString()=="Aux");
       CHECK(itemAt(j,"Text")["modified"].toString()=="1994-06-01T13:30:00");
       CHECK(itemAt(j,"Games")["type"].toString()=="directory"); CHECK(itemAt(j,"Games/Deep/Tiny")["size"].toInt()==77);
+      CHECK(!itemAt(j,"Games")["attributes"].toObject()["acorn"].toObject()["access"].toString().contains('D'));   // Stardot: no D
       CHECK(itemAt(j,"Elite.inf").isEmpty());                                             // sidecars are not items
       keep(m,out,"adfs");
       delete m;
@@ -346,6 +347,19 @@ int main(int argc,char**argv){
       { QJsonObject b=doc; b["version"]=2; CHECK(!RetroFiles::readJson(QJsonDocument(b).toJson(),&x,&err)); printf("  version 2: %s\n",qPrintable(err)); }
       { QJsonObject b=doc; QJsonObject bi=it; bi["size"]=99; b["items"]=QJsonArray{bi}; CHECK(!RetroFiles::readJson(QJsonDocument(b).toJson(),&x,&err)); }
       CHECK(!RetroFiles::readJson("not json",&x,&err));
+      // Stardot access letters: upper case = owner, lower case = public (which this program has nowhere to keep)
+      { QJsonObject b=doc; QJsonObject bi=it; b["source"]=QJsonObject{{"filesystem","adfs"}}; bi["name"]="Pip";
+        bi["attributes"]=QJsonObject{{"acorn",QJsonObject{{"load","00001900"},{"exec","00001900"},{"access","WRrl"}}}}; b["items"]=QJsonArray{bi};
+        x.clear(); CHECK(RetroFiles::readJson(QJsonDocument(b).toJson(),&x,&err));
+        CHECK(x.size()==1 && x[0].adfsFlags==(FlagR|FlagW) && !x[0].locked); }
+      // DFS names are D.NAME, bytes carried one character per byte (a BBC "£" is byte &60, i.e. "`")
+      { QJsonObject b=doc; b["source"]=QJsonObject{{"filesystem","dfs"}}; QJsonArray arr;
+        for(const char* n:{"$.`5","q.PROG","PLAIN"}){ QJsonObject bi=it; bi["name"]=QString::fromLatin1(n);
+            bi["attributes"]=QJsonObject{{"acorn",QJsonObject{{"load","00001900"},{"exec","00001900"},{"access","WR"}}}}; arr.append(bi); }
+        b["items"]=arr; x.clear(); CHECK(RetroFiles::readJson(QJsonDocument(b).toJson(),&x,&err));
+        CHECK(x.size()==3);
+        if(x.size()==3){ CHECK(x[0].dfsDir=='$' && x[0].name=="`5"); CHECK(x[1].dfsDir=='q' && x[1].name=="PROG");
+                         CHECK(x[2].dfsDir=='$' && x[2].name=="PLAIN"); } }
     }
 
     // ---- read-only image (a damaged free space map opens read-only): dragging out still works

@@ -614,7 +614,9 @@ void MainWindow::importXDfs(int side, const XItem &x, ImportCtx &c, QChar keepDi
     QChar dir = (x.src == PaneDfs0 || x.src == PaneDfs1) ? x.dfsDir : keepDir.isNull() ? QChar('$') : keepDir;
     QString name = Dfs::sanitizeName(x.name);
     quint32 load = 0, exec = 0;
-    if (x.hasAddr && !looksStamped(x.load, x.exec)) { load = x.load & 0x3FFFF; exec = x.exec & 0x3FFFF; }
+    // DFS keeps 18 bits. Narrowed the same way for every file: a RISC OS stamp can't be told from an address for
+    // sure (docs/retro-files-format.md), so never zero one on a guess.
+    if (x.hasAddr) { load = x.load & 0x3FFFF; exec = x.exec & 0x3FFFF; }
     dfsAddOne(side, dir, name, x.data, load, exec, x.locked, true, x.name, c);
 }
 

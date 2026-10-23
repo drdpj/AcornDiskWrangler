@@ -72,7 +72,9 @@ keep references to them.
   (`RegisterClipboardFormatW`), delivered as `TYMED_HGLOBAL` containing the UTF-8 JSON bytes, no terminator
   required. This is what Qt 5 does for a custom MIME type, so a Qt receiver just asks for the MIME type.
 * **Linux / BSD (X11, Wayland):** the MIME type itself, UTF-8 bytes.
-* **macOS:** not tested.
+* **macOS:** not tested. The pasteboard identifies data by Uniform Type Identifier (UTI), not MIME type, so this
+  format will need a declared UTI there. Qt 5 makes one up from the MIME type for its own use; a non-Qt receiver
+  would have to know it. To be settled when it is tested on a Mac.
 
 ## The JSON document
 
@@ -139,6 +141,23 @@ beside it.
   receiver keeps it, an ADFS receiver can make it a subdirectory (Acorn Disk Wrangler does), and a receiver for
   a non-Acorn filesystem just drops it and uses the name.
 
+**Character set.** Acorn and DOS names are bytes in the source machine's character set, while JSON is Unicode
+text. `name` carries the bytes **unchanged, one character per byte**: byte *n* becomes the character U+00*nn*
+(U+0000-U+00FF, the same as decoding the bytes as ISO 8859-1), whatever the byte means on the source machine.
+A receiver gets the original bytes back by taking each character's number, so nothing is lost or converted on
+the way. A `name` never contains a character above U+00FF. What the name *looks like* is the receiver's
+business, because the same byte means different things on different machines:
+
+| Byte on the disc | In `name` | Shown on the source machine as |
+|---|---|---|
+| `&60` on a BBC Micro DFS or ADFS disc | `` ` `` (U+0060) | `£` (the BBC's character set puts `£` at `&60`) |
+| `&A3` in a RISC OS name | `£` (U+00A3) | `£` (RISC OS uses Latin-1) |
+| `&9C` in a DOS name | U+009C (a control character, written `\u009c` in JSON) | `£` (DOS code page 437) |
+
+So a DFS file the BBC lists as `$.£5` is sent as ``"name": "$.`5"``. A tool may show it as `£5` if it knows the
+disc came from a BBC; it must still write the byte `&60` back. (JSON writers may escape any character as
+`\uXXXX`; it is the same character either way.)
+
 The host file's name (the last part of `path`) is a separate thing: what the sender could write on the host.
 Acorn Disk Wrangler writes `BOOT` for `$.BOOT` and `A.BOOT` for `A.BOOT`, matching `.inf` practice.
 
@@ -152,14 +171,21 @@ sender whose source is either of them must give both for every file.
 | Key | Meaning |
 |---|---|
 | `load`, `exec` | load and execution addresses, 8 upper-case hex digits (32 bits). Files only. Stored exactly as on the disc, including RISC OS file types and dates (see below). |
-| `access` | access letters, any of `L` (locked), `W`, `R`, `E` (ADFS execute-only), plus `D` on a directory (informative). DFS has only *locked*: a locked DFS file is `"L"`, an unlocked one `"WR"`. |
+| `access` | access letters, **case-sensitive**, each at most once, in any order: owner `R` read, `W` write, `E` execute-only, `L` locked; public (other users, e.g. RISC OS and Econet file servers) `r`, `w`, `e`, `l`. These are the letters of the [Stardot `.inf` format](https://github.com/stardot/inf_format/blob/main/inf_format_full.md), which also gives each its bit (`R` &01, `W` &02, `E` &04, `L` &08, `r` &10, `w` &20, `e` &40, `l` &80). A file with `E` and no `R` is `*RUN`-only, as on ROMFS/CFS. DFS has only *locked*: a locked DFS file is `"L"`, an unlocked one `"WR"`. A typical new RISC OS file is `"WRr"`. Directories have access too; there is no letter for "directory" (`type` says that). |
+| `title` | directories only, optional: an ADFS directory's title, if it differs from its name. (Acorn Disk Wrangler does not produce or use it yet.) |
 
 **ADFS and DFS addresses.** ADFS keeps full 32-bit addresses. DFS keeps 18 bits (`&00000`-`&3FFFF`), so a
 sender widens them the way `.inf` files do: an address with bits 16-17 both set (`&3xxxx`) is written as
-`&FFFFxxxx`, the address in the I/O processor (second processor) address space. A receiver that stores them in
+`&FFFFxxxx`, which means an address in the I/O processor - the BBC Micro itself, as opposed to a second
+processor. A receiver that stores them in
 DFS narrows them again (keeps the low 18 bits). A receiver moving a file between the two keeps the 32-bit values
 when the target is ADFS, and has no place for them if they won't fit an 18-bit DFS address. That is a loss the
 receiver should report, not hide.
+
+**Econet.** Econet file servers are Acorn filesystems too, and this namespace is where their attributes will go
+(the public access letters above are one). Owner and server-side dates aren't defined yet: Level 3, the
+FileStore, MDFS and the Econet bridges store them differently, so the keys should be settled with someone who
+implements one.
 
 #### RISC OS file types and dates
 
@@ -184,18 +210,24 @@ Common types: `FFF` Text, `FFB` BBC BASIC, `FF8` absolute (machine code), `FFD` 
 `FF9` sprite, `DDC` archive. RISC OS Open keeps the register of allocated types. For example, `load`
 `FFFFFF5A` is a Text file dated between June 2022 and November 2023 (the low 32 bits of the time, in `exec`, say exactly when).
 
-* **Reading.** Treat `load` as a type and date only when `source.filesystem` is `"adfs"` and the date it gives
-  is plausible (Acorn Disk Wrangler uses 1981-2100). The top-12-bits rule on its own is RISC OS's, but BBC
-  I/O-processor addresses such as `&FFFF1900` satisfy it too, and so does every DFS address widened as above.
-  A DFS file never has a file type. Directories have no load or exec and so no type.
+* **Reading.** The top-12-bits rule on its own is RISC OS's, but I/O-processor addresses (`&FFFFxxxx`) satisfy
+  it too, every DFS address widened as above does, and 8-bit software uses such addresses on ADFS discs that
+  RISC OS also writes typed files to. So a reader can only guess. Treat `load` as a type and date only when
+  `source.filesystem` is `"adfs"` and the date it gives is plausible (Acorn Disk Wrangler uses 1981-2100),
+  and **when unsure, treat them as addresses**. `load` and `exec` are kept raw either way, so taking a stamp for
+  an address loses nothing, while taking an address for a stamp shows a real address as a type and a date. Even
+  the date test can be fooled: `&FFFF1900` is safely read as an address (its stamp would be in 1901), but a
+  load address such as `&FFFF1950` gives a plausible date. Never *change* `load` or `exec` on the strength of the
+  guess. A DFS file never has a file type. Directories have no load or exec and so no type.
 * **Writing.** A sender that has a type but no load/exec (for example from a host file named `Name,ffb`, see
   below) builds them from the formula above: `time` from the file's date in centiseconds since 1900 (or
   the current time if it has no date), then `load = 0xFFF00000 | type << 8 | time >> 32` and
   `exec = time & 0xFFFFFFFF`. It also gives that date as `modified`.
 * **`modified`.** For a typed file, the sender gives the date held in the stamp as `modified`, as calendar time
   with no zone (the machine's own clock reading). `load` and `exec` remain the authority.
-* **Copying to DFS.** A stamp isn't an address, so a receiver that stores a typed ADFS file in DFS gives it
-  load/exec `0` (Acorn Disk Wrangler does).
+* **Copying to DFS.** DFS can only keep 18 bits, so a receiver narrows `load` and `exec` the same way for
+  every file, keeping the low 18 bits, typed or not (Acorn Disk Wrangler does). It doesn't set them to 0 for a
+  file it thinks is typed: that guess may be wrong, and then a real address would be lost.
 
 **Host file names.** On the host, RISC OS emulators keep the type in the file name. RPCEmu's host file system
 writes a typed file as `Name,ttt` (a comma and three hex digits, left off for Text, `FFF`), takes the date
