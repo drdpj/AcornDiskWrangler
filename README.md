@@ -5,6 +5,10 @@ Qt5 (C++) tool for Acorn 8-bit disc images: ADFS hard discs and floppies (old ma
 $.DOS.DRIVE_C on an ADFS hard disc. Each disc opens in its own window and files can be
 dragged between windows. Unzip scsi0.zip first; the tool works on the raw .dat.
 
+> **Drag and drop between disc tools:** files dragged out of a disc keep their load/exec addresses and
+> attributes in an open format, `application/x-retro-files+json`, that other tools can adopt.
+> **Specification and rationale: [docs/retro-files-format.md](docs/retro-files-format.md)**
+
 Build:  qmake acorndiskwrangler.pro && make      (or: cmake -S . -B build && cmake --build build)
 Needs:  Qt 5 widgets dev package (Ubuntu: qtbase5-dev)
 Run:    ./acorndiskwrangler [image ...]          (each image gets its own window)
@@ -120,8 +124,8 @@ Master 512 has not been tried yet.
   desktop); they are deleted when Disk Wrangler exits.
 * Between copies of Disk Wrangler, and to other tools that support it, a drag also carries the files'
   attributes (load/exec, access, DFS directory, DOS attributes) in the open
-  [retro-files](docs/retro-files-format.md) format, so nothing is lost; `tests/retrofilescheck.py` checks a
-  drag against that spec.
+  **[retro-files format](docs/retro-files-format.md)** (which also explains why it exists), so nothing is
+  lost; `tests/retrofilescheck.py` checks a drag against that spec.
 * ADFS tab: the whole disc. If $.DOS.DRIVE_C exists and is a FAT12/FAT16 volume, a
   second tab "DOS Plus (DRIVE_C)" appears showing C:\ - browse, drop files/folders in,
   New directory, Delete, Properties (rename 8.3 name, R/H/S/A), Extract.

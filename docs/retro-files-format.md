@@ -10,6 +10,37 @@ Acorn Disk Wrangler produces and accepts it. Nothing else is required to underst
 ordinary files as well (see *How a drag is put together*), so any program that accepts dropped files works,
 and a program that knows this format just gets more.
 
+## Why this format is needed
+
+A drag between programs normally carries only what the operating system understands about a file: its name,
+its contents and perhaps its dates. Files on retro discs have more than that, and it is part of the file:
+
+* An Acorn file has a **load address and an execution address**. Without them a machine-code program or
+  BASIC program may not run, and the pair is also how ADFS stores a file's type and time stamp.
+* Each filesystem has its own **attribute bits**: ADFS locked/read/write/execute, a DFS directory letter and
+  lock flag, DOS read-only/hidden/system/archive, CP/M user numbers.
+* Names can use characters or lengths a host file system refuses, and the same file may have to be renamed
+  differently depending on where it lands.
+
+A host file system has no place to keep any of this. A plain drag to Explorer or a file manager therefore
+loses it, and a drag from one disc tool to another has no way to carry it at all. The usual workaround is a
+sidecar file, and the Acorn `.inf` file is exactly that. It works, but it is specific to Acorn, so a CP/M
+tool can't be expected to write or read it. It is also separate from the file, so it is easily left behind.
+
+Drag and drop between programs, including between a virtual machine and its host, only passes standard types
+such as `text/uri-list` and `text/plain`. There is no standard type for "a file plus the attributes of the
+disc it came from". This format fills that gap:
+
+* **No loss between disc tools.** Moving a file from one tool to another, or from one disc type to another,
+  keeps everything the destination can use. The receiver converts what it can (for example widening or
+  narrowing addresses) and drops the rest knowingly, rather than guessing from a bare file.
+* **Nothing breaks for other programs.** The same drag also carries ordinary files, so Explorer, file
+  managers and editors work as they always did.
+* **One format for many tools.** Attributes are grouped by filesystem (`acorn`, `dfs`, `fat`, `cpm`), so a
+  tool for a new kind of disc only has to add its own group and read the ones it understands.
+* **Open and self-describing.** A small, versioned JSON document that anyone can implement or inspect
+  without this program's source.
+
 No existing standard covers this. Windows' virtual-file formats (`FileGroupDescriptorW` / `FileContents`) carry
 names, sizes and dates only; CiderPress II has a JSON drag format, but it is private to that program and
 specific to Apple II / Macintosh files. The Acorn `.inf` sidecar file is the nearest convention, and it is
