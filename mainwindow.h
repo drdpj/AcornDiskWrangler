@@ -192,7 +192,7 @@ private:
     void importX(int pane, quint32 dir, const QVector<XItem> &items, ImportCtx &c);
     void importXAdfs(quint32 dir, const XItem &x, ImportCtx &c);
     void importXDos(quint32 dir, const XItem &x, ImportCtx &c);
-    void importXDfs(int side, const XItem &x, ImportCtx &c);
+    void importXDfs(int side, const XItem &x, ImportCtx &c, QChar keepDir = QChar());
     void ensureTab(QWidget *w, const QString &text, bool want);
 
     void populate(QTreeWidgetItem *parentItem, quint32 dirSector, QSet<quint32> &seen, int depth);

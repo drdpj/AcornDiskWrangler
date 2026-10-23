@@ -34,6 +34,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QAbstractButton>
 #include <QMessageBox>
 #include <QSettings>
 #include <QTimer>
@@ -63,6 +64,18 @@ static void sendDropOn(QTreeWidget* tree,QTreeWidgetItem* it,QMimeData* mime){  
     QDragMoveEvent mv(pt,Qt::CopyAction,mime,Qt::LeftButton,Qt::NoModifier); QApplication::sendEvent(tree->viewport(),&mv);
     QDropEvent ev(QPointF(pt),Qt::CopyAction,mime,Qt::LeftButton,Qt::NoModifier); QApplication::sendEvent(tree->viewport(),&ev);
     pump();
+}
+// Answers the next QMessageBoxes in turn with the given buttons; prompts() says how many were answered.
+static QList<QMessageBox::StandardButton> g_answers; static int g_answered=0; static QStringList g_promptTexts;
+static void answer(QList<QMessageBox::StandardButton> seq){
+    g_answers=seq; g_answered=0; g_promptTexts.clear();
+    auto* t=new QTimer; t->setInterval(50);
+    QObject::connect(t,&QTimer::timeout,[t]{
+        if(g_answers.isEmpty()){ t->deleteLater(); return; }
+        auto* mb=qobject_cast<QMessageBox*>(QApplication::activeModalWidget()); if(!mb) return;
+        QAbstractButton* b=mb->button(g_answers.takeFirst()); g_promptTexts<<mb->text(); ++g_answered;
+        if(b) b->click(); else { printf("  !! prompt has no such button\n"); mb->close(); } });
+    t->start();
 }
 static int dragDirs(){ QFileInfo p(RetroFiles::dragDirPrefix()); return QDir(p.absolutePath()).entryList({p.fileName()+"*"},QDir::Dirs|QDir::NoDotAndDotDot).size(); }
 static RetroFiles::DragOutMime* mimeFor(MainWindow& w, DropTree* t, QList<QTreeWidgetItem*> items){
@@ -269,6 +282,47 @@ int main(int argc,char**argv){
           quint32 a=adfsDir(d2.image(),RootSector,"A"); CHECK(a); CHECK(adfsFile(d2.image(),a,"BOOT",&x) && x.load==0x1100 && x.flag(Entry::L));
           QString err; CHECK(d2.image().commit(&err,false,nullptr)); if(!err.isEmpty()) printf("  commit: %s\n",qPrintable(err));
           delete f6; delete m6; }
+
+      // ADFS -> DFS: a single-letter directory may keep its letter (asked); other directories flatten into $
+      printf("== ADFS single-letter directories -> DFS directory letters\n");
+      QString ladl=out+"/letters.adl"; CHECK(NewDisc::create(ladl,NewDisc::AdfsL,"LET",false,&e));
+      QByteArray one=rnd(100,11), two=rnd(200,12), three=rnd(300,13), hfile=rnd(50,14), four=rnd(70,15);
+      { Image im; CHECK(im.open(ladl,&e,0,detectDisk(ladl).sides)); quint32 f=0,sub=0,g=0,k=0;
+        CHECK(im.makeDir(RootSector,"F",&e,&f)); CHECK(im.addFile(f,"ONE",one,0x1900,0x8023,FlagR|FlagW|FlagL,false,&e));
+        CHECK(im.makeDir(f,"Sub",&e,&sub)); CHECK(im.addFile(sub,"TWO",two,0,0,FlagR|FlagW,false,&e));
+        CHECK(im.makeDir(RootSector,"g",&e,&g)); CHECK(im.addFile(g,"THREE",three,0,0,FlagR|FlagW,false,&e));
+        CHECK(im.makeDir(RootSector,"Kit",&e,&k)); CHECK(im.addFile(k,"FOUR",four,0,0,FlagR|FlagW,false,&e));
+        CHECK(im.addFile(RootSector,"H",hfile,0,0,FlagR|FlagW,false,&e)); CHECK(im.commit(&e,false,nullptr)); }
+      QString ldsd=out+"/letters.dsd"; CHECK(NewDisc::create(ldsd,NewDisc::DfsDs40,"",false,&e));
+      MainWindow ls; ls.show(); CHECK(ls.openImage(ladl)); pump();
+      MainWindow ld; ld.show(); CHECK(ld.openImage(ldsd)); pump();
+      auto dfsHas=[&](int side,QChar dir,const QString& n)->const Dfs::File*{ int i=ld.dfs(side).indexOf(dir,n); return i>=0?&ld.dfs(side).files()[i]:nullptr; };
+      {   // Yes for F (nested Sub's file keeps F too), No for g; a single-letter *file* and a longer name aren't asked about
+          auto* m7=mimeFor(ls,ls.tree(),{find(ls.tree(),"F"),find(ls.tree(),"g"),find(ls.tree(),"H"),find(ls.tree(),"Kit")});
+          answer({QMessageBox::Yes,QMessageBox::No});
+          ld.tabs()->setCurrentWidget(ld.dfsTree(0)); pump(); sendDrop(ld.dfsTree(0),m7); pump();
+          CHECK(g_answered==2); CHECK(g_promptTexts.size()==2 && g_promptTexts[0].contains("'F'") && g_promptTexts[1].contains("'g'"));
+          const Dfs::File* x=dfsHas(0,'F',"ONE"); CHECK(x && x->load==0x1900 && x->exec==0x8023 && x->locked);
+          CHECK(dfsHas(0,'F',"TWO")); CHECK(!dfsHas(0,'$',"ONE") && !dfsHas(0,'$',"TWO"));
+          CHECK(dfsHas(0,'$',"THREE")); CHECK(!dfsHas(0,'g',"THREE"));
+          CHECK(dfsHas(0,'$',"H")); CHECK(dfsHas(0,'$',"FOUR"));
+          delete m7; }
+      {   // from another process (JSON): "Yes to all" answers once for both directories, keeping the letter's case
+          auto* m8=mimeFor(ls,ls.tree(),{find(ls.tree(),"F"),find(ls.tree(),"g")}); QMimeData* f8=asForeign(m8);
+          answer({QMessageBox::YesToAll});
+          ld.tabs()->setCurrentWidget(ld.dfsTree(1)); pump(); sendDrop(ld.dfsTree(1),f8); pump();
+          CHECK(g_answered==1);
+          auto has1=[&](QChar dir,const QString& n){ int i=ld.dfs(1).indexOf(dir,n); return i>=0 && ld.dfs(1).files()[i].dir==dir; };
+          CHECK(has1('F',"ONE")); CHECK(has1('F',"TWO")); CHECK(has1('g',"THREE"));
+          QString err; CHECK(ld.image().commit(&err,false,nullptr)); if(!err.isEmpty()) printf("  commit: %s\n",qPrintable(err));
+          delete f8; delete m8; }
+      {   // Cancel stops the whole copy: H after it isn't reached (it would raise a "replace?" prompt, caught as unexpected)
+          int before0=ld.dfs(0).files().size(); int failsBefore=fails;
+          auto* m9=mimeFor(ls,ls.tree(),{find(ls.tree(),"F"),find(ls.tree(),"H")});
+          answer({QMessageBox::Cancel});
+          ld.tabs()->setCurrentWidget(ld.dfsTree(0)); pump(); sendDrop(ld.dfsTree(0),m9); pump(); pump();
+          CHECK(g_answered==1); CHECK(ld.dfs(0).files().size()==before0); CHECK(fails==failsBefore);
+          delete m9; }
     }
 
     // ---- a list from a tool this program doesn't know (CP/M): plain files, readonly honoured

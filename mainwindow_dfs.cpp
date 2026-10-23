@@ -586,12 +586,32 @@ void MainWindow::importXDos(quint32 dir, const XItem &x, ImportCtx &c) {
     dosAddOne(dir, name, x.data, x.name, c, x.locked);
 }
 
-void MainWindow::importXDfs(int side, const XItem &x, ImportCtx &c) {
+void MainWindow::importXDfs(int side, const XItem &x, ImportCtx &c, QChar keepDir) {
     if (x.isDir) {      // DFS has no directories: flatten
-        for (const XItem &k : x.kids) { if (c.cancelled) return; importXDfs(side, k, c); }
+        // An ADFS directory with a one-character name (e.g. $.F) may stand for a DFS directory letter:
+        // ask whether its files should go into DFS directory F (F.NAME) rather than $.
+        if (x.src == PaneAdfs && x.name.size() == 1 && x.name[0] != '$' && Dfs::validDir(x.name[0])) {
+            bool keep = c.letterPolicy == 1;
+            if (c.letterPolicy == 0) {
+                QMessageBox mb(QMessageBox::Question, "DFS directory letter",
+                               QString("'%1' is a single-letter directory.\n\n"
+                                       "Put its files in DFS directory %1 (%1.NAME)? If not, they go into $.")
+                                   .arg(x.name),
+                               QMessageBox::Yes | QMessageBox::YesToAll | QMessageBox::No | QMessageBox::NoToAll |
+                                   QMessageBox::Cancel, this);
+                mb.setDefaultButton(QMessageBox::Yes);
+                int b = mb.exec();
+                if (b == QMessageBox::Cancel) { c.cancelled = true; return; }
+                keep = b == QMessageBox::Yes || b == QMessageBox::YesToAll;
+                if (b == QMessageBox::YesToAll) c.letterPolicy = 1;
+                if (b == QMessageBox::NoToAll) c.letterPolicy = 2;
+            }
+            keepDir = keep ? x.name[0] : QChar();
+        }
+        for (const XItem &k : x.kids) { if (c.cancelled) return; importXDfs(side, k, c, keepDir); }
         return;
     }
-    QChar dir = (x.src == PaneDfs0 || x.src == PaneDfs1) ? x.dfsDir : QChar('$');
+    QChar dir = (x.src == PaneDfs0 || x.src == PaneDfs1) ? x.dfsDir : keepDir.isNull() ? QChar('$') : keepDir;
     QString name = Dfs::sanitizeName(x.name);
     quint32 load = 0, exec = 0;
     if (x.hasAddr && !looksStamped(x.load, x.exec)) { load = x.load & 0x3FFFF; exec = x.exec & 0x3FFFF; }

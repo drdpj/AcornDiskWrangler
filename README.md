@@ -112,7 +112,9 @@ Master 512 has not been tried yet.
   on another window's tree (or on the other tab/side of the same window) to **copy**. Names and
   attributes are converted: ADFS/DOS/DFS names are mapped to the target's rules (and made unique),
   load/exec addresses are widened or narrowed (DFS keeps 18 bits), locked <-> read-only. DFS has
-  no subdirectories, so folders dropped on a DFS disc are flattened. The other way, a DFS file's
+  no subdirectories, so folders dropped on a DFS disc are flattened, except that for an ADFS
+  directory with a one-letter name (e.g. `$.F`) you are asked whether to put its files in DFS
+  directory `F` (`F.NAME`) instead of `$` (Yes / No, or to all such directories in the drop). The other way, a DFS file's
   directory letter becomes an ADFS subdirectory of wherever it is dropped: `P.FILE` dropped on `$`
   becomes `$.P.FILE`, and on `$.Library` becomes `$.Library.P.FILE` (an existing `P` directory is
   reused; files in `$` go straight in). RISC OS style time-stamped ADFS files get load/exec 0 on DFS.

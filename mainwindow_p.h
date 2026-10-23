@@ -37,6 +37,7 @@ enum Roles { RoleParent = Qt::UserRole, RoleName, RoleIsDir, RoleSector, RoleIsR
 struct ImportCtx {
     int files = 0, dirs = 0, replaced = 0, skipped = 0;
     int policy = 0;                 // 0 = ask, 1 = replace all, 2 = skip all
+    int letterPolicy = 0;           // single-letter ADFS directory -> DFS: 0 = ask, 1 = keep letter, 2 = use $
     bool cancelled = false;
     QStringList errors;
     QSet<QString> created;          // keys of names created/replaced during this import
