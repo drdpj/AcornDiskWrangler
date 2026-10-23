@@ -94,6 +94,15 @@ UTF-8, one JSON object. Example (a directory and a file dragged from an ADFS dis
 }
 ```
 
+The same for a file dragged from a DFS disc: it has load and exec addresses too (here widened to 32 bits, see
+`acorn` below), and its DFS directory letter is kept separately:
+
+```json
+{ "path": "A.BOOT", "type": "file", "name": "BOOT", "size": 300,
+  "attributes": { "acorn": { "load": "FFFF1900", "exec": "FFFF8023", "access": "L" },
+                  "dfs":   { "directory": "A" } } }
+```
+
 | Key | Required | Meaning |
 |---|---|---|
 | `format` | yes | always `"retro-files"` |
@@ -117,21 +126,70 @@ Each item:
 
 ## Attribute namespaces
 
-### `acorn` - Acorn file attributes (ADFS, DFS)
+### `acorn` - Acorn file attributes (ADFS, DFS, and RISC OS)
+
+The attributes every Acorn filesystem has in common. **Both ADFS and DFS files carry `load` and `exec`**, and a
+sender whose source is either of them must give both for every file.
 
 | Key | Meaning |
 |---|---|
-| `load`, `exec` | load and execution addresses, 8 upper-case hex digits (32 bits). DFS's 18-bit addresses are widened the way `.inf` files do: an address with bits 16-17 both set (`&3xxxx`) becomes `&FFFFxxxx`. Files only. |
+| `load`, `exec` | load and execution addresses, 8 upper-case hex digits (32 bits). Files only. These are the authoritative values: everything else in this namespace is derived from them or is optional. |
 | `access` | access letters, any of `L` (locked), `W`, `R`, `E` (ADFS execute-only), plus `D` on a directory (informative). DFS has only *locked*: a locked DFS file is `"L"`, an unlocked one `"WR"`. |
+| `filetype` | optional, RISC OS files only: the file type as 3 upper-case hex digits, e.g. `"FFF"`. See below. |
 
-ADFS "typed and time-stamped" files (RISC OS style, load address `&FFFtttdd`) keep their raw load/exec values
-here; the date they hold is also given as `modified`.
+**ADFS and DFS addresses.** ADFS keeps full 32-bit addresses. DFS keeps 18 bits (`&00000`-`&3FFFF`), so a
+sender widens them the way `.inf` files do: an address with bits 16-17 both set (`&3xxxx`) is written as
+`&FFFFxxxx`, the address in the I/O processor (second processor) address space. A receiver that stores them in
+DFS narrows them again (keeps the low 18 bits). A receiver moving a file between the two keeps the 32-bit values
+when the target is ADFS, and has no place for them if they won't fit an 18-bit DFS address. That is a loss the
+receiver should report, not hide.
+
+**RISC OS file types.** ADFS floppies and hard discs are also written by RISC OS, which doesn't store a
+file type as a separate field. It packs the type and a date into the load and exec addresses (a "typed and
+time-stamped" file):
+
+```
+load = &FFFtttdd      FFF in the top 12 bits marks the file as typed; ttt = the file type; dd = bits 32-39 of the time
+exec = &xxxxxxxx      bits 0-31 of the time
+time = centiseconds since 1900-01-01 00:00:00 (a 40-bit number; no time zone)
+```
+
+For example, `load` `FFFFFF5A` with any `exec` is a Text file (type `FFF`, dated in the 2020s); `FFB` is BBC BASIC,
+`FF8` an absolute (machine-code) program, `FFD` data, `FFA` a module, `FEB` an Obey script, `FF9` a sprite file,
+`DDC` an archive. (Registered types are listed by RISC OS Open.) Acorn Disk Wrangler doesn't interpret any of
+this itself. It keeps `load` and `exec` exactly as they are on the disc and shows the stamp as `modified`, so a
+typed file passes between two ADFS discs, or out to a tool that understands it, without losing the type.
+The rules for a tool that does handle types are:
+
+* **Sending.** `load` and `exec` stay raw, as above. `modified` is the date held in the stamp, as calendar time with no
+  zone (the machine's own clock reading). A sender may also add
+  `filetype` (just the `ttt` digits) so that receivers don't have to decode `load`. It is redundant, and if it
+  disagrees with `load`, `load` wins.
+* **Receiving with no `load`/`exec`.** A tool that only knows a file's type (for example a host file named
+  `Name,ffb`: RPCEmu's host file system writes a typed file's type as a comma and three hex digits after the
+  name, leaves the suffix off for Text, `&FFF`, and takes the date from the host file's time) may send `filetype` and
+  `modified` and leave `load` and `exec` out. A receiver that stores Acorn addresses builds them from the
+  formula above, using `modified` as the time (or its own clock if there is none). A receiver that doesn't
+  understand types ignores `filetype` and stores the file with no addresses.
+* **Which `load` values are typed.** A file is *typed* if the top 12 bits of `load` are all set. That is
+  RISC OS's own rule, and it has one wrinkle: BBC I/O-processor addresses (`&FFFF1900`, `&FFFF8023`) satisfy
+  it too, and a DFS file widened as above always does. A reader must therefore read `load` as a typed stamp
+  only when `source.filesystem` is `"adfs"` and the date it gives is plausible (the program uses 1981-2100). A
+  DFS file never has a file type. Acorn Disk Wrangler uses the same test when it copies an ADFS stamped file to
+  DFS: the file gets load/exec `0`, because the stamp isn't an address.
+* **Untyped files.** The same emulator writes a file that has plain load and exec addresses as
+  `Name,LLLL-EEEE` (both in hex). That is a host-file convention, not part of this format: such a file is just
+  `load` and `exec`, with no `filetype`.
+* **Directories** don't have load and exec and so have no type.
 
 ### `dfs` - Acorn DFS
 
 | Key | Meaning |
 |---|---|
 | `directory` | the single-character DFS directory, e.g. `"$"` or `"A"`. `name` is the name without it (`"ELITE"`, not `"$.ELITE"`). |
+
+A DFS file's load and exec addresses are in the `acorn` namespace, not here, so a tool that reads Acorn files
+needs one code path for ADFS and DFS. `dfs` holds only what DFS has and ADFS hasn't.
 
 ### `fat` - DOS FAT attributes (PC, Acorn DOS Plus)
 
@@ -162,4 +220,5 @@ here.
 
 ## History
 
-* Version 1 (2026): first version, Acorn Disk Wrangler.
+* Version 1 (2026): first version, Acorn Disk Wrangler. `acorn.filetype` (RISC OS) is an optional key added to
+  version 1 without a version change, as the rules above allow.
