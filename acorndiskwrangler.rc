@@ -1,3 +1,4 @@
+// Acorn Disk Wrangler - Copyright (C) 2026 Daniel Jameson - GPL v3 or later.
 // Windows resource script: gives acorndiskwrangler.exe its icon in Explorer, the taskbar and Alt-Tab.
 // (The icon inside the running window is set by QApplication::setWindowIcon in main.cpp.)
 // Used by the CMake build only; qmake generates its own .rc from the .pro (keep the strings in step).

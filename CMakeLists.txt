@@ -1,3 +1,5 @@
+# Acorn Disk Wrangler - Copyright (C) 2026 Daniel Jameson
+# Licensed under the GNU General Public License v3 or later (see LICENSE).
 cmake_minimum_required(VERSION 3.5)
 project(acorndiskwrangler LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 11)

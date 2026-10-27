@@ -213,7 +213,9 @@ void MainWindow::viewSelected() {
 // --------------------------------------------------------------- importing
 
 void MainWindow::onDosDropped(const QStringList &paths, QTreeWidgetItem *target) {
-    dosImportPaths(paths, dosTargetDir(target));
+    quint32 dir = dosTargetDir(target);
+    if (!dropImages(PaneDos, paths, [this, dir](const QStringList &r) { dosImportPaths(r, dir); }))
+        dosImportPaths(paths, dir);
 }
 
 void MainWindow::importSummary(const ImportCtx &c, bool) {

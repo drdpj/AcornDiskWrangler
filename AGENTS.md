@@ -10,7 +10,12 @@ discs and S/M/L floppies, DFS (.ssd/.dsd), PC FAT floppies, Acorn DOS Plus 800K,
 hard disc. One disc per window; files can be dragged between windows. GPLv3-or-later; the
 copyright line in every header is `Copyright (C) 2026 Daniel Jameson`; put the same header on any
 new source file (`#` comments for Python). The notice also appears in Help > About (`MainWindow::about`)
-and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopyright` in the `.rc`).
+and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopyright` in the `.rc`). Build files
+(`.pro`, `CMakeLists.txt`, `.desktop`, `.rc`, the SVG) carry a short form of it. **Anything taken from or closely
+modelled on someone else's work goes in `THIRD-PARTY-NOTICES.md`** with its terms (and in About if it ships in the
+program); material only consulted for facts goes in its "Consulted" table. Never commit third-party disc images
+(or DOSBOOT): the tests read them from outside the repo. `docs/retro-files-format.md` is shared with CP/M Disk
+Wrangler (github.com/drdpj/CPMDiskWrangler): keep the two copies identical.
 
 ## Source map (all in the repo root; tests in `tests/`)
 | File | Role |
@@ -154,6 +159,13 @@ and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopy
   DOS panes have none; the locked ADFS side of a 640K DOS Plus disc refuses it. Note: every map save clears
   unused free-list slots past the end-of-list pointer (a real hard disc had a stale entry there) - harmless,
   ADFS ignores them.
+- Host drops of disc images (`MainWindow::dropImages`, called first by every pane's host-file drop handler; the same
+  behaviour as CP/M Disk Wrangler): an empty window opens every dropped file (first here, rest in
+  `openInNewWindow`); otherwise files `detectDisk` recognises are opened in new windows, except on a hard disc
+  (`isHardDisc()`: ADFS over 640K, any of its panes) where one question asks Open / Copy onto this disc / Cancel.
+  The rest are imported as before. All queued (no dialog or window inside the drop handler). An empty window also
+  ignores the retro-files JSON and takes the files, so it can open an image dragged out of another window. Add
+  files never opens images.
 - Side order (Tools > Side order): *Read as* re-opens the file with `openImage(path, 0|1)` (nothing written);
   *Convert* stages `Image::setConvertOnSave`. The status bar shows "Sides: ..." with how it was settled.
   New image: `newImageDialog()` -> `NewDisc::create()` -> opened like File > Open.
@@ -254,7 +266,7 @@ differs in Qt6). Each test is its own project in `tests/`: `mkdir b && cd b && q
 | `guitest2` | `<dir>` [`<copy of a real 640K hybrid>`] containing `a.dsd b.adl c.img d.dat e.ssd f.hybrid g.a800` | copies of a blank DSD, ADFS L, PC 720K, **the real hard disc**, a truncated SSD, the hybrid and Acorn800 images; host files in `/tmp/drop/proj` (`make_testdata.py host`); offscreen |
 | `sidetest` | `<outdir>` [`<copy of a real 640K hybrid>` [`<copy of a real 800K disc>` [`<copies of real ADFS L discs, named t2_il_<name>.adl in <outdir>>` ...]]] | nothing else (a made-up DOSBOOT is used without the real hybrid; with it, new 640K discs are compared with it): makes every format with `NewDisc` in both side orders, fills, detects, converts both ways, reads in the wrong order, drives MainWindow (offscreen). The real discs are converted and back (must stay byte-identical). Then run `tests/sidecheck.py <outdir>`: an independent reader (own de-interleave, own ADFS/DFS parser, `fsck.fat` + `mtools` for FAT, with the Acorn formats wrapped in a BPB) |
 | `detecttest` | (see above) | also prints each image's side order and whether it could be told |
-| `dragtest` | `<outdir>` | nothing else: makes its own discs. Drives the drag data as Explorer / another instance / another tool would: lazy writing, names, .inf, dates, JSON, direct copy in-process, JSON path cross-process with attributes kept (ADFS, DFS, DOS), DFS directory letters -> ADFS subdirectories (drop on a directory row, reuse, JSON path), single-letter ADFS directories -> DFS letters (Yes/No/Yes to all via JSON/Cancel), self-drop refused, a foreign (cpm) list, unsafe lists refused, read-only image, stale cleanup. Then run `tests/retrofilescheck.py <outdir>/drag-*` (independent check against the spec) |
+| `dragtest` | `<outdir>` | nothing else: makes its own discs. Drives the drag data as Explorer / another instance / another tool would: lazy writing, names, .inf, dates, JSON, direct copy in-process, JSON path cross-process with attributes kept (ADFS, DFS, DOS), DFS directory letters -> ADFS subdirectories (drop on a directory row, reuse, JSON path), single-letter ADFS directories -> DFS letters (Yes/No/Yes to all via JSON/Cancel), disc images dropped (empty window, floppy, hard disc Open/Copy/Cancel/two images), self-drop refused, a foreign (cpm) list, unsafe lists refused, read-only image, stale cleanup. Then run `tests/retrofilescheck.py <outdir>/drag-*` (independent check against the spec) |
 | `xdragtest` | `<outdir>`, run as `xvfb-run -a -s "-screen 0 1280x800x24" xdragtest <outdir>` | Linux/X11 only, needs Xvfb and xdotool. Real drags with the real pointer to a stand-in Explorer in another process: dropped (files arrive, message), passed over and let go back in the window (no message), refused (message not reliable on X11 - printed only) |
 | `boottest` | `<outdir>` [`<copy of a hard disc image>`] | ADFS S/M/L and the hard disc: options 0-3 set, saved, re-read, only byte &FD (+ checksums) changed; DFS sides independent; refusals; MainWindow per pane. Independently re-check the map checksums (Disc Image Manager's algorithm reproduces the stored ones on real discs) |
 

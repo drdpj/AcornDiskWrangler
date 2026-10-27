@@ -53,22 +53,26 @@ self-contained.
 
 3. Deploy, so it runs anywhere (double-clicked from Explorer, or on another PC). `windeployqt-qt5`
    copies the Qt DLLs and plugins (`platforms/`, `styles/`); the `ldd` loop then copies the MinGW
-   runtime and the other libraries Qt needs (ICU, HarfBuzz, FreeType, zlib ...) that it leaves out:
+   runtime and the other libraries Qt needs (ICU, HarfBuzz, FreeType, zlib ...) that it leaves out; the last
+   loop copies **the licences of everything it ships** from the MSYS2 packages those DLLs come from:
 
-       mkdir deploy
-       cp acorndiskwrangler.exe ../LICENSE deploy/
+       mkdir deploy deploy/licenses
+       cp acorndiskwrangler.exe ../LICENSE ../THIRD-PARTY-NOTICES.md deploy/
        windeployqt-qt5 --release --compiler-runtime --no-translations \
            --no-system-d3d-compiler --no-opengl-sw --no-angle deploy/acorndiskwrangler.exe
        for f in deploy/acorndiskwrangler.exe deploy/platforms/*.dll deploy/styles/*.dll; do
            ldd "$f" | awk '/\/mingw64\// {print $3}'
        done | sort -u | xargs -r cp -n -t deploy/
+       for f in deploy/*.dll; do pacman -Qqo "/mingw64/bin/$(basename "$f")" 2>/dev/null; done | sort -u |
+           while read p; do [ -d "/mingw64/share/licenses/$p" ] && cp -r "/mingw64/share/licenses/$p" deploy/licenses/; done
 
    Check it from a plain Command Prompt (no MSYS2 on the PATH): `deploy\acorndiskwrangler.exe`
    should start without a "DLL not found" message. Zip the `deploy` folder to distribute it
    (`pacman -S zip`, then `cd deploy && zip -r ../acorndiskwrangler-win64.zip .`).
 
    Because the program is GPL, publish the matching source alongside the zip (e.g. a link to the
-   repository or a source zip); the LICENSE file is already included.
+   repository or a source zip); the LGPL also lets recipients swap in their own Qt DLLs. LICENSE,
+   THIRD-PARTY-NOTICES.md and the licence texts are already included.
 
 For the UCRT64 environment instead, use the UCRT64 shell, replace `mingw-w64-x86_64-` with
 `mingw-w64-ucrt-x86_64-` in the package names, and `/mingw64/` with `/ucrt64/` in the `awk` pattern.
@@ -139,6 +143,11 @@ Master 512 has not been tried yet.
   style time-stamped files too: a stamp can't be told from an address for certain, so it is never zeroed).
 * Drop files/folders from your file manager onto the tree (onto a directory row to target
   it; onto empty space for the root). Works on both tabs.
+* **Drop a disc image to open it.** On an empty window it opens there (several images: the rest in new windows).
+  On a window holding a floppy, a dropped disc image opens in a new window instead of being copied onto the
+  floppy; other files dropped with it are added as usual. On a **hard disc** you are asked whether to open the
+  image or copy it onto the hard disc as a file (Open / Copy onto this disc / Cancel), since keeping images there
+  is common. To copy an image onto a floppy as a file, use Add files.
 * **Drag files out** onto Explorer, the desktop or any program that accepts dropped files. They come out
   exactly as Extract to host writes them (names made safe for the host, directories as folders, `.inf`
   sidecars if *Write .inf sidecar files when extracting* is on, dates from the disc where it has them). This
@@ -198,9 +207,10 @@ retro-files spec), xdragtest (real drags on X11 under Xvfb).
 
 ## Licence
 Copyright (C) 2026 Daniel Jameson. Licensed under the GNU General Public License v3.0 or
-later - see LICENSE.
-
-Requires Qt 5 (LGPLv3/GPLv3), which is compatible.
+later - see LICENSE. Uses Qt 5 under the LGPL v3. No third-party code is included; what was consulted or used
+for testing, and the licences a Windows build must ship, are listed in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). The drag-and-drop format is shared with
+[CP/M Disk Wrangler](https://github.com/drdpj/CPMDiskWrangler).
 
 ## For developers / agents
 See AGENTS.md (design rules, format notes, build and test instructions, pitfalls).

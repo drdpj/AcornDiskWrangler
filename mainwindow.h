@@ -26,6 +26,7 @@
 #include "dosfs.h"
 #include "mainwindow_p.h"
 #include "dragout.h"
+#include <functional>
 #include <memory>
 
 class QAction;
@@ -82,6 +83,8 @@ public:
     void refreshDfs();
     bool exportRefs(int pane, const QVector<DragRef> &refs, QVector<XItem> *out, QString *err);
     bool paneEditable(int pane) const;
+    bool isHardDisc() const;                    // an ADFS disc bigger than any floppy (over 640K)
+    static MainWindow *openInNewWindow(const QString &path);   // nullptr (and no window) if it can't be opened
 
     // forceSequential: -1 = detect the side order (the format's usual order, interleaved, when the contents can't
     // tell), 0 / 1 = read an Acorn double-sided image as interleaved / sequential.
@@ -206,6 +209,7 @@ private:
     void addOne(quint32 dir, QString name, const QByteArray &data, quint32 load, quint32 exec,
                 quint8 flags, bool haveAttrs, const QString &src, ImportCtx &c);
     bool isSidecar(const QString &path) const;
+    bool dropImages(int pane, const QStringList &paths, std::function<void(const QStringList &)> importRest);
 
     void extractEntry(quint32 parent, const Adfs::Entry &e, const QString &hostDir, QStringList &errors);
     void countTree(quint32 dirSector, int &files, int &dirs, int &locked, int depth) const;

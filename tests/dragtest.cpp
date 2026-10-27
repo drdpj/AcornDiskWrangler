@@ -77,6 +77,27 @@ static void answer(QList<QMessageBox::StandardButton> seq){
         if(b) b->click(); else { printf("  !! prompt has no such button\n"); mb->close(); } });
     t->start();
 }
+// Clicks the next QMessageBoxes' buttons by their text (for boxes with buttons of their own).
+static QStringList g_clicks; static QStringList g_clickTexts;
+static void clickText(QStringList seq){
+    g_clicks=seq; g_clickTexts.clear();
+    auto* t=new QTimer; t->setInterval(50);
+    QObject::connect(t,&QTimer::timeout,[t]{
+        if(g_clicks.isEmpty()){ t->deleteLater(); return; }
+        auto* mb=qobject_cast<QMessageBox*>(QApplication::activeModalWidget()); if(!mb) return;
+        QString want=g_clicks.takeFirst(); g_clickTexts<<mb->text();
+        for(QAbstractButton* b:mb->buttons()) if(b->text()==want){ b->click(); return; }
+        printf("  !! no button '%s'\n",qPrintable(want)); mb->close(); });
+    t->start();
+}
+static void dropPaths(QTreeWidget* tree,const QStringList& paths){
+    QMimeData m; QList<QUrl> u; for(auto&p:paths) u<<QUrl::fromLocalFile(p); m.setUrls(u); sendDrop(tree,&m);
+    for(int i=0;i<10;++i) pump();
+}
+static QList<MainWindow*> newWindows(const QList<MainWindow*>& before){
+    QList<MainWindow*> n; for(MainWindow* w:MainWindow::windows()) if(!before.contains(w)) n<<w; return n;
+}
+static void closeAll(const QList<MainWindow*>& l){ for(MainWindow* w:l) w->close(); pump(); }
 static int dragDirs(){ QFileInfo p(RetroFiles::dragDirPrefix()); return QDir(p.absolutePath()).entryList({p.fileName()+"*"},QDir::Dirs|QDir::NoDotAndDotDot).size(); }
 static RetroFiles::DragOutMime* mimeFor(MainWindow& w, DropTree* t, QList<QTreeWidgetItem*> items){
     w.tabs()->setCurrentWidget(t); pump();
@@ -360,6 +381,51 @@ int main(int argc,char**argv){
         CHECK(x.size()==3);
         if(x.size()==3){ CHECK(x[0].dfsDir=='$' && x[0].name=="`5"); CHECK(x[1].dfsDir=='q' && x[1].name=="PROG");
                          CHECK(x[2].dfsDir=='$' && x[2].name=="PLAIN"); } }
+    }
+
+    // ---- disc images dropped from the host: opened (an empty window here, others in new windows); a hard disc asks
+    printf("== disc images dropped\n");
+    { QString hd=out+"/hd.dat"; { QFile f(hd); f.open(QIODevice::WriteOnly|QIODevice::Truncate); f.write(Adfs::makeBlankImage(8192,"HARDDISC")); }
+      QString plain=out+"/notes.txt"; { QFile f(plain); f.open(QIODevice::WriteOnly|QIODevice::Truncate); f.write("just a text file\n"); }
+      QString fl=out+"/floppy.adl"; CHECK(NewDisc::create(fl,NewDisc::AdfsL,"FLOP",false,&e));
+      CHECK(detectDisk(hd).kind==DiskInfo::Adfs); CHECK(detectDisk(plain).kind==DiskInfo::Unknown);
+      {   // an empty window: the first file opens here, the next in a new window
+          MainWindow w; w.show(); pump(); QList<MainWindow*> before=MainWindow::windows();
+          dropPaths(w.tree(),{dsd,adl});
+          CHECK(w.image().isOpen() && w.info().kind==DiskInfo::Dfs);
+          QList<MainWindow*> n=newWindows(before); CHECK(n.size()==1 && n[0]->info().kind==DiskInfo::Adfs);
+          closeAll(n); }
+      {   // a floppy: the image opens in a new window without asking, the plain file is added
+          MainWindow w; w.show(); CHECK(w.openImage(fl)); pump(); QList<MainWindow*> before=MainWindow::windows();
+          dropPaths(w.tree(),{dsd,plain});
+          QList<MainWindow*> n=newWindows(before); CHECK(n.size()==1 && n[0]->info().kind==DiskInfo::Dfs);
+          Dir r; CHECK(w.image().readDir(RootSector,&r,&e)); CHECK(r.entries.size()==1);   // only the text file
+          closeAll(n); }
+      {   // a hard disc asks: Open
+          MainWindow w; w.show(); CHECK(w.openImage(hd)); pump(); CHECK(w.isHardDisc());
+          QList<MainWindow*> before=MainWindow::windows();
+          clickText({"Open it"}); dropPaths(w.tree(),{dsd});
+          CHECK(g_clickTexts.size()==1 && g_clickTexts[0].contains("disc image"));
+          QList<MainWindow*> n=newWindows(before); CHECK(n.size()==1 && n[0]->info().kind==DiskInfo::Dfs);
+          Dir r; CHECK(w.image().readDir(RootSector,&r,&e)); CHECK(r.entries.isEmpty());
+          closeAll(n);
+          // Copy onto this disc: the image becomes a file on the hard disc, the plain file goes with it
+          clickText({"Copy onto this disc"}); dropPaths(w.tree(),{dsd,plain});
+          CHECK(g_clickTexts.size()==1); CHECK(newWindows(before).isEmpty());
+          CHECK(w.image().readDir(RootSector,&r,&e)); CHECK(r.entries.size()==2);
+          bool big=false; for(const Entry& x:r.entries) if(x.length==quint32(QFileInfo(dsd).size())) big=true; CHECK(big);
+          // Cancel: nothing happens, nothing more is added
+          clickText({"Cancel"}); dropPaths(w.tree(),{adl,plain});
+          CHECK(g_clickTexts.size()==1); CHECK(newWindows(before).isEmpty());
+          CHECK(w.image().readDir(RootSector,&r,&e)); CHECK(r.entries.size()==2);
+          // two images: one question for both
+          clickText({"Open them"}); dropPaths(w.tree(),{dsd,adl});
+          CHECK(g_clickTexts.size()==1 && g_clickTexts[0].startsWith("2 of the dropped files"));
+          CHECK(newWindows(before).size()==2); closeAll(newWindows(before));
+          // a plain file only: no question, added as before
+          QString plain2=out+"/more.txt"; { QFile f(plain2); f.open(QIODevice::WriteOnly|QIODevice::Truncate); f.write("more\n"); }
+          int fb=fails; dropPaths(w.tree(),{plain2}); CHECK(fails==fb);
+          CHECK(w.image().readDir(RootSector,&r,&e)); CHECK(r.entries.size()==3); }
     }
 
     // ---- read-only image (a damaged free space map opens read-only): dragging out still works

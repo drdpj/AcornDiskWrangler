@@ -185,7 +185,9 @@ void DropTree::dropEvent(QDropEvent *e) {
         emit internalDrop(e->mimeData()->data(WRANGLER_MIME_ITEMS), itemAt(e->pos()));
         return;
     }
-    if (e->mimeData()->hasFormat(RetroFiles::MimeType)) {   // another copy of this program, or another tool
+    MainWindow *win = MainWindow::byId(m_owner);
+    bool empty = win && !win->image().isOpen();  // an empty window opens dropped files, so it wants them as files
+    if (!empty && e->mimeData()->hasFormat(RetroFiles::MimeType)) {   // another copy of this program, or another tool
         QByteArray json = e->mimeData()->data(RetroFiles::MimeType);
         if (!json.isEmpty()) {
             e->setDropAction(Qt::CopyAction);
@@ -414,7 +416,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         connect(t, &QWidget::customContextMenuRequested, this, &MainWindow::showContextMenu);
         connect(t, &QTreeWidget::itemSelectionChanged, this, &MainWindow::updateUi);
         connect(t, &QTreeWidget::itemDoubleClicked, this, dbl);
-        connect(t, &DropTree::pathsDropped, this, [this, s](const QStringList &p, QTreeWidgetItem *) { dfsImportPaths(s, p); });
+        connect(t, &DropTree::pathsDropped, this, [this, s](const QStringList &p, QTreeWidgetItem *) {
+            if (!dropImages(s ? PaneDfs1 : PaneDfs0, p, [this, s](const QStringList &r) { dfsImportPaths(s, r); }))
+                dfsImportPaths(s, p);
+        });
     }
     // items dragged in from another disc/window (resolved now, handled after the drop returns)
     for (DropTree *t : {m_tree, m_dosTree, m_dfsTree[0], m_dfsTree[1]})
@@ -781,7 +786,9 @@ void MainWindow::about() {
                            "WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A "
                            "PARTICULAR PURPOSE. See the "
                            "<a href=\"https://www.gnu.org/licenses/gpl-3.0.html\">GNU General Public License</a> "
-                           "for more details.</p>");
+                           "for more details.</p>"
+                           "<p>Uses Qt 5 under the LGPL v3. Shares its drag-and-drop format (retro-files) with CP/M Disk "
+                           "Wrangler. See THIRD-PARTY-NOTICES.md for everything consulted or used.</p>");
     box.exec();
 }
 
@@ -989,7 +996,74 @@ void MainWindow::showContextMenu(const QPoint &pos) {
 // ------------------------------------------------------------------ importing
 
 void MainWindow::onDropped(const QStringList &paths, QTreeWidgetItem *target) {
-    importPaths(paths, targetDirForItem(target));
+    quint32 dir = targetDirForItem(target);
+    if (!dropImages(PaneAdfs, paths, [this, dir](const QStringList &r) { importPaths(r, dir); })) importPaths(paths, dir);
+}
+
+bool MainWindow::isHardDisc() const {
+    return m_img.isOpen() && m_info.kind == DiskInfo::Adfs && m_img.fullSize() > 655360;
+}
+
+MainWindow *MainWindow::openInNewWindow(const QString &path) {
+    auto *w = new MainWindow;
+    w->setAttribute(Qt::WA_DeleteOnClose);
+    w->show();
+    if (w->openImage(path)) return w;
+    w->close();
+    return nullptr;
+}
+
+// Files dropped from the host that are disc images (as CP/M Disk Wrangler does). An empty window opens whatever is
+// dropped on it: the first file here, the rest in new windows. A window holding a floppy opens disc images in new
+// windows and adds the other files as usual. A hard disc may be where an image is meant to be kept, so it asks
+// whether to open the images or copy them onto the disc as files. Returns true if it took the drop over; the work
+// is queued, so no dialog or new window appears inside the drop handler. (Add files never opens images.)
+bool MainWindow::dropImages(int pane, const QStringList &paths, std::function<void(const QStringList &)> importRest) {
+    if (!m_img.isOpen()) {
+        QTimer::singleShot(0, this, [this, paths] {
+            for (const QString &p : paths) {
+                if (QFileInfo(p).isDir() || p.endsWith(".inf", Qt::CaseInsensitive)) continue;
+                if (!m_img.isOpen()) openImage(p);
+                else openInNewWindow(p);
+            }
+        });
+        return true;
+    }
+    QStringList images, kinds;
+    for (const QString &p : paths) {
+        if (QFileInfo(p).isDir()) continue;
+        DiskInfo i = detectDisk(p);
+        if (i.kind != DiskInfo::Unknown) { images << p; kinds << i.description; }
+    }
+    if (images.isEmpty()) return false;
+    QTimer::singleShot(0, this, [this, pane, paths, images, kinds, importRest] {
+        bool copy = false;
+        if (isHardDisc() && paneEditable(pane)) {
+            QString text = images.size() == 1
+                ? QString("'%1' is a disc image (%2).\n\nOpen it in its own window, or copy it onto this hard disc "
+                          "as a file?").arg(QFileInfo(images[0]).fileName(), kinds[0])
+                : QString("%1 of the dropped files are disc images.\n\nOpen them in their own windows, or copy them "
+                          "onto this hard disc as files?").arg(images.size());
+            QMessageBox box(QMessageBox::Question, "Disc image dropped", text, QMessageBox::NoButton, this);
+            QPushButton *open = box.addButton(images.size() == 1 ? "Open it" : "Open them", QMessageBox::AcceptRole);
+            QPushButton *onto = box.addButton("Copy onto this disc", QMessageBox::ActionRole);
+            box.addButton(QMessageBox::Cancel);
+            box.setDefaultButton(open);
+            box.exec();
+            if (box.clickedButton() == onto) copy = true;
+            else if (box.clickedButton() != open) return;
+        }
+        QStringList rest;
+        for (const QString &p : paths)
+            if (copy || !images.contains(p)) rest << p;
+        if (!rest.isEmpty()) importRest(rest);
+        if (copy) return;
+        int opened = 0;
+        for (const QString &p : images)
+            if (openInNewWindow(p)) ++opened;
+        if (rest.isEmpty()) statusBar()->showMessage(QString("Opened %1 disc image(s) in new windows.").arg(opened), 10000);
+    });
+    return true;
 }
 
 void MainWindow::addFilesDialog() {

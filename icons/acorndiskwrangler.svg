@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 5.25" floppy disc icon; same geometry as icon.cpp (keep them in step) -->
+<!-- Acorn Disk Wrangler icon: a 5.25" floppy disc. Copyright (C) 2026 Daniel Jameson, GPL v3 or later.
+     Same geometry as floppyIconImage() in icon.cpp (100 x 100 grid); keep the two in step. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="256" height="256">
   <path fill="#2f3138" d="M9 6H91A3 3 0 0 1 94 9V23.5H91.2V30.5H94V91A3 3 0 0 1 91 94H9A3 3 0 0 1 6 91V9A3 3 0 0 1 9 6Z"/>
   <rect x="8" y="7.3" width="84" height="2.4" rx="1.2" fill="#3d4049"/>

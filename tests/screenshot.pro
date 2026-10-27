@@ -1,3 +1,5 @@
+# Acorn Disk Wrangler - Copyright (C) 2026 Daniel Jameson
+# Licensed under the GNU General Public License v3 or later (see LICENSE).
 QT += widgets
 CONFIG += c++11
 TARGET = screenshot
