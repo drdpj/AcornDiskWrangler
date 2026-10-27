@@ -124,6 +124,20 @@ int main(int argc, char **argv) {
         QString p = out + "/boot_hyb.adl"; CHECK(NewDisc::create(p, NewDisc::Acorn640, "", false, &e, boot));
         Image img; CHECK(openAdfs(img, p)); CHECK(!img.setBootOption(2, &e)); CHECK(!img.dirty());
         printf("  640K DOS Plus disc refused: %s\n", qPrintable(e));
+        // Acorn's ROM gives an all-zero map sector 1 the check byte &FF; earlier versions wrote 00 there
+        CHECK(quint8(head(p, 512)[511]) == 0xFF);
+        QString old = out + "/boot_hyb_old.adl"; QFile::remove(old); CHECK(QFile::copy(p, old));
+        { QFile f(old); CHECK(f.open(QIODevice::ReadWrite)); f.seek(511); f.putChar(0); }
+        CHECK(detectDisk(old).kind == DiskInfo::AdfsDosHybrid);
+        { Image o; CHECK(openAdfs(o, old)); CHECK(o.openReport().ok()); CHECK(o.editable());
+          CHECK(o.openReport().warnings.join(" ").contains("earlier version")); CHECK(o.dirty());
+          CHECK(o.commit(&e, false, nullptr)); }
+        CHECK(head(old, 4096) == head(p, 4096));                                    // byte for byte as a new disc
+        { Image o; CHECK(openAdfs(o, old)); CHECK(!o.dirty()); CHECK(!o.openReport().warnings.join(" ").contains("earlier version")); }
+        // any other wrong check byte is still an error
+        { QFile f(old); CHECK(f.open(QIODevice::ReadWrite)); f.seek(511); f.putChar(0x12); }
+        { Image o; CHECK(openAdfs(o, old)); CHECK(!o.openReport().ok()); CHECK(!o.dirty()); }
+        printf("  map check byte of an earlier version's 640K disc corrected\n");
     }
 
     // ---- MainWindow: the option follows the current pane

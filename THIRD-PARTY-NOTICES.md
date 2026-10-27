@@ -20,16 +20,18 @@ These were read for facts about formats or behaviour. No code or text was copied
 
 | Source | Used for | Terms |
 |---|---|---|
+| Acorn's ADFS 1.30 ROM, as disassembled in Dominic Beesley's ADFS-multi-target (<https://github.com/dominicbeesley/ADFS-multi-target>, `src/adfs.asm`, `src/floppy.asm`) | the free space map checksum routine; how ADFS numbers an L disc's sectors (side 0 first) | facts only (the ROM is Acorn's) |
+| b-em (<https://github.com/stardot/b-em>, `src/sdf-geo.c`) | the file layout of ADFS and DFS images (interleaved / sequential sides); its map checksum routine agrees with Acorn's | GPL v2 |
+| RISC OS Open wiki, "FileCore Disc Map Old" | the old map layout and check bytes | facts only |
 | MAME's Acorn floppy formats (`src/lib/formats`) | the usual side order of Acorn double-sided images | BSD-3-Clause |
-| Gerald Holdsworth's Disc Image Manager and disc image notes | side order of Acorn images; checking the ADFS free space map checksum | facts only |
 | Stardot `.inf` format specification (<https://github.com/stardot/inf_format>) | the access letters used in `docs/retro-files-format.md` | facts only |
 | RPCEmu 0.9.5 host file system (`src/hostfs.c`) | the `,ttt` and `,llllllll-eeeeeeee` host file name conventions described in the spec | facts only |
 | Qt 5.15 `qwindowsmime.cpp` | when Windows asks a drag source for its files | facts only |
 | Feedback from Rob Smallshire, author of oaknut (GitHub issue #1) | public access, name character set, typed loads | - |
 
 ## Used only for testing (not included, not distributed)
-* **Real disc images**: the Master Welcome disc, Acorn User Tau85 and ARM Evaluation disc 4 from b-em's `discs/`
-  folder and oaknut's test data, and the owner's own hard disc and Master 512 discs. They belong to their owners
+* **Real disc images**: from b-em's `discs/` folder (the Master Welcome disc, ARM Evaluation System discs 1-5,
+  Master 512 Disc 1, the Pan*.dsd discs) and oaknut's test data (Acorn User Tau85), and the owner's own hard disc and Master 512 discs. They belong to their owners
   and are not part of this repository; the tests read them from outside it.
 * **dosfstools** (`mkfs.fat`, `fsck.fat`; GPL v3+) and **mtools** (GPL v3+) are run by the tests as independent
   checks; **Xvfb** and **xdotool** drive the real drag-and-drop test on Linux. **Pillow** (HPND licence) made

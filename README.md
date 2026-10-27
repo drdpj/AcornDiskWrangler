@@ -202,6 +202,7 @@ DFS: up to 31 files per side, names 7 characters plus a directory letter, one ca
 Tests (tests/): viewtest (detokeniser), selftest (ADFS), dostest and floptest (FAT), dfstest (DFS), detecttest (format
 detection), mkimg (makes blank ADFS test images), guitest and guitest2 (offscreen GUI, incl. multi-window copying),
 sidetest (new images of every type, side order detection and conversion) with sidecheck.py (independent check),
+acorncheck.py (independent check of ADFS maps, directories and side order, written from Acorn's ADFS ROM and b-em),
 boottest (boot option), dragtest (dragging out) with retrofilescheck.py (checks a drag against the
 retro-files spec), xdragtest (real drags on X11 under Xvfb).
 

@@ -74,8 +74,8 @@ def make_pc(out):
     for k in (360, 720, 1200, 1440):
         subprocess.check_call(['mkfs.fat', '-C', os.path.join(out, 'pc%d.img' % k), str(k)], stdout=subprocess.DEVNULL)
 
-def checksum(s):                       # ADFS free space map checksum (bytes 254..0, carry kept, final carry dropped)
-    sm = c = 0
+def checksum(s):                       # ADFS free space map checksum as Acorn's ROM does it: start &FF, ADC bytes &FE..&00
+    sm, c = 0xFF, 0
     for i in range(254, -1, -1):
         t = sm + s[i] + c; c = 1 if t > 255 else 0; sm = t & 255
     return sm

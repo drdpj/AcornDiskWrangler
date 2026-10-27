@@ -72,9 +72,12 @@ quint8 bcdInc(quint8 v) {
     return quint8((hi << 4) | lo);
 }
 
-// ADC-style checksum over bytes 254..0, carry propagated, final carry dropped.
+// Free space map check byte, exactly as Acorn's ADFS ROM computes it (ADFS 1.30 &9065): A = &FF, carry clear, then
+// ADC bytes &FE down to &00, the carry running on; the final carry is dropped. (b-em's adfs_checksum and the RISC OS
+// Open "FileCore Disc Map Old" page agree.) Starting at &FF matters only when the bytes are all zero - e.g. sector 1
+// of a disc with no free space - where it gives &FF, not 0; an earlier version started at 0 and got that wrong.
 quint8 mapChecksum(const char *s) {
-    unsigned sum = 0, carry = 0;
+    unsigned sum = 0xFF, carry = 0;
     for (int i = 254; i >= 0; --i) {
         unsigned t = sum + quint8(s[i]) + carry;
         carry = t > 255 ? 1 : 0;
@@ -217,9 +220,19 @@ bool FsMap::parse(const QByteArray &s01, FsMap *out, QStringList *errors, QStrin
         if (mapChecksum(s0) != quint8(s0[255]))
             errs << QString("free space map sector 0 checksum is wrong (stored %1, calculated %2)")
                         .arg(quint8(s0[255]), 2, 16, QChar('0')).arg(mapChecksum(s0), 2, 16, QChar('0'));
-        if (mapChecksum(s1) != quint8(s1[255]))
+        bool s1zero = true;
+        for (int i = 0; i < 255; ++i) if (s1[i]) s1zero = false;
+        if (s1zero && quint8(s1[255]) == 0) {
+            // Versions before the checksum was checked against Acorn's ROM wrote 00 here for an all-zero sector 1 (no
+            // free space, no disc id, boot option 0: a new DOS Plus 640K disc made from a DOSBOOT file); Acorn's ADFS
+            // expects FF. Only that exact case is accepted - Image::open corrects it, so it is saved right.
+            m.oldZeroCheck = true;
+            warns << "free space map sector 1 has check byte 00, written by an earlier version of Acorn Disk Wrangler "
+                     "(Acorn's ADFS expects FF); it has been corrected - save to write the fix";
+        } else if (mapChecksum(s1) != quint8(s1[255])) {
             errs << QString("free space map sector 1 checksum is wrong (stored %1, calculated %2)")
                         .arg(quint8(s1[255]), 2, 16, QChar('0')).arg(mapChecksum(s1), 2, 16, QChar('0'));
+        }
         m.total = le24(s0 + 0xFC);
         if (m.total < 8) errs << "disc size in free space map is implausible";
         int end = quint8(s1[0xFE]);
@@ -419,6 +432,7 @@ bool Image::open(const QString &path, QString *err, quint64 forceFullSize, const
     }
     m_openReport = validate();
     if (!m_openReport.ok()) m_editable = false;
+    else if (m_map.oldZeroCheck && m_editable) stageFsMap();      // the earlier version's check byte: fix it (staged)
     return true;
 }
 

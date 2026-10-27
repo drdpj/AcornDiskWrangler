@@ -103,6 +103,7 @@ struct FsMap {
     QVector<Run> runs;
     quint32 total = 0;
     QByteArray base;                              // the 512 raw bytes (preserves name/id/boot)
+    bool oldZeroCheck = false;                    // sector 1 has the check byte an earlier version wrote (see parse)
 
     // Parses and checks. Returns true when there are no errors.
     static bool parse(const QByteArray &s01, FsMap *out, QStringList *errors, QStringList *warnings);

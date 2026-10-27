@@ -138,8 +138,9 @@ Wrangler (github.com/drdpj/CPMDiskWrangler): keep the two copies identical.
     1.44M, whose root directory is entirely on side 1 of cylinder 0: read the wrong way it is an empty, "valid"
     directory while the FAT says the disc is full). When both orders pass equally (blank discs; files only in a
     root directory on track 0) `sidesConfirmed` is false and the format's usual order is used: interleaved for
-    every Acorn format (ADFS L, DSD, DOS Plus 800K and 640K - MAME's Acorn formats and Gerald Holdsworth's
-    disc-image notes agree). The owner's rule: **never** fall back on an order used before for that file - no
+    every Acorn format (ADFS L, DSD, DOS Plus 800K and 640K - b-em's `src/sdf-geo.c` geometry table and MAME's
+    Acorn formats agree). That ADFS numbers an L disc's sectors side 0 first comes from Acorn's own floppy driver
+    (ADFS 1.30 `floppy.asm` in dominicbeesley/ADFS-multi-target: track = sector / 16, track >= 80 is side 1). The owner's rule: **never** fall back on an order used before for that file - no
     per-file memory. `sidetest` asserts the rule that matters: detection may say it can't tell, but it must
     **never be sure of the wrong order**.
   - **Conversion** (`Image::setConvertOnSave`) is staged like any edit (`dirty()`); `commit()` rewrites the whole
@@ -268,7 +269,8 @@ differs in Qt6). Each test is its own project in `tests/`: `mkdir b && cd b && q
 | `detecttest` | (see above) | also prints each image's side order and whether it could be told |
 | `dragtest` | `<outdir>` | nothing else: makes its own discs. Drives the drag data as Explorer / another instance / another tool would: lazy writing, names, .inf, dates, JSON, direct copy in-process, JSON path cross-process with attributes kept (ADFS, DFS, DOS), DFS directory letters -> ADFS subdirectories (drop on a directory row, reuse, JSON path), single-letter ADFS directories -> DFS letters (Yes/No/Yes to all via JSON/Cancel), disc images dropped (empty window, floppy, hard disc Open/Copy/Cancel/two images), self-drop refused, a foreign (cpm) list, unsafe lists refused, read-only image, stale cleanup. Then run `tests/retrofilescheck.py <outdir>/drag-*` (independent check against the spec) |
 | `xdragtest` | `<outdir>`, run as `xvfb-run -a -s "-screen 0 1280x800x24" xdragtest <outdir>` | Linux/X11 only, needs Xvfb and xdotool. Real drags with the real pointer to a stand-in Explorer in another process: dropped (files arrive, message), passed over and let go back in the window (no message), refused (message not reliable on X11 - printed only) |
-| `boottest` | `<outdir>` [`<copy of a hard disc image>`] | ADFS S/M/L and the hard disc: options 0-3 set, saved, re-read, only byte &FD (+ checksums) changed; DFS sides independent; refusals; MainWindow per pane. Independently re-check the map checksums (Disc Image Manager's algorithm reproduces the stored ones on real discs) |
+| `acorncheck.py` | images ... [`--sequential` images ...] | independent ADFS/DFS checker, see "Verify independently" below |
+| `boottest` | `<outdir>` [`<copy of a hard disc image>`] | ADFS S/M/L and the hard disc: options 0-3 set, saved, re-read, only byte &FD (+ checksums) changed; DFS sides independent; refusals; MainWindow per pane; a 640K disc with an earlier version's sector-1 check byte (00) is corrected. `tests/acorncheck.py` re-checks the checksums independently |
 
 `selftest`, `dostest`, `guitest` and `guitest2` assert details of the owner's image (12 root
 entries, 69 DOS root entries, `BeebSCSI`, `!Config`, ...). That image is **not** in the repo; if
@@ -282,8 +284,14 @@ drops, and the map-name variant for `selftest`. ADFS floppies come from `tests/m
 Acorn 800K/hybrid images from `floptest acorn800|hybrid640 <out>`.
 
 **Verify independently, not just with our own code.** For FAT use `fsck.fat -n` and `mtools`
-(`MTOOLSRC=/dev/null mdir -i img ::`); for DFS and ADFS write a small separate Python parser
-and compare file hashes. Our own reader agreeing with our own writer proves little.
+(`MTOOLSRC=/dev/null mdir -i img ::`); for ADFS and DFS run `tests/acorncheck.py` on real discs (b-em's `discs/`,
+the owner's) and on everything the tests wrote. It is written only from Acorn's ADFS ROM (map checksum routine,
+floppy sector numbering), b-em's image layouts and the RISC OS Open old-map description - not from this program -
+and walks every directory and checks BBC BASIC programs read intact, so a wrong side order fails on any disc with
+data beyond the first track. Our own reader agreeing with our own writer proves little: the map checksum started
+at 0 instead of Acorn's &FF through all the earlier testing, which only matters for an all-zero sector 1 (new 640K DOS Plus
+discs made from a DOSBOOT file got 00 where ADFS expects FF), and only acorncheck found it.
+At the owner's request, Disc Image Manager is not used as a source or reference.
 
 ## Testing GUI code (things that bit us)
 - Synthetic drops must send `QDragEnterEvent`, then `QDragMoveEvent`, then `QDropEvent` to the
