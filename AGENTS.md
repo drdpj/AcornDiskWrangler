@@ -4,7 +4,7 @@ Read this before changing code. It records the design rules, the facts about the
 (and how sure we are of each), how to build and test, and the mistakes already made once.
 
 ## What this is
-A Qt 5 (C++11) desktop tool for editing Acorn 8-bit disc images. It opens ADFS old-map hard
+A Qt 6 / Qt 5.15 (C++17) desktop tool for editing Acorn 8-bit disc images. It opens ADFS old-map hard
 discs and S/M/L floppies, DFS (.ssd/.dsd), PC FAT floppies, Acorn DOS Plus 800K, the Acorn
 640K ADFS/DOS hybrid, and the FAT16 DOS Plus partition stored in `$.DOS.DRIVE_C` on an ADFS
 hard disc. One disc per window; files can be dragged between windows. GPLv3-or-later; the
@@ -258,8 +258,10 @@ identical.
 ```
 qmake acorndiskwrangler.pro && make          # or CMake (CMakeLists.txt)
 ```
-Needs Qt 5 widgets (developed on 5.15; `DropTree::mimeData` uses the Qt5 signature, which
-differs in Qt6). Each test is its own project in `tests/`: `mkdir b && cd b && qmake ../tests/X.pro && make`.
+Needs Qt 6 or Qt 5.15 widgets; both must keep building (qmake picks whichever `qmake` you run, CMake prefers
+Qt 6, `-DUSE_QT5=ON` forces 5). Where the two differ the code uses `#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)`:
+`DropTree::mimeData` (list by reference in 6), `DragOutMime::retrieveData` (QMetaType in 6) and `dropPos()`
+(QDropEvent::position() in 6). Each test is its own project in `tests/`: `mkdir b && cd b && qmake ../tests/X.pro && make`.
 
 | Test | Args | Needs |
 |---|---|---|

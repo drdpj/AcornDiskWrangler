@@ -1,6 +1,6 @@
 # Acorn Disk Wrangler
 
-Qt5 (C++) tool for Acorn 8-bit disc images: ADFS hard discs and floppies (old map), DFS
+Qt 6 (C++) tool for Acorn 8-bit disc images: ADFS hard discs and floppies (old map), DFS
 (.ssd/.dsd), PC FAT floppies, Acorn DOS Plus floppies, and the DOS Plus partition stored in
 $.DOS.DRIVE_C on an ADFS hard disc. Each disc opens in its own window and files can be
 dragged between windows. Unzip scsi0.zip first; the tool works on the raw .dat.
@@ -10,7 +10,7 @@ dragged between windows. Unzip scsi0.zip first; the tool works on the raw .dat.
 > **Specification and rationale: [docs/retro-files-format.md](docs/retro-files-format.md)**
 
 Build:  qmake acorndiskwrangler.pro && make      (or: cmake -S . -B build && cmake --build build)
-Needs:  Qt 5 widgets dev package (Ubuntu: qtbase5-dev)
+Needs:  Qt 6 widgets dev package (Ubuntu: qt6-base-dev), or Qt 5.15 (qtbase5-dev; CMake: -DUSE_QT5=ON)
 Run:    ./acorndiskwrangler [image ...]          (each image gets its own window)
 
 ## Installing on Linux (menu entry and dock icon)
@@ -31,18 +31,18 @@ Untested so far. A qmake or CMake build makes `acorndiskwrangler.app` with the f
 (`icons/acorndiskwrangler.icns`) for Finder and the Dock; `macdeployqt acorndiskwrangler.app` makes it
 self-contained.
 
-## Building on Windows (MSYS2 / MinGW64)
-1. Install [MSYS2](https://www.msys2.org/), then open the **MSYS2 MINGW64** shell (not "MSYS2 MSYS"
-   or "UCRT64") and install the compiler and Qt 5:
+## Building on Windows (MSYS2 / UCRT64)
+1. Install [MSYS2](https://www.msys2.org/), then open the **MSYS2 UCRT64** shell and install the compiler and
+   Qt 6:
 
        pacman -Syu
-       pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-qt5-base mingw-w64-x86_64-qt5-tools
+       pacman -S --needed mingw-w64-ucrt-x86_64-toolchain mingw-w64-ucrt-x86_64-qt6-base
 
-   MSYS2 gives the Qt 5 tools a `-qt5` suffix (`qmake-qt5`, `windeployqt-qt5`); plain `qmake` is
-   Qt 6 and may not be installed at all.
+   For Qt 5 instead, install `mingw-w64-ucrt-x86_64-qt5-base mingw-w64-ucrt-x86_64-qt5-tools` and put `QT=5` in
+   front of each `ci/build.sh` below (MSYS2 names the Qt 5 tools `qmake-qt5` and `windeployqt-qt5`).
 
-2. From the source folder, build a release and deploy it (Qt and MinGW DLLs and plugins copied beside the exe,
-   so it runs from Explorer or on another PC), collect the licences of everything it ships, and build again
+2. From the source folder, build a release and deploy it (Qt and compiler DLLs and plugins copied beside the
+   exe, so it runs from Explorer or on another PC), collect the licences of everything it ships, and build again
    with them compiled in:
 
        bash ci/build.sh windows
@@ -52,13 +52,13 @@ self-contained.
 
    `deploy/` is then ready to zip (`pacman -S zip`, then `cd deploy && zip -r ../acorndiskwrangler-win64.zip .`).
    qmake prints `WARNING: Failure to find: acorndiskwrangler_resource_res.o`; that is harmless. For a quick
-   build to run from the MINGW64 shell, `build/acorndiskwrangler.exe` from the first step is enough.
+   build to run from the UCRT64 shell, `build/acorndiskwrangler.exe` from the first step is enough.
 
    Because the program is GPL, publish the matching source alongside the zip (e.g. a link to the
    repository or a source zip); the LGPL also lets recipients swap in their own Qt DLLs.
 
-For the UCRT64 environment instead, use the UCRT64 shell and replace `mingw-w64-x86_64-` with
-`mingw-w64-ucrt-x86_64-` in the package names; the scripts follow the shell's prefix.
+The older MINGW64 environment works too (MINGW64 shell, `mingw-w64-x86_64-` package names); the scripts
+follow the shell's prefix.
 
 ## Release builds (Windows, macOS, Linux)
 `.github/workflows/build.yml` builds all three on GitHub on every push and pull request (the packages are kept
@@ -66,9 +66,16 @@ as the run's artifacts), and pushing a tag `v*` publishes them as a release:
 
 | Platform | Built with | Package |
 |---|---|---|
-| Windows x64 | MSYS2 MINGW64, `windeployqt-qt5` | `.zip` of the program, its DLLs and plugins |
-| macOS (Apple Silicon) | Homebrew `qt@5`, `macdeployqt` | `.dmg`; signed ad hoc only, so the first time it must be opened with right-click > Open |
-| Linux x86_64 | Ubuntu 22.04, `linuxdeploy` | AppImage |
+| Windows x64 (10 and later) | MSYS2 UCRT64 Qt 6, `windeployqt6` | `.zip` of the program, its DLLs and plugins |
+| macOS 12 and later, Intel and Apple Silicon | Qt's official Qt 6.8 LTS (universal), `macdeployqt` | `.dmg`; signed ad hoc only, so the first time it must be opened with right-click > Open |
+| Linux x86_64 | Ubuntu 22.04 Qt 6, `linuxdeploy` | AppImage |
+
+They use Qt 6. To build with Qt 5.15 instead, run the workflow by hand (Actions > Build > Run workflow, Qt
+major version 5): its packages are named `...-qt5`, and on macOS that one comes from Homebrew's `qt@5`, so it
+is for Apple Silicon only (Homebrew is dropping `qt@5` in May 2027). By hand, put `QT=5` in front of
+`ci/build.sh`. Qt's official Mac build has no package manager behind it, so `ci/collect-licences.sh` takes its
+licences from Qt's own source at the same version: Qt's LGPL and GPL texts, and every third-party component Qt
+records (`ci/qt-attributions.py`).
 
 Every build links to Qt's **shared** libraries, as the LGPL expects (people can replace them with their own),
 and carries the licence of everything it ships twice over: compiled into the program (**Help > Licences**) and
@@ -214,7 +221,7 @@ retro-files spec), xdragtest (real drags on X11 under Xvfb).
 
 ## Licence
 Copyright (C) 2026 Daniel Jameson. Licensed under the GNU General Public License v3.0 or
-later - see LICENSE. Uses Qt 5 under the LGPL v3. No third-party code is included; what was consulted or used
+later - see LICENSE. Uses Qt (6, or 5.15) under the LGPL v3. No third-party code is included; what was consulted or used
 for testing, and the licences a Windows build must ship, are listed in
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). The drag-and-drop format is shared with
 [CP/M Disk Wrangler](https://github.com/drdpj/CPMDiskWrangler).

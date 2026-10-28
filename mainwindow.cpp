@@ -81,7 +81,20 @@ DropTree::DropTree(QWidget *parent) : QTreeWidget(parent) {
 
 QStringList DropTree::mimeTypes() const { return QStringList() << WRANGLER_MIME_ITEMS; }
 Qt::DropActions DropTree::supportedDropActions() const { return Qt::CopyAction; }   // copying never removes the source
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+QMimeData *DropTree::mimeData(const QList<QTreeWidgetItem *> &items) const { return makeMime(items); }
+#else
 QMimeData *DropTree::mimeData(const QList<QTreeWidgetItem *> items) const { return makeMime(items); }
+#endif
+
+// Where a drag is over the tree: QDropEvent::pos() is deprecated in Qt 6 and position() is new in it.
+static QPoint dropPos(const QDropEvent *e) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    return e->position().toPoint();
+#else
+    return e->pos();
+#endif
+}
 
 static QByteArray sourceTag(quint64 owner, int pane) {
     return QByteArray::number(qint64(QCoreApplication::applicationPid())) + ":" + QByteArray::number(qulonglong(owner)) +
@@ -174,7 +187,7 @@ void DropTree::dragEnterEvent(QDragEnterEvent *e) {
 void DropTree::dragMoveEvent(QDragMoveEvent *e) {
     if (!acceptable(e->mimeData())) return;
     e->acceptProposedAction();
-    QTreeWidgetItem *it = itemAt(e->pos());     // highlight where the drop will land
+    QTreeWidgetItem *it = itemAt(dropPos(e));     // highlight where the drop will land
     if (it && it != currentItem()) setCurrentItem(it);
 }
 
@@ -183,7 +196,7 @@ void DropTree::dropEvent(QDropEvent *e) {
     if (fromThisProcess(e->mimeData())) {        // one of this program's own windows: copy directly
         e->setDropAction(Qt::CopyAction);
         e->accept();
-        emit internalDrop(e->mimeData()->data(WRANGLER_MIME_ITEMS), itemAt(e->pos()));
+        emit internalDrop(e->mimeData()->data(WRANGLER_MIME_ITEMS), itemAt(dropPos(e)));
         return;
     }
     MainWindow *win = MainWindow::byId(m_owner);
@@ -193,7 +206,7 @@ void DropTree::dropEvent(QDropEvent *e) {
         if (!json.isEmpty()) {
             e->setDropAction(Qt::CopyAction);
             e->accept();
-            emit retroFilesDropped(json, itemAt(e->pos()));
+            emit retroFilesDropped(json, itemAt(dropPos(e)));
             return;
         }
     }
@@ -202,7 +215,7 @@ void DropTree::dropEvent(QDropEvent *e) {
         if (u.isLocalFile()) paths << u.toLocalFile();
     if (paths.isEmpty()) return;
     e->acceptProposedAction();
-    emit pathsDropped(paths, itemAt(e->pos()));
+    emit pathsDropped(paths, itemAt(dropPos(e)));
 }
 
 // ===================================================================== helpers
@@ -789,7 +802,7 @@ void MainWindow::about() {
                            "PARTICULAR PURPOSE. See the "
                            "<a href=\"https://www.gnu.org/licenses/gpl-3.0.html\">GNU General Public License</a> "
                            "for more details.</p>"
-                           "<p>Uses Qt 5 under the LGPL v3. Shares its drag-and-drop format (retro-files) with CP/M Disk "
+                           "<p>Uses Qt under the LGPL v3. Shares its drag-and-drop format (retro-files) with CP/M Disk "
                            "Wrangler. Help &gt; Licences shows this program's licence, its third-party notices and the licences of "
                            "the libraries distributed with it.</p>");
     box.exec();

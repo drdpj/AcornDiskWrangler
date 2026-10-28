@@ -1,7 +1,7 @@
 # Acorn Disk Wrangler - Copyright (C) 2026 Daniel Jameson
 # Licensed under the GNU General Public License v3 or later (see LICENSE).
 QT += widgets
-CONFIG += c++11
+CONFIG += c++17
 TARGET = acorndiskwrangler
 TEMPLATE = app
 win32:RC_ICONS = icons/acorndiskwrangler.ico      # qmake generates the .rc for us
