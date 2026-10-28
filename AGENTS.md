@@ -153,6 +153,19 @@ Wrangler (github.com/drdpj/CPMDiskWrangler): keep the two copies identical.
 - The BBC BASIC token table and line-number encoding (`viewtext.cpp`) are from memory,
   checked on hand-made programs and one real program; report oddities rather than guess.
 
+## Behaviour details (moved from the README)
+User-visible behaviour the README no longer spells out:
+
+* **Side order** that can't be told (a blank ADFS L or DOS Plus 800K disc, or one with only a few files in the
+  root) falls back to the format's usual order - interleaved for every Acorn format - and the status bar says
+  "Sides: interleaved (assumed)". *Read as* applies to this window only; the next open detects again.
+* **Saving**: data is written first, directories next, the ADFS free space map last, then the image is read back
+  and verified. Save is refused if the map changed on disk since the image was opened.
+* **DOS names** that clash after conversion to 8.3 become `NAME~1.EXT`; new DOS files get the host clock's time.
+* **New DOS Plus 640K disc**: ADFS free space map of 2720 sectors with none free, root "Acorn DOS Boot Disc"
+  holding DOSBOOT, then an empty DOS Plus FAT and root. A DOSBOOT file may be at most 2304 bytes; from a disc
+  image the whole boot track is copied exactly.
+
 ## GUI architecture
 - Boot option (Edit > Boot option): `MainWindow::bootOption()/setBootOption()` act on the current pane -
   `Image::setBootOption` (ADFS floppy or hard disc: map sector 1 byte &FD, staged via `stageFsMap`, which
@@ -252,6 +265,8 @@ Wrangler (github.com/drdpj/CPMDiskWrangler): keep the two copies identical.
 as APP_VERSION, shown in Help > About; "unknown" without git, or set it with `qmake APP_VERSION=...` /
 `-DAPP_VERSION=...`. It is read when qmake/CMake runs, so re-run them after a new commit or tag. Both files are
 shared with the other wrangler.
+
+How to build on each platform and how releases work, for people: `docs/building.md` (shared).
 
 **Release builds and licences.** `.github/workflows/build.yml` builds Windows, macOS and Linux packages, linked to
 Qt's shared libraries (keep it that way: the LGPL lets users replace them). Each is built twice: `ci/build.sh`
