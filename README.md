@@ -36,7 +36,7 @@ self-contained.
    or "UCRT64") and install the compiler and Qt 5:
 
        pacman -Syu
-       pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-qt5-base
+       pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-qt5-base mingw-w64-x86_64-qt5-tools
 
    MSYS2 gives the Qt 5 tools a `-qt5` suffix (`qmake-qt5`, `windeployqt-qt5`); plain `qmake` is
    Qt 6 and may not be installed at all.
