@@ -41,41 +41,47 @@ self-contained.
    MSYS2 gives the Qt 5 tools a `-qt5` suffix (`qmake-qt5`, `windeployqt-qt5`); plain `qmake` is
    Qt 6 and may not be installed at all.
 
-2. Build a release from the source folder, in a separate build directory:
+2. From the source folder, build a release and deploy it (Qt and MinGW DLLs and plugins copied beside the exe,
+   so it runs from Explorer or on another PC), collect the licences of everything it ships, and build again
+   with them compiled in:
 
-       mkdir build && cd build
-       qmake-qt5 ../acorndiskwrangler.pro CONFIG+=release CONFIG-=debug_and_release
-       mingw32-make -j$(nproc)
+       bash ci/build.sh windows
+       bash ci/collect-licences.sh windows deploy
+       bash ci/build.sh windows
+       cp -r LICENSE THIRD-PARTY-NOTICES.md licences deploy/
 
-   qmake prints `WARNING: Failure to find: acorndiskwrangler_resource_res.o`; that is harmless (the
-   icon/version resource is compiled by make). This gives `build/acorndiskwrangler.exe`, with its icon and version info (copyright) built in.
-   It runs from the MINGW64 shell as it is, because that shell has the Qt and MinGW DLLs on its PATH.
-
-3. Deploy, so it runs anywhere (double-clicked from Explorer, or on another PC). `windeployqt-qt5`
-   copies the Qt DLLs and plugins (`platforms/`, `styles/`); the `ldd` loop then copies the MinGW
-   runtime and the other libraries Qt needs (ICU, HarfBuzz, FreeType, zlib ...) that it leaves out; the last
-   loop copies **the licences of everything it ships** from the MSYS2 packages those DLLs come from:
-
-       mkdir deploy deploy/licenses
-       cp acorndiskwrangler.exe ../LICENSE ../THIRD-PARTY-NOTICES.md deploy/
-       windeployqt-qt5 --release --compiler-runtime --no-translations \
-           --no-system-d3d-compiler --no-opengl-sw --no-angle deploy/acorndiskwrangler.exe
-       for f in deploy/acorndiskwrangler.exe deploy/platforms/*.dll deploy/styles/*.dll; do
-           ldd "$f" | awk '/\/mingw64\// {print $3}'
-       done | sort -u | xargs -r cp -n -t deploy/
-       for f in deploy/*.dll; do pacman -Qqo "/mingw64/bin/$(basename "$f")" 2>/dev/null; done | sort -u |
-           while read p; do [ -d "/mingw64/share/licenses/$p" ] && cp -r "/mingw64/share/licenses/$p" deploy/licenses/; done
-
-   Check it from a plain Command Prompt (no MSYS2 on the PATH): `deploy\acorndiskwrangler.exe`
-   should start without a "DLL not found" message. Zip the `deploy` folder to distribute it
-   (`pacman -S zip`, then `cd deploy && zip -r ../acorndiskwrangler-win64.zip .`).
+   `deploy/` is then ready to zip (`pacman -S zip`, then `cd deploy && zip -r ../acorndiskwrangler-win64.zip .`).
+   qmake prints `WARNING: Failure to find: acorndiskwrangler_resource_res.o`; that is harmless. For a quick
+   build to run from the MINGW64 shell, `build/acorndiskwrangler.exe` from the first step is enough.
 
    Because the program is GPL, publish the matching source alongside the zip (e.g. a link to the
-   repository or a source zip); the LGPL also lets recipients swap in their own Qt DLLs. LICENSE,
-   THIRD-PARTY-NOTICES.md and the licence texts are already included.
+   repository or a source zip); the LGPL also lets recipients swap in their own Qt DLLs.
 
-For the UCRT64 environment instead, use the UCRT64 shell, replace `mingw-w64-x86_64-` with
-`mingw-w64-ucrt-x86_64-` in the package names, and `/mingw64/` with `/ucrt64/` in the `awk` pattern.
+For the UCRT64 environment instead, use the UCRT64 shell and replace `mingw-w64-x86_64-` with
+`mingw-w64-ucrt-x86_64-` in the package names; the scripts follow the shell's prefix.
+
+## Release builds (Windows, macOS, Linux)
+`.github/workflows/build.yml` builds all three on GitHub on every push and pull request (the packages are kept
+as the run's artifacts), and pushing a tag `v*` publishes them as a release:
+
+| Platform | Built with | Package |
+|---|---|---|
+| Windows x64 | MSYS2 MINGW64, `windeployqt-qt5` | `.zip` of the program, its DLLs and plugins |
+| macOS (Apple Silicon) | Homebrew `qt@5`, `macdeployqt` | `.dmg`; signed ad hoc only, so the first time it must be opened with right-click > Open |
+| Linux x86_64 | Ubuntu 22.04, `linuxdeploy` | AppImage |
+
+Every build links to Qt's **shared** libraries, as the LGPL expects (people can replace them with their own),
+and carries the licence of everything it ships twice over: compiled into the program (**Help > Licences**) and
+as files beside it (`LICENSE`, `THIRD-PARTY-NOTICES.md`, `licences/`). To make that work each platform is built
+twice - the first build is deployed to find out which libraries ship, `ci/collect-licences.sh` gathers those
+libraries' licences from the packages they came from (it fails if one can't be traced), and the second build
+compiles them in. The same scripts work by hand, from the source root:
+
+    bash ci/build.sh windows                       # or macos / linux: build and deploy
+    bash ci/collect-licences.sh windows deploy     # macos: build/<app>.app   linux: build/AppDir
+    bash ci/build.sh windows                       # again, with the licences compiled in
+
+`ci/`, `licences.cpp/.h`, `licences.qrc`, `licences/` and the workflow are shared, unchanged, with [CP/M Disk Wrangler](https://github.com/drdpj/CPMDiskWrangler).
 
 ## Supported discs (detected from content, then name/size)
 | Format | Notes |

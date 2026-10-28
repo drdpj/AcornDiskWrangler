@@ -30,6 +30,8 @@ unix:!macx {
 QMAKE_TARGET_PRODUCT = Acorn Disk Wrangler
 QMAKE_TARGET_DESCRIPTION = Acorn Disk Wrangler
 QMAKE_TARGET_COPYRIGHT = Copyright (C) 2026 Daniel Jameson. Licensed under the GNU GPL v3 or later.
-SOURCES += main.cpp mainwindow.cpp mainwindow_dos.cpp mainwindow_dfs.cpp viewer.cpp viewtext.cpp \
+SOURCES += main.cpp mainwindow.cpp mainwindow_dos.cpp mainwindow_dfs.cpp viewer.cpp viewtext.cpp licences.cpp \
            dosfs.cpp dfs.cpp diskformat.cpp adfs.cpp icon.cpp newdisc.cpp dragout.cpp
-HEADERS += icon.h mainwindow.h mainwindow_p.h viewer.h viewtext.h dosfs.h dfs.h diskformat.h adfs.h newdisc.h dragout.h
+HEADERS += icon.h mainwindow.h mainwindow_p.h viewer.h viewtext.h dosfs.h dfs.h diskformat.h adfs.h newdisc.h dragout.h licences.h
+RESOURCES += licences.qrc                          # Help > Licences: LICENSE, notices, the LGPL for Qt
+exists(licences-bundled.qrc): RESOURCES += licences-bundled.qrc   # a release build's library licences (ci/)
