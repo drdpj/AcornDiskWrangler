@@ -151,6 +151,10 @@ Wrangler (github.com/drdpj/CPMDiskWrangler): keep the two copies identical.
   read with the right geometry - an ADFS L floppy needs its side-first numbering even to be inspected
   (`dragtest` caught this: before, such a disc read scrambled beyond the first track).
 - **ADFS D/E (new map)** is detected and refused; Watford 62-file DFS is not supported.
+- **Acorn Z80 CP/M discs** carry a DFS catalogue on side 0 (title "Acorn CP/M", one locked file `$.CPMDISC` from
+  sector 2 to the end of the side; seen on a real disc) so that DFS leaves them alone. Detection reports them as
+  `AcornCpm` and Open refuses them, pointing at CP/M Disk Wrangler: editing one as DFS, or writing on side 1 (no
+  catalogue), would destroy the CP/M files. CP/M Disk Wrangler writes the same catalogue on new Acorn Z80 discs.
 - The BBC BASIC token table and line-number encoding (`viewtext.cpp`) are from memory,
   checked on hand-made programs and one real program; report oddities rather than guess.
 

@@ -516,6 +516,12 @@ bool MainWindow::openImage(const QString &path, int force) {
                                  info.description + "\n\nADFS D/E (new map) discs are not supported yet.");
         return false;
     }
+    if (info.kind == DiskInfo::AcornCpm) {
+        QMessageBox::information(this, "A CP/M disc",
+                                 info.description + "\n\nIts DFS catalogue holds only $.CPMDISC, a locked file that keeps DFS off "
+                                 "the CP/M files. Open it with CP/M Disk Wrangler (github.com/drdpj/CPMDiskWrangler).");
+        return false;
+    }
     QString err;
     bool raw = info.kind == DiskInfo::Dfs || info.kind == DiskInfo::DosPc || info.kind == DiskInfo::DosAcorn800;
     bool ok = raw ? m_img.openRaw(path, info.fullSize, &err, info.sides)

@@ -21,7 +21,7 @@
 int main(int argc,char**argv){
     QCoreApplication app(argc,argv);
     for(int i=1;i<argc;i++){ DiskInfo d=detectDisk(argv[i]);
-        const char* k[]={"Unknown","Adfs","AdfsDosHybrid","Dfs","DosPc","DosAcorn800","AdfsNewMap"};
+        const char* k[]={"Unknown","Adfs","AdfsDosHybrid","Dfs","DosPc","DosAcorn800","AdfsNewMap","AcornCpm"};
         printf("%-22s -> %-14s %s | full=%llu%s%s\n",argv[i],k[d.kind],qPrintable(d.description),(unsigned long long)d.fullSize,
                qPrintable(QString(d.kind==DiskInfo::Dfs?(d.dfs.doubleSided?" DSD":" SSD"):"") +
                           (d.sides.doubleSided()?QString(" | sides %1%2").arg(d.sides.sequential?"sequential":"interleaved",

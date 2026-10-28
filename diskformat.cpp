@@ -262,6 +262,15 @@ DiskInfo detectDisk(const QString &path, int force) {
     // (file sector 10 if interleaved, file sector <sectors per side> if sequential) settles the side order.
     quint32 sec = 0;
     if (Dfs::plausibleCatalogue(rdAt(f, 0, 256), rdAt(f, 256, 256), &sec)) {
+        // Acorn's CP/M writes a catalogue holding one locked file, $.CPMDISC, from sector 2 to the end of side 0, so
+        // that DFS leaves the disc alone (seen on a real Acorn Z80 disc). The disc is CP/M: editing it as DFS (or
+        // writing on side 1, which has no catalogue) would destroy it, so it is not opened here.
+        QByteArray s0 = rdAt(f, 0, 256), s1 = rdAt(f, 256, 256);
+        if (quint8(s1[5]) == 8 && s0.mid(8, 7) == "CPMDISC" && (quint8(s0[15]) & 0x7F) == '$') {
+            info.kind = DiskInfo::AcornCpm;
+            info.description = "Acorn Z80 CP/M disc";
+            return info;
+        }
         int hint = suffix == "dsd" ? 2 : (suffix == "ssd" ? 1 : 0);
         bool il = Dfs::plausibleCatalogue(rdAt(f, 10 * 256, 256), rdAt(f, 11 * 256, 256), nullptr);
         bool seq = size >= quint64(sec) * 256 + 512 &&

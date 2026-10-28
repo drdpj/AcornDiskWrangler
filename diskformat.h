@@ -32,7 +32,8 @@ struct DiskInfo {
         Dfs,            // Acorn DFS, single or double sided
         DosPc,          // PC FAT floppy (360K, 720K, 1.2M, 1.44M, or any BPB-described FAT12/16 volume)
         DosAcorn800,    // Acorn DOS Plus 800K (no boot record)
-        AdfsNewMap      // ADFS D/E (new map): recognised but not supported
+        AdfsNewMap,     // ADFS D/E (new map): recognised but not supported
+        AcornCpm        // an Acorn Z80 CP/M disc: its DFS catalogue only fences CP/M's data off ($.CPMDISC); refused
     };
     Kind kind = Unknown;
     QString description;
