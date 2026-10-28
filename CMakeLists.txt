@@ -5,6 +5,7 @@ project(acorndiskwrangler LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
 find_package(Qt5 REQUIRED COMPONENTS Widgets)
 include(GNUInstallDirs)
 set(ACORNDISKWRANGLER_RC "")
@@ -17,8 +18,11 @@ if(APPLE)                      # the .app's icon (Finder, Dock before it starts)
     set(ACORNDISKWRANGLER_ICNS icons/acorndiskwrangler.icns)
     set_source_files_properties(${ACORNDISKWRANGLER_ICNS} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 endif()
-add_executable(acorndiskwrangler MACOSX_BUNDLE ${ACORNDISKWRANGLER_RC} ${ACORNDISKWRANGLER_ICNS} main.cpp mainwindow.cpp mainwindow_dos.cpp mainwindow_dfs.cpp dfs.cpp diskformat.cpp viewer.cpp viewtext.cpp dosfs.cpp adfs.cpp icon.cpp newdisc.cpp dragout.cpp
+add_executable(acorndiskwrangler MACOSX_BUNDLE ${ACORNDISKWRANGLER_RC} ${ACORNDISKWRANGLER_ICNS} main.cpp licences.cpp licences.h licences.qrc mainwindow.cpp mainwindow_dos.cpp mainwindow_dfs.cpp dfs.cpp diskformat.cpp viewer.cpp viewtext.cpp dosfs.cpp adfs.cpp icon.cpp newdisc.cpp dragout.cpp
     icon.h mainwindow.h mainwindow_p.h viewer.h viewtext.h dosfs.h dfs.h diskformat.h adfs.h newdisc.h dragout.h)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/licences-bundled.qrc)   # a release build's library licences (ci/)
+    target_sources(acorndiskwrangler PRIVATE licences-bundled.qrc)
+endif()
 target_link_libraries(acorndiskwrangler Qt5::Widgets)
 set_target_properties(acorndiskwrangler PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME "Acorn Disk Wrangler"

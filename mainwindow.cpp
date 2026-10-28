@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "licences.h"
 #include "mainwindow_p.h"
 #include "viewer.h"
 #include "newdisc.h"
@@ -355,6 +356,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     QMenu *mh = menuBar()->addMenu("&Help");
     mh->addAction("&About Acorn Disk Wrangler...", this, &MainWindow::about);
     mh->addAction("About &Qt...", qApp, &QApplication::aboutQt);
+    mh->addAction("&Licences...", this, [this] { showLicences(this); });
 
     m_actView->setIconText("View");
     m_actAddFiles->setIconText("Add files");
@@ -788,7 +790,8 @@ void MainWindow::about() {
                            "<a href=\"https://www.gnu.org/licenses/gpl-3.0.html\">GNU General Public License</a> "
                            "for more details.</p>"
                            "<p>Uses Qt 5 under the LGPL v3. Shares its drag-and-drop format (retro-files) with CP/M Disk "
-                           "Wrangler. See THIRD-PARTY-NOTICES.md for everything consulted or used.</p>");
+                           "Wrangler. Help &gt; Licences shows this program's licence, its third-party notices and the licences of "
+                           "the libraries distributed with it.</p>");
     box.exec();
 }
 
