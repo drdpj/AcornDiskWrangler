@@ -17,6 +17,7 @@
  */
 // mainwindow_dfs.cpp - DFS panes, tab management, window registry and copying between discs.
 #include "mainwindow.h"
+#include "appsettings.h"
 #include "mainwindow_p.h"
 #include "viewer.h"
 
@@ -35,7 +36,6 @@
 #include <QMessageBox>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
-#include <QSettings>
 #include <QStatusBar>
 #include <QStyle>
 #include <QTabWidget>
@@ -376,7 +376,7 @@ void MainWindow::dfsRename(int side) {
 }
 
 void MainWindow::dfsExtract(int side) {
-    QSettings s;
+    AppSettings s;
     QString dest = QFileDialog::getExistingDirectory(this, "Extract DFS files to folder", s.value("extractDir").toString());
     if (dest.isEmpty()) return;
     s.setValue("extractDir", dest);

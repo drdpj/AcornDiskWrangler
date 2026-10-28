@@ -17,6 +17,7 @@
  */
 #include <QApplication>
 #include "mainwindow.h"
+#include "appsettings.h"
 #include "icon.h"
 #include "dragout.h"
 
@@ -28,6 +29,7 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     QApplication::setOrganizationName("acorndiskwrangler");
     QApplication::setApplicationName("acorndiskwrangler");
+    AppSettings::init();                             // portable mode if <program>.ini is beside the program
     QApplication::setApplicationVersion(APP_VERSION);
     // Ties the windows to acorndiskwrangler.desktop, which is where Linux docks and task bars (GNOME, KDE) take the
     // icon and name from; the window icon below is not enough there. (X11 matches StartupWMClass, Wayland this.)

@@ -55,7 +55,16 @@ an existing Master 512 disc image or a DOSBOOT file.
   rewrites the image in the other order, for emulators that expect it.
 * **Save** (Ctrl+S). Nothing is written until you save, and the whole disc is checked first: if anything doesn't
   add up, or the file was changed by something else meanwhile, it won't save. A disc that fails the check when
-  opened is read-only.
+  opened is read-only. A `.bak` copy of the previous file is kept (Tools; on unless you turn it off).
+
+### Settings, and carrying the program with you
+Options (Tools menu), the last folders used are saved in
+the usual place for your system: the registry (`HKEY_CURRENT_USER\Software\acorndiskwrangler\acorndiskwrangler`) on Windows,
+`~/Library/Preferences/com.acorndiskwrangler.acorndiskwrangler.plist` on macOS, `~/.config/acorndiskwrangler/acorndiskwrangler.conf` on Linux.
+To keep them with the program instead - on a USB stick, say - choose **File > Create local config file**: it
+makes **`acorndiskwrangler.ini`** in the program's folder (beside the `.exe` on Windows, beside the `.app` on macOS) with
+a copy of the current settings, and uses it from then on. (Putting an empty file of that name there by hand does
+the same.) Delete the file to go back to the system's settings. Help > About says which is in use.
 
 ## Drag and drop between disc tools
 Both Wranglers implement **[retro-files](docs/retro-files-format.md)** (`application/x-retro-files+json`), an open

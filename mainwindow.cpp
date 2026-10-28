@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "appsettings.h"
 #include "buttonbar.h"
 #include "licences.h"
 #include "mainwindow_p.h"
@@ -58,7 +59,6 @@
 #include <QMimeData>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
-#include <QSettings>
 #include <QStatusBar>
 #include <QStyle>
 #include <QTabWidget>
@@ -348,13 +348,15 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_optWriteInf = mk("Write .inf sidecar files when extracting");
     m_optBackup = mk("Keep a .bak copy of the image when saving");
     for (QAction *a : {m_optReadInf, m_optWriteInf, m_optBackup}) a->setCheckable(true);
-    QSettings st;
+    AppSettings st;
     m_optReadInf->setChecked(st.value("readInf", true).toBool());
     m_optWriteInf->setChecked(st.value("writeInf", true).toBool());
-    m_optBackup->setChecked(st.value("backup", false).toBool());
+    m_optBackup->setChecked(st.value("backup", true).toBool());
 
     QMenu *mf = menuBar()->addMenu("&File");
     mf->addActions({m_actNewWin, m_actNewImage, m_actOpen, m_actSave, m_actRevert});
+    mf->addSeparator();
+    mf->addAction("Create &local config file...", this, [this] { AppSettings::createPortableFileDialog(this); });
     mf->addSeparator();
     mf->addAction(m_actQuit);
     QMenu *me = menuBar()->addMenu("&Edit");
@@ -469,7 +471,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     });
     for (QAction *a : {m_optReadInf, m_optWriteInf, m_optBackup})
         connect(a, &QAction::toggled, this, [this] {
-            QSettings s;
+            AppSettings s;
             s.setValue("readInf", m_optReadInf->isChecked());
             s.setValue("writeInf", m_optWriteInf->isChecked());
             s.setValue("backup", m_optBackup->isChecked());
@@ -492,7 +494,7 @@ bool MainWindow::confirmDiscard() {
 }
 
 void MainWindow::openDialog() {
-    QSettings s;
+    AppSettings s;
     QString p = QFileDialog::getOpenFileName(
         this, "Open disc image", s.value("lastDir").toString(),
         "Disc images (*.dat *.img *.ima *.dsk *.hdf *.adf *.adl *.adm *.ads *.ssd *.dsd *.bin);;All files (*)");
@@ -535,7 +537,7 @@ bool MainWindow::openImage(const QString &path, int force) {
     m_info = info;
     m_sidesHow = info.sides.doubleSided() ? sidesHow : QString();
     if (info.kind == DiskInfo::AdfsDosHybrid) m_img.setAdfsLocked(true);
-    QSettings().setValue("lastDir", QFileInfo(path).absolutePath());
+    AppSettings().setValue("lastDir", QFileInfo(path).absolutePath());
     m_dosOk = false;
     m_dfsOk[0] = m_dfsOk[1] = false;
     refreshTree();
@@ -659,7 +661,7 @@ void MainWindow::newImageDialog() {
     auto *form = new QFormLayout;
     auto *type = new QComboBox;
     for (const NewDisc::TypeInfo &t : NewDisc::types()) type->addItem(t.name, int(t.type));
-    QSettings st;
+    AppSettings st;
     type->setCurrentIndex(qBound(0, st.value("newType", 2).toInt(), type->count() - 1));
     auto *title = new QLineEdit;
     auto *titleLabel = new QLabel;
@@ -811,7 +813,7 @@ void MainWindow::about() {
                            "for more details.</p>"
                            "<p>Uses Qt under the LGPL v3. Shares its drag-and-drop format (retro-files) with CP/M Disk "
                            "Wrangler. Help &gt; Licences shows this program's licence, its third-party notices and the licences of "
-                           "the libraries distributed with it.</p>");
+                           "the libraries distributed with it.</p><p>" + AppSettings::where().toHtmlEscaped() + "</p>");
     box.exec();
 }
 
@@ -1090,7 +1092,7 @@ bool MainWindow::dropImages(int pane, const QStringList &paths, std::function<vo
 }
 
 void MainWindow::addFilesDialog() {
-    QSettings s;
+    AppSettings s;
     QStringList f = QFileDialog::getOpenFileNames(this, "Add files to the image", s.value("addDir").toString());
     if (f.isEmpty()) return;
     s.setValue("addDir", QFileInfo(f.first()).absolutePath());
@@ -1100,7 +1102,7 @@ void MainWindow::addFilesDialog() {
 }
 
 void MainWindow::addFolderDialog() {
-    QSettings s;
+    AppSettings s;
     QString d = QFileDialog::getExistingDirectory(this, "Add folder to the image", s.value("addDir").toString());
     if (d.isEmpty()) return;
     s.setValue("addDir", d);
@@ -1415,7 +1417,7 @@ void MainWindow::extractSelected() {
     if (!m_img.isOpen()) return;
     if (dfsSide() >= 0) { dfsExtract(dfsSide()); return; }
     if (dosActive()) { dosExtract(); return; }
-    QSettings s;
+    AppSettings s;
     QString dest = QFileDialog::getExistingDirectory(this, "Extract to folder", s.value("extractDir").toString());
     if (dest.isEmpty()) return;
     s.setValue("extractDir", dest);

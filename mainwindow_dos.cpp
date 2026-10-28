@@ -17,6 +17,7 @@
  */
 // mainwindow_dos.cpp - the DOS Plus partition pane ($.DOS.DRIVE_C) and the file viewer hookup.
 #include "mainwindow.h"
+#include "appsettings.h"
 #include "mainwindow_p.h"
 #include "viewer.h"
 
@@ -31,7 +32,6 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
-#include <QSettings>
 #include <QStatusBar>
 #include <QStyle>
 #include <QTabWidget>
@@ -454,7 +454,7 @@ void MainWindow::dosExtractEntry(const Dos::DEntry &e, quint32 /*cluster*/, cons
 }
 
 void MainWindow::dosExtract() {
-    QSettings s;
+    AppSettings s;
     QString dest = QFileDialog::getExistingDirectory(this, "Extract DOS files to folder", s.value("extractDir").toString());
     if (dest.isEmpty()) return;
     s.setValue("extractDir", dest);
