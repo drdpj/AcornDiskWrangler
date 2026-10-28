@@ -1,7 +1,7 @@
 # Acorn Disk Wrangler - Copyright (C) 2026 Daniel Jameson
 # Licensed under the GNU General Public License v3 or later (see LICENSE).
 QT += widgets
-CONFIG += c++11
+CONFIG += c++17
 TARGET = screenshot
 INCLUDEPATH += ..
 SOURCES += screenshot.cpp ../mainwindow.cpp ../licences.cpp ../mainwindow_dos.cpp ../mainwindow_dfs.cpp ../viewer.cpp ../viewtext.cpp \
