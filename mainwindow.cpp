@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
+#include "buttonbar.h"
 #include "licences.h"
 #include "mainwindow_p.h"
 #include "viewer.h"
@@ -377,10 +378,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_actNewDir->setIconText("New dir");
     m_actProps->setIconText("Properties");
     m_actExtract->setIconText("Extract");
-    QToolBar *tb = addToolBar("Main");
-    tb->setMovable(false);
-    // Open / Save live in the File menu only; the toolbar is for working on the disc contents.
-    tb->addActions({m_actView, m_actAddFiles, m_actAddFolder, m_actNewDir, m_actRename, m_actProps, m_actExtract, m_actDelete});
+    // Open / Save live in the File menu only; the button bar is for working on the disc contents.
+    ButtonBar::makeButtonBar(addToolBar("Main"), {m_actView, m_actAddFiles, m_actAddFolder, m_actNewDir, m_actRename, m_actProps,
+                                                  m_actExtract, m_actDelete});
 
     connect(m_actOpen, &QAction::triggered, this, &MainWindow::openDialog);
     connect(m_actSave, &QAction::triggered, this, [this] { save(); });
