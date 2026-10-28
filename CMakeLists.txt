@@ -15,6 +15,7 @@ else()
 endif()
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 include(GNUInstallDirs)
+include(version.cmake)         # APP_VERSION from git describe (Help > About)
 set(ACORNDISKWRANGLER_RC "")
 if(WIN32)                      # the .exe's own icon (Explorer / taskbar) comes from a resource file
     enable_language(RC)
@@ -29,6 +30,11 @@ add_executable(acorndiskwrangler MACOSX_BUNDLE ${ACORNDISKWRANGLER_RC} ${ACORNDI
     icon.h mainwindow.h mainwindow_p.h viewer.h viewtext.h dosfs.h dfs.h diskformat.h adfs.h newdisc.h dragout.h)
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/licences-bundled.qrc)   # a release build's library licences (ci/)
     target_sources(acorndiskwrangler PRIVATE licences-bundled.qrc)
+endif()
+target_compile_definitions(acorndiskwrangler PRIVATE APP_VERSION="${APP_VERSION}")
+if(APP_VERSION_NUMBER)
+    set_target_properties(acorndiskwrangler PROPERTIES MACOSX_BUNDLE_SHORT_VERSION_STRING ${APP_VERSION_NUMBER}
+                                                 MACOSX_BUNDLE_BUNDLE_VERSION ${APP_VERSION_NUMBER})
 endif()
 target_link_libraries(acorndiskwrangler Qt${QT_VERSION_MAJOR}::Widgets)
 set_target_properties(acorndiskwrangler PROPERTIES

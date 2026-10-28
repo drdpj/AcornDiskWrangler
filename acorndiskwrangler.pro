@@ -35,3 +35,4 @@ SOURCES += main.cpp mainwindow.cpp mainwindow_dos.cpp mainwindow_dfs.cpp viewer.
 HEADERS += icon.h mainwindow.h mainwindow_p.h viewer.h viewtext.h dosfs.h dfs.h diskformat.h adfs.h newdisc.h dragout.h licences.h
 RESOURCES += licences.qrc                          # Help > Licences: LICENSE, notices, the LGPL for Qt
 exists(licences-bundled.qrc): RESOURCES += licences-bundled.qrc   # a release build's library licences (ci/)
+include(version.pri)                              # APP_VERSION from git describe (Help > About)

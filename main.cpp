@@ -20,10 +20,15 @@
 #include "icon.h"
 #include "dragout.h"
 
+#ifndef APP_VERSION                // set by version.pri / version.cmake from git describe
+#define APP_VERSION "unknown"
+#endif
+
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     QApplication::setOrganizationName("acorndiskwrangler");
     QApplication::setApplicationName("acorndiskwrangler");
+    QApplication::setApplicationVersion(APP_VERSION);
     // Ties the windows to acorndiskwrangler.desktop, which is where Linux docks and task bars (GNOME, KDE) take the
     // icon and name from; the window icon below is not enough there. (X11 matches StartupWMClass, Wayland this.)
     QGuiApplication::setDesktopFileName("acorndiskwrangler");

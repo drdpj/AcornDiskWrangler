@@ -792,6 +792,7 @@ void MainWindow::about() {
     box.setIconPixmap(windowIcon().pixmap(64, 64));
     box.setTextFormat(Qt::RichText);
     box.setText("<h3>Acorn Disk Wrangler</h3>"
+                "<p>Version " + QApplication::applicationVersion().toHtmlEscaped() + "</p>"
                 "<p>View and edit Acorn disc images: ADFS, DFS, DOS Plus and PC FAT.</p>"
                 "<p>Copyright &copy; 2026 Daniel Jameson</p>");
     box.setInformativeText("This program is free software: you can redistribute it and/or modify it under the "
