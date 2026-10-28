@@ -356,8 +356,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     QMenu *mf = menuBar()->addMenu("&File");
     mf->addActions({m_actNewWin, m_actNewImage, m_actOpen, m_actSave, m_actRevert});
     mf->addSeparator();
-    mf->addAction("Create &local config file...", this, [this] { AppSettings::createPortableFileDialog(this); });
-    mf->addSeparator();
+    AppSettings::addMenuItem(mf, this);           // where portable settings exist (not a Linux install)
+    if (AppSettings::offered()) mf->addSeparator();
     mf->addAction(m_actQuit);
     QMenu *me = menuBar()->addMenu("&Edit");
     me->addActions({m_actView, m_actAddFiles, m_actAddFolder, m_actNewDir, m_actRename, m_actRenameVol, m_actBootOpt, m_actProps, m_actExtract, m_actDelete});

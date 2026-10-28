@@ -27,7 +27,7 @@ Wrangler (github.com/drdpj/CPMDiskWrangler): keep the two copies identical.
 | `newdisc.h/.cpp` | `NewDisc::create()`: blank images of every format (File > New image); pure QtCore, checks its own output with `detectDisk`. The 640K DOS Plus disc needs a `bootSource` (an existing 640K disc to copy the boot track from, or a DOSBOOT file): DOSBOOT is Acorn's code and must never be put in the repo |
 | `viewtext.*` | text / hex / BBC BASIC detokeniser (pure QtCore, no GUI) |
 | `viewer.*` | the read-only viewer window |
-| `appsettings.h` | where settings live: the system's place, or `<program>.ini` beside the program (portable). Use `AppSettings` instead of `QSettings` in program code (tests may use `QSettings` to clear the system store). Header only; shared with CP/M Disk Wrangler, keep identical |
+| `appsettings.h` | where settings live: the system's place, or `<program>.ini` beside the program (portable; for an AppImage, beside the `.AppImage` file - `$APPIMAGE` - not in its temporary mount; a program installed on Linux has no portable mode, so File > Create local config file isn't shown). Use `AppSettings` instead of `QSettings` in program code (tests may use `QSettings` to clear the system store). Header only; shared with CP/M Disk Wrangler, keep identical |
 | `buttonbar.h` | the main window's button bar: real QPushButtons kept in step with their QActions (a QToolBar's own buttons draw as flat text on macOS). Header only; shared with CP/M Disk Wrangler, keep identical |
 | `icon.*` | the application icon (a 5.25" floppy), drawn with QPainter; `icons/` holds PNG exports (`tests/mkicon <dir>` regenerates them) and a matching `acorndiskwrangler.svg` - keep the SVG in step if the geometry changes |
 | `acorndiskwrangler.desktop` | Linux/BSD: name and icon for docks and menus (GNOME ignores the window icon and shows a gear without it). Installed with the hicolor PNGs + SVG by `make install` (qmake `INSTALLS`, CMake `install()`); matched to the windows by `StartupWMClass` (X11 `WM_CLASS` is `acorndiskwrangler`) and `QGuiApplication::setDesktopFileName` (Wayland). Check with `desktop-file-validate` |
@@ -295,6 +295,7 @@ Qt 6, `-DUSE_QT5=ON` forces 5). Where the two differ the code uses `#if QT_VERSI
 | Test | Args | Needs |
 |---|---|---|
 | `viewtest` | none | nothing |
+| `settingstest` | none | nothing (offscreen): where settings live on Linux - an installed program has no portable mode; an AppImage keeps `acorndiskwrangler.ini`-style files beside the `.AppImage` file. Shared with CP/M Disk Wrangler |
 | `mkimg` | `<outdir>` | writes blank ADFS S/M/L, a truncated L, a fake ADFS D/E, a junk file |
 | `detecttest` | image paths | prints the detected kind for each (eyeball it) |
 | `floptest` | `plainl <blank ADFS L>` (must not detect as hybrid) / `bpb <img>` / `table <img> <idx 0-3>` / `acorn800 <out>` / `hybrid640 <out>` / `real800 <copy of a real 800K disc>` / `real640 <copy of a real hybrid disc> [<dir of files from extract_hd_dos.py>]` | PC images via `mkfs.fat -C x.img 360\|720\|1200\|1440`; the Acorn modes create their own |
