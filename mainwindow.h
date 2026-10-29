@@ -44,6 +44,8 @@ public:
     // The payload of a drag from this tree: the private formats (copying between this program's windows) plus the
     // files themselves, written only if a drop target asks for them (see dragout.h).
     QMimeData *makeMime(const QList<QTreeWidgetItem *> &items) const;
+    // The rows a drag or a copy of these items is made of: no root rows, nothing inside a selected directory.
+    QVector<DragRef> refsFor(const QList<QTreeWidgetItem *> &items) const;
     // A drag carries "pid:window:pane" so a drop can tell whether it came from this process.
     static bool fromThisProcess(const QMimeData *m);
 signals:
@@ -81,9 +83,11 @@ public:
     static MainWindow *byId(quint64 id);
     static QList<MainWindow *> &windows();
     const DiskInfo &info() const { return m_info; }
-    DropTree *dfsTree(int side) { return m_dfsTree[side]; }
+    DropTree *dfsTree() { return m_dfsTree; }            // both sides of a DFS disc
+    QTreeWidgetItem *dfsRoot(int side) const;           // that side's root row ("Drive 0", "Drive 2"), or nullptr
     Dfs::Disc &dfs(int side) { return m_dfs[side]; }
-    int dfsSide() const;            // 0/1 if a DFS tab is showing, else -1
+    int dfsSide() const;            // the DFS tab is showing: the side of the selection (or current row), else -1
+    int dfsTargetSide(QTreeWidgetItem *it) const;       // the side a DFS row belongs to (0 for none)
     void refreshDfs();
     bool exportRefs(int pane, const QVector<DragRef> &refs, QVector<XItem> *out, QString *err);
     bool paneEditable(int pane) const;
@@ -136,6 +140,8 @@ private slots:
     void onDropped(const QStringList &paths, QTreeWidgetItem *target);
     void showContextMenu(const QPoint &pos);
     void updateUi();
+    void copySelected();
+    void paste();
 
 private:
     struct Sel {
@@ -172,24 +178,25 @@ private:
     void importSummary(const ImportCtx &c, bool refreshDosOnly);
 
     struct FSel {
+        int side;
         QChar dir;
         QString name;
         QTreeWidgetItem *item;
     };
     // DFS panes and copying between discs (implemented in mainwindow_dfs.cpp)
-    QVector<FSel> dfsSelected(int side) const;
+    QVector<FSel> dfsSelected() const;                  // from both sides
     bool dfsEditable(int side) const;
     void dfsImportPaths(int side, const QStringList &paths);
     void dfsImportFile(int side, const QString &path, ImportCtx &c);
     void dfsImportDir(int side, const QString &path, ImportCtx &c);
     void dfsAddOne(int side, QChar dir, QString name, const QByteArray &data, quint32 load, quint32 exec,
                    bool locked, bool haveAttrs, const QString &src, ImportCtx &c);
-    void dfsDelete(int side);
-    void dfsProps(int side);
-    void dfsExtract(int side);
-    void dfsRename(int side);
+    void dfsDelete();
+    void dfsProps();
+    void dfsExtract();
+    void dfsRename();
     void dfsRenameVolume(int side);
-    int paneOf(const QTreeWidget *t) const;
+    int dropPane(const DropTree *t, QTreeWidgetItem *it) const;   // the pane a drop onto that row lands in
     quint32 dropTarget(int pane, QTreeWidgetItem *it) const;
     void onInternalDrop(int pane, quint32 dir, const QByteArray &payload);
     void onRetroFilesDrop(int pane, quint32 dir, const QByteArray &json);
@@ -206,6 +213,11 @@ private:
     QVector<Sel> selectedObjects() const;
     quint32 targetDirForItem(QTreeWidgetItem *it) const;
     bool confirmDiscard();
+    QString title() const;
+    QString readOnlyReason() const;                      // empty if the pane in use can be changed
+    QTreeWidget *currentTree() const;
+    bool clipboardUsable() const;                         // something Paste can add
+    bool pasteItems(int pane, quint32 dir, const QMimeData *m);
     void showReport(const QString &title, const QString &headline, const Adfs::Report &r, bool warn);
 
     void importFile(const QString &path, quint32 dir, ImportCtx &c);
@@ -221,7 +233,7 @@ private:
     Adfs::Image m_img;
     DropTree *m_tree;
     QLabel *m_status;
-    QAction *m_actOpen, *m_actSave, *m_actRevert, *m_actQuit;
+    QAction *m_actOpen, *m_actSave, *m_actRevert, *m_actClose, *m_actQuit, *m_actCopy, *m_actPaste;
     QAction *m_actAddFiles, *m_actAddFolder, *m_actNewDir, *m_actDelete, *m_actProps, *m_actExtract;
     QAction *m_actCheck, *m_optReadInf, *m_optWriteInf, *m_optBackup, *m_actView, *m_actRename, *m_actRenameVol;
     QTabWidget *m_tabs;
@@ -229,7 +241,7 @@ private:
     Dos::Volume m_dos;
     bool m_dosOk = false;          // DOS volume passed its consistency check when the image was opened
     DiskInfo m_info;               // what kind of disc this is
-    DropTree *m_dfsTree[2] = {nullptr, nullptr};
+    DropTree *m_dfsTree = nullptr;
     Dfs::Disc m_dfs[2];
     bool m_dfsOk[2] = {false, false};
     QString m_dfsErr[2];

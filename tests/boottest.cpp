@@ -144,11 +144,11 @@ int main(int argc, char **argv) {
     {
         printf("== MainWindow\n");
         QString p = out + "/boot_gui.dsd"; CHECK(NewDisc::create(p, NewDisc::DfsDs40, "", false, &e));
-        { MainWindow w; CHECK(w.openImage(p)); w.tabs()->setCurrentWidget(w.dfsTree(1)); QApplication::processEvents();
+        { MainWindow w; CHECK(w.openImage(p)); w.tabs()->setCurrentWidget(w.dfsTree()); w.dfsTree()->setCurrentItem(w.dfsRoot(1)); QApplication::processEvents();
           CHECK(w.bootOption() == 0); CHECK(w.setBootOption(3)); CHECK(w.bootOption() == 3); CHECK(w.image().dirty());
-          w.tabs()->setCurrentWidget(w.dfsTree(0)); QApplication::processEvents(); CHECK(w.bootOption() == 0);
+          w.dfsTree()->setCurrentItem(w.dfsRoot(0)); QApplication::processEvents(); CHECK(w.bootOption() == 0);
           CHECK(w.save()); }
-        { MainWindow w; CHECK(w.openImage(p)); w.tabs()->setCurrentWidget(w.dfsTree(1)); QApplication::processEvents(); CHECK(w.bootOption() == 3); }
+        { MainWindow w; CHECK(w.openImage(p)); w.tabs()->setCurrentWidget(w.dfsTree()); w.dfsTree()->setCurrentItem(w.dfsRoot(1)); QApplication::processEvents(); CHECK(w.bootOption() == 3); }
         QString l = out + "/boot_adfs2.adl";
         { MainWindow w; CHECK(w.openImage(l)); CHECK(w.bootOption() == 0); CHECK(w.setBootOption(2)); CHECK(w.save()); }
         { MainWindow w; CHECK(w.openImage(l)); CHECK(w.bootOption() == 2); }

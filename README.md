@@ -30,30 +30,33 @@ Help > About shows the version, and Help > Licences the licences of the program 
 |---|---|---|
 | ADFS hard disc (old map) | BeebSCSI `scsi0.dat` and similar | Unzip a zipped image first. If it has a DOS Plus partition (`$.DOS.DRIVE_C`), that opens as a second tab. |
 | ADFS S / M / L floppy (160K, 320K, 640K) | `.ads` `.adm` `.adl` | |
-| DFS, single- or double-sided, 40 or 80 track | `.ssd` `.dsd` | A `.dsd` shows its two sides as two tabs ("drive 0" and "drive 2"), each a separate disc. |
+| DFS, single- or double-sided, 40 or 80 track | `.ssd` `.dsd` | A `.dsd` shows its two sides in one tree, as **Drive 0** and **Drive 2**: each is a separate disc. |
 | Acorn DOS Plus 800K | `.img` | |
 | Acorn 640K ADFS/DOS Plus hybrid (Master 512 boot disc) | `.adl` | The ADFS side is read-only, the DOS side editable. |
 | PC floppy 360K, 720K, 1.2M, 1.44M | `.img` and others | FAT12. |
 
-The format is worked out from the disc's contents, then its name and size. File > New image makes a blank disc of
+The format is worked out from the disc's contents, then its name and size. File > New disc image makes a blank disc of
 any of these types. A new DOS Plus 640K disc needs Acorn's DOSBOOT boot code, which isn't included: you point it at
 an existing Master 512 disc image or a DOSBOOT file.
 
 ## Using it
 * **One disc per window.** File > Open opens a new window if this one already has a disc in it. Dropping a disc
   image on a window opens it too (on a hard disc you're asked whether to open it or copy it on as a file).
-* **Copy files** by dragging them between windows, or between the tabs of one window. Names, load/exec addresses
+* **Copy files** by dragging them between windows, between the tabs of one window, or between the two sides of a
+  DFS disc (drop them on the other drive's row) - or with **Copy** and **Paste** (Edit menu, or your system's usual
+  keys: Ctrl+C / Ctrl+V, Cmd+C / Cmd+V on a Mac). Names, load/exec addresses
   and attributes are converted to suit the destination: for example, a DFS file `P.GAME` dropped into `$` on an
   ADFS disc becomes `$.P.GAME`, and an ADFS directory with a one-letter name can become a DFS directory letter.
 * **Add files** by dropping them (or folders) from your file manager onto the tree - onto a directory row to put
-  them there. On ADFS and DFS discs, `.inf` sidecar files are read (Tools > *Read .inf sidecar files when
+  them there - or copy them in your file manager and Paste them here. On ADFS and DFS discs, `.inf` sidecar files are read (Tools > *Read .inf sidecar files when
   adding*, on by default), so load/exec addresses and attributes come through.
-* **Extract files** by dragging them out to your desktop or another program, or with Extract. Dragged to a tool
+* **Extract files** by dragging them out to your desktop or another program, by copying them here and pasting
+  them there, or with Extract. Dragged to a tool
   that supports retro-files, they keep their addresses and attributes (see below). `.inf` sidecars are
   written too if *Write .inf sidecar files when extracting* (Tools) is on.
 * **View** (double-click, F3): text, hex, or a BBC BASIC listing of a tokenised program. The text can be copied
   or saved.
-* **Rename** (F2) files, directories and the disc itself; **Properties** (Alt+Enter) for access attributes and
+* **New directory** (F7) on ADFS and DOS discs (DFS discs have none). **Rename** (F2) files, directories and the disc itself; **Properties** (Alt+Enter) for access attributes and
   load/exec addresses, for one file or many.
 * **Boot option** (Edit > Boot option): what SHIFT+BREAK does - nothing, `*LOAD`, `*RUN` or `*EXEC !BOOT` - on
   ADFS discs and each side of a DFS disc.

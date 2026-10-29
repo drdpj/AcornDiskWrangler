@@ -171,11 +171,11 @@ void MainWindow::viewSelected() {
     QString err;
     int ds = dfsSide();
     if (ds >= 0) {
-        for (const FSel &s : dfsSelected(ds)) {
+        for (const FSel &s : dfsSelected()) {
             if (opened >= 8) break;
-            int i = m_dfs[ds].indexOf(s.dir, s.name);
+            int i = m_dfs[s.side].indexOf(s.dir, s.name);
             QByteArray data;
-            if (i < 0 || !m_dfs[ds].readFile(m_dfs[ds].files()[i], &data, &err)) {
+            if (i < 0 || !m_dfs[s.side].readFile(m_dfs[s.side].files()[i], &data, &err)) {
                 QMessageBox::warning(this, "View", QString("%1: %2").arg(s.name, err));
                 continue;
             }
@@ -488,7 +488,7 @@ void MainWindow::dosExtract() {
 // ------------------------------------------------------------------ renaming
 
 void MainWindow::renameSelected() {
-    if (dfsSide() >= 0) { dfsRename(dfsSide()); return; }
+    if (dfsSide() >= 0) { dfsRename(); return; }
     bool dos = dosActive();
     QList<QTreeWidgetItem *> items = (dos ? m_dosTree : m_tree)->selectedItems();
     if (items.size() == 1 && items[0]->data(0, RoleIsRoot).toBool()) { renameVolume(); return; }

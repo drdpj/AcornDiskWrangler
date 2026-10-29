@@ -212,7 +212,7 @@ int main(int argc,char**argv){
     // ---- DFS and DOS drag out
     printf("== DFS and DOS drag out\n");
     { MainWindow w; w.show(); CHECK(w.openImage(dsd)); pump();
-      auto* m=mimeFor(w,w.dfsTree(0),{find(w.dfsTree(0),"$.BOOT"),find(w.dfsTree(0),"A.BOOT")});
+      auto* m=mimeFor(w,w.dfsTree(),{find(w.dfsTree(),"$.BOOT"),find(w.dfsTree(),"A.BOOT")});
       QStringList n; for(auto&u:m->urls()) n<<QFileInfo(u.toLocalFile()).fileName(); n.sort();
       CHECK(n==QStringList({"A.BOOT","A.BOOT.inf","BOOT","BOOT.inf"}));
       QJsonObject j=jsonOf(m); QString base=QUrl(j["base"].toString()).toLocalFile();
@@ -264,8 +264,8 @@ int main(int argc,char**argv){
       delete f; delete m;
       // DFS -> DFS and DOS -> DOS from "another process"
       MainWindow sd; sd.show(); CHECK(sd.openImage(dsd)); pump();
-      auto* m2=mimeFor(sd,sd.dfsTree(0),{find(sd.dfsTree(0),"A.BOOT")}); QMimeData* f2=asForeign(m2);
-      MainWindow dd; dd.show(); CHECK(dd.openImage(ddsd)); pump(); dd.tabs()->setCurrentWidget(dd.dfsTree(1)); pump(); sendDrop(dd.dfsTree(1),f2);
+      auto* m2=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"A.BOOT")}); QMimeData* f2=asForeign(m2);
+      MainWindow dd; dd.show(); CHECK(dd.openImage(ddsd)); pump(); dd.tabs()->setCurrentWidget(dd.dfsTree()); pump(); sendDropOn(dd.dfsTree(),dd.dfsRoot(1),f2);
       { int i=dd.dfs(1).indexOf('A',"BOOT"); CHECK(i>=0); if(i>=0){ const Dfs::File& x=dd.dfs(1).files()[i]; CHECK(x.locked); CHECK(x.load==0x1100 && x.exec==0x1200); } }
       delete f2; delete m2;
       MainWindow sp; sp.show(); CHECK(sp.openImage(pc)); pump();
@@ -282,7 +282,7 @@ int main(int argc,char**argv){
       auto adfsFile=[&](Image& im,quint32 dir,const QString& n,Entry* out)->bool{ Dir r; QString er; if(!im.readDir(dir,&r,&er)) return false;
           int i=r.indexOf(n); if(i<0||r.entries[i].isDir()) return false; *out=r.entries[i]; return true; };
       {   // same process, dropped on the Games directory row: $.BOOT -> $.Games.BOOT, A.BOOT -> $.Games.A.BOOT
-          auto* m4=mimeFor(sd,sd.dfsTree(0),{find(sd.dfsTree(0),"$.BOOT"),find(sd.dfsTree(0),"A.BOOT")});
+          auto* m4=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"$.BOOT"),find(sd.dfsTree(),"A.BOOT")});
           d.tabs()->setCurrentWidget(d.tree()); pump(); sendDropOn(d.tree(),find(d.tree(),"Games"),m4);
           quint32 g=adfsDir(d.image(),RootSector,"Games"); CHECK(g);
           Entry x; CHECK(adfsFile(d.image(),g,"BOOT",&x)); CHECK(x.load==0xFFFF1900u && x.exec==0xFFFF8023u && !x.flag(Entry::L));
@@ -293,12 +293,12 @@ int main(int argc,char**argv){
           delete m4; }
       {   // the directory is reused if it is already there (no A~1)
           quint32 pre=0; CHECK(d.image().makeDir(RootSector,"A",&e,&pre)); d.refreshTree(); pump();
-          auto* m5=mimeFor(sd,sd.dfsTree(0),{find(sd.dfsTree(0),"A.BOOT")});
+          auto* m5=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"A.BOOT")});
           d.tabs()->setCurrentWidget(d.tree()); pump(); sendDrop(d.tree(),m5);
           Entry x; CHECK(adfsFile(d.image(),pre,"BOOT",&x)); CHECK(!adfsDir(d.image(),RootSector,"A~1"));
           delete m5; }
       {   // from another process (the retro-files JSON): the same, at the root
-          auto* m6=mimeFor(sd,sd.dfsTree(0),{find(sd.dfsTree(0),"$.BOOT"),find(sd.dfsTree(0),"A.BOOT")}); QMimeData* f6=asForeign(m6);
+          auto* m6=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"$.BOOT"),find(sd.dfsTree(),"A.BOOT")}); QMimeData* f6=asForeign(m6);
           d2.tabs()->setCurrentWidget(d2.tree()); pump(); sendDrop(d2.tree(),f6);
           Entry x; CHECK(adfsFile(d2.image(),RootSector,"BOOT",&x));
           quint32 a=adfsDir(d2.image(),RootSector,"A"); CHECK(a); CHECK(adfsFile(d2.image(),a,"BOOT",&x) && x.load==0x1100 && x.flag(Entry::L));
@@ -322,7 +322,7 @@ int main(int argc,char**argv){
       {   // Yes for F (nested Sub's file keeps F too), No for g; a single-letter *file* and a longer name aren't asked about
           auto* m7=mimeFor(ls,ls.tree(),{find(ls.tree(),"F"),find(ls.tree(),"g"),find(ls.tree(),"H"),find(ls.tree(),"Kit")});
           answer({QMessageBox::Yes,QMessageBox::No});
-          ld.tabs()->setCurrentWidget(ld.dfsTree(0)); pump(); sendDrop(ld.dfsTree(0),m7); pump();
+          ld.tabs()->setCurrentWidget(ld.dfsTree()); pump(); sendDrop(ld.dfsTree(),m7); pump();
           CHECK(g_answered==2); CHECK(g_promptTexts.size()==2 && g_promptTexts[0].contains("'F'") && g_promptTexts[1].contains("'g'"));
           const Dfs::File* x=dfsHas(0,'F',"ONE"); CHECK(x && x->load==0x1900 && x->exec==0x8023 && x->locked);
           CHECK(dfsHas(0,'F',"TWO")); CHECK(!dfsHas(0,'$',"ONE") && !dfsHas(0,'$',"TWO"));
@@ -332,7 +332,7 @@ int main(int argc,char**argv){
       {   // from another process (JSON): "Yes to all" answers once for both directories, keeping the letter's case
           auto* m8=mimeFor(ls,ls.tree(),{find(ls.tree(),"F"),find(ls.tree(),"g")}); QMimeData* f8=asForeign(m8);
           answer({QMessageBox::YesToAll});
-          ld.tabs()->setCurrentWidget(ld.dfsTree(1)); pump(); sendDrop(ld.dfsTree(1),f8); pump();
+          ld.tabs()->setCurrentWidget(ld.dfsTree()); pump(); sendDropOn(ld.dfsTree(),ld.dfsRoot(1),f8); pump();
           CHECK(g_answered==1);
           auto has1=[&](QChar dir,const QString& n){ int i=ld.dfs(1).indexOf(dir,n); return i>=0 && ld.dfs(1).files()[i].dir==dir; };
           CHECK(has1('F',"ONE")); CHECK(has1('F',"TWO")); CHECK(has1('g',"THREE"));
@@ -342,7 +342,7 @@ int main(int argc,char**argv){
           int before0=ld.dfs(0).files().size(); int failsBefore=fails;
           auto* m9=mimeFor(ls,ls.tree(),{find(ls.tree(),"F"),find(ls.tree(),"H")});
           answer({QMessageBox::Cancel});
-          ld.tabs()->setCurrentWidget(ld.dfsTree(0)); pump(); sendDrop(ld.dfsTree(0),m9); pump(); pump();
+          ld.tabs()->setCurrentWidget(ld.dfsTree()); pump(); sendDrop(ld.dfsTree(),m9); pump(); pump();
           CHECK(g_answered==1); CHECK(ld.dfs(0).files().size()==before0); CHECK(fails==failsBefore);
           delete m9; }
     }

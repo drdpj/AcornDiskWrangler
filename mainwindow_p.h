@@ -25,6 +25,8 @@
 #include <QVector>
 #include <QFontMetrics>
 #include <QHeaderView>
+#include <QKeySequence>
+#include <QList>
 #include <QStyle>
 #include <QTreeWidget>
 #include <initializer_list>
@@ -32,7 +34,7 @@
 #include "dfs.h"
 #include "dosfs.h"
 
-enum Roles { RoleParent = Qt::UserRole, RoleName, RoleIsDir, RoleSector, RoleIsRoot };
+enum Roles { RoleParent = Qt::UserRole, RoleName, RoleIsDir, RoleSector, RoleIsRoot, RoleSide };   // RoleSide: DFS rows
 
 struct ImportCtx {
     int files = 0, dirs = 0, replaced = 0, skipped = 0;
@@ -129,6 +131,17 @@ enum Pane { PaneAdfs = 0, PaneDos = 1, PaneDfs0 = 2, PaneDfs1 = 3 };
 
 #define WRANGLER_MIME_ITEMS  "application/x-acorndiskwrangler-items"
 #define WRANGLER_MIME_SOURCE "application/x-acorndiskwrangler-source"
+#define WRANGLER_MIME_CLIP   "application/x-acorndiskwrangler-clip"     // "pid:n": what Edit > Copy put there
+
+// Delete: the platform's Delete key(s), and on macOS Finder's Cmd+Backspace too (most Mac keyboards have no
+// forward-delete key). Same in CP/M Disk Wrangler.
+inline QList<QKeySequence> deleteKeys() {
+    QList<QKeySequence> k = QKeySequence::keyBindings(QKeySequence::Delete);
+#ifdef Q_OS_MACOS
+    k << QKeySequence("Ctrl+Backspace");               // Ctrl is the Command key on macOS
+#endif
+    return k;
+}
 
 // One dragged item as identified inside its source window (parent dir sector/cluster + name).
 struct DragRef {

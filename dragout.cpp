@@ -35,6 +35,7 @@ namespace RetroFiles {
 
 const char *const MimeType = "application/x-retro-files+json";
 static const char *const UriList = "text/uri-list";
+static const char *const GnomeCopied = "x-special/gnome-copied-files";    // GNOME Files pastes this
 
 QString filesystemName(int srcPane) {
     if (srcPane == PaneAdfs) return "adfs";
@@ -297,6 +298,7 @@ QStringList DragOutMime::formats() const {
     QStringList f = QMimeData::formats();
     for (const char *m : {UriList, MimeType})
         if (!f.contains(m)) f << m;
+    if (m_clipboard && !f.contains(GnomeCopied)) f << GnomeCopied;
     return f;
 }
 
@@ -323,6 +325,12 @@ QVariant DragOutMime::retrieveData(const QString &mimeType, QVariant::Type type)
     if (mimeType == MimeType) {
         extract();
         return m_json;
+    }
+    if (m_clipboard && mimeType == GnomeCopied) {     // "copy", then a URL per line
+        extract();
+        QByteArray b = "copy";
+        for (const QUrl &u : m_urls) b += "\n" + u.toEncoded();
+        return b;
     }
     return QMimeData::retrieveData(mimeType, type);
 }

@@ -55,8 +55,8 @@ int main(int argc, char **argv) {
     QString out = argv[1];
     MainWindow a; a.resize(1300, 560); a.show();
     a.openImage(argv[2]); pump();
-    dropFiles(a, a.dfsTree(0), {"/tmp/drop/proj/hello.txt", "/tmp/drop/proj/hello.txt.inf", "/tmp/drop/proj/prog.bas", "/tmp/drop/proj/prog.bas.inf", "/tmp/drop/proj/test.bas", "/tmp/drop/proj/sub"});
-    shoot(a, a.dfsTree(0), out + "/dfs.png");
+    dropFiles(a, a.dfsTree(), {"/tmp/drop/proj/hello.txt", "/tmp/drop/proj/hello.txt.inf", "/tmp/drop/proj/prog.bas", "/tmp/drop/proj/prog.bas.inf", "/tmp/drop/proj/test.bas", "/tmp/drop/proj/sub"});
+    shoot(a, a.dfsTree(), out + "/dfs.png");
     for (int i = 3; i < argc; ++i) {
         MainWindow w; w.resize(1300, 560); w.show();
         w.openImage(argv[i]); pump();

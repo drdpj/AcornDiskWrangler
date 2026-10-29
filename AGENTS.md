@@ -35,7 +35,7 @@ Wrangler (github.com/drdpj/CPMDiskWrangler): keep the two copies identical.
 | `acorndiskwrangler.rc`, `icons/acorndiskwrangler.ico` | Windows only: the .exe icon in Explorer/taskbar. CMake compiles `acorndiskwrangler.rc`; qmake uses `RC_ICONS` in the `.pro` (it generates its own .rc, so the two are independent). Regenerate the .ico from the PNGs with Pillow if the design changes. Not testable on Linux |
 | `mainwindow.h/.cpp` | main window, `DropTree`, open/save/refresh/updateUi, ADFS pane |
 | `mainwindow_dos.cpp` | DOS pane, viewer hookup, renaming, import summary |
-| `mainwindow_dfs.cpp` | window registry, tab management, DFS panes, **cross-disc copy engine** |
+| `mainwindow_dfs.cpp` | window registry, tab management, the DFS pane (both sides in one tree), **cross-disc copy engine**, Copy / Paste |
 | `mainwindow_p.h` | shared private header: item roles, `ImportCtx`, `Pane`, `XItem`, `DragRef`, name helpers |
 | `main.cpp` | opens each command-line image in its own window |
 
@@ -187,10 +187,10 @@ User-visible behaviour the README no longer spells out:
   ignores the retro-files JSON and takes the files, so it can open an image dragged out of another window. Add
   files never opens images.
 - Side order (Tools > Side order): *Read as* re-opens the file with `openImage(path, 0|1)` (nothing written);
-  *Convert* stages `Image::setConvertOnSave`. The status bar shows "Sides: ..." with how it was settled.
+  *Convert* stages `Image::setConvertOnSave`. The status bar shows "sides ..." with how it was settled.
   New image: `newImageDialog()` -> `NewDisc::create()` -> opened like File > Open.
 - One `MainWindow` = one disc. `m_img` is the `Image`. Tabs (`m_tabs`) are managed only by
-  `ensureTab()` in canonical order ADFS, DOS, DFS drive 0, DFS drive 2; which exist depends on
+  `ensureTab()` in canonical order ADFS, DOS, DFS; which exist depends on
   `m_info.kind`. `refreshTree()` is the single refresh entry point (it calls `refreshDos()` and
   `refreshDfs()`); call it after anything that changes the disc.
 - **Every refresh deletes and rebuilds all tree items.** Never hold a `QTreeWidgetItem*` across
@@ -198,8 +198,42 @@ User-visible behaviour the README no longer spells out:
   numbers instead. Items carry `RoleParent/RoleName/RoleIsDir/RoleSector/RoleIsRoot`
   (see `mainwindow_p.h`): parent dir sector/cluster, name, is-dir, own sector/cluster or start
   sector, "this is the root row". DFS items use name `"D.NAME"`.
+- **DFS: both sides in one tree** (`m_dfsTree`), a root row per side ("Drive 0", "Drive 2"), the way CP/M Disk
+  Wrangler shows a disc with a filesystem on each side (the owner asked for this so files can be dropped from one
+  side onto the other). Every DFS row carries `RoleSide`, and `RoleParent` = its side, so a drag's or copy's
+  `DragRef::parent` says which side (`exportRefs` reads it; the tree's own pane is `PaneDfs0`). `dfsSide()` is the
+  side of the selection (else the current row) while the DFS tab shows, -1 otherwise; `dfsTargetSide(row)` and
+  `dropPane()` turn a drop row into `PaneDfs0/1`. `dfsSelected()` covers both sides, so Delete, Properties, View and
+  Extract work across them (Extract puts each side in a `Drive N` folder when both are involved). A drag within
+  the tree is accepted only on a two-sided disc and only from one side to the other (`DropTree::acceptable`, then
+  `onInternalDrop` drops the refs already on the target side). `refreshDfs()` keeps the selection, current row and
+  collapsed sides across its rebuild.
 - Slots (`deleteSelected`, `editProperties`, `renameSelected`, ...) dispatch on the active pane:
   `dfsSide()` (>=0), `dosActive()`, else ADFS. `updateUi()` enables actions per pane kind.
+- **Menus, button bar and context menu are laid out like CP/M Disk Wrangler's** (owner's rule: the same order in
+  both programs; one program's extra items may sit in between). File: New window (Ctrl+Shift+N), New disc image
+  (Ctrl+N), Open | Save, [Save as], Revert | Create local config file | Close (Ctrl+W), Quit (all windows). Edit:
+  View (F3), Extract to folder (Ctrl+E) | Add files (Ctrl+Shift+F), [Add folder (Ctrl+Shift+D), New directory
+  (F7)] | Copy, Paste (the platform's keys: `QKeySequence::Copy/Paste`) | Rename (F2), Properties (Alt+Return),
+  Delete (`deleteKeys()`: Delete, plus Cmd+Backspace on macOS) | the disc's own items. Tools: Check disc (Ctrl+K)
+  first, the program's own tools, then the options with *Keep a .bak copy when saving* last. Buttons: View,
+  Extract, Add files, [Add folder, New dir], Rename, Properties, Delete. The context menu is the Edit menu's first
+  four groups. `guitest2` and CP/M Disk Wrangler's `guitest` assert these; change both programs together.
+- **Window title and status bar** as CP/M Disk Wrangler's: `<file> * - Acorn Disk Wrangler` (`no disc - ...` when
+  empty; `*` = unsaved changes or padding). The status bar's left label (`m_status`, stretched) shows the disc and
+  its space, then `  -  `-separated extras (side order, `read-only: <readOnlyReason()>`, padding); with no disc it
+  says to open or drop an image. Short messages use `statusBar()->showMessage`, which covers the label for a while.
+- **Copy and Paste** (`copySelected`, `paste` in `mainwindow_dfs.cpp`; the same design in CP/M Disk Wrangler): Copy
+  exports the selection at once (`exportRefs`) and keeps the `XItem`s, so a paste gets what was selected then even
+  if the source has changed or closed. The clipboard gets a `RetroFiles::DragOutMime` whose exporter returns that
+  copy (files written to a drag folder only when another program asks: text/uri-list, the retro-files JSON and,
+  `setForClipboard`, GNOME's `x-special/gnome-copied-files`), plus `WRANGLER_MIME_CLIP` = `pid:n`. Paste
+  (`pasteItems`): our own token -> `importX` from the kept copy (nothing written); else retro-files JSON ->
+  `onRetroFilesDrop` (another copy of this program, CP/M Disk Wrangler); else local files from a file manager
+  (URLs or GNOME's list) -> the pane's `...ImportPaths`, like Add files. It goes where Add files would (current
+  row's directory, or the DFS side in use). At exit a clipboard we still own is cleared (its files are deleted
+  with the drag folders). Checked across real processes on X11 (Xvfb + xclip: CP/M copy -> Acorn paste, a
+  GNOME-style file list -> paste); Windows Explorer and macOS Finder are not tested.
 - **Copying between discs** (`mainwindow_dfs.cpp`): source pane -> `exportRefs()` -> neutral
   `XItem` tree (data + attributes) -> `importX()` -> `importXAdfs/Dos/Dfs`, which convert names
   and attributes and reuse the normal add paths (`addOne`, `dosAddOne`, `dfsAddOne`) so the
@@ -259,6 +293,8 @@ User-visible behaviour the README no longer spells out:
   adds the same two-space pad as the header so a number never touches the next column. These are
   display strings only; real values live in the item roles - never parse the cell text.
 - Root rows use `rootLabel()`: `$   [title]`, `C:\   [label]`, `Drive 0   [title]`.
+- An action that works only on some kinds of disc says so in its tool tip and status tip (New directory: ADFS and
+  DOS, not DFS); the button bar shows the tip on a greyed-out button too.
 - Toolbar buttons use short `setIconText` labels so the bar fits without the ">>" overflow; menu texts
   stay descriptive. Healthy-but-unusual discs (e.g. the 640K hybrid) must not report "warnings".
 - Check any layout change visually: `tests/screenshot <outdir> <dsd> [<image> ...]` renders the DSD
@@ -304,7 +340,7 @@ Qt 6, `-DUSE_QT5=ON` forces 5). Where the two differ the code uses `#if QT_VERSI
 | `dostest` | `<hard-disc img>` | **the real `scsi0.dat`** (has `$.DOS.DRIVE_C`) |
 | `screenshot` | `<outdir> <dsd> [<image> ...]` | renders PNGs of each pane for eyeballing (see GUI layout conventions); host files from `make_testdata.py host` |
 | `guitest` | `<hard-disc img>` | **the real `scsi0.dat`**; run with `QT_QPA_PLATFORM=offscreen` |
-| `guitest2` | `<dir>` [`<copy of a real 640K hybrid>`] containing `a.dsd b.adl c.img d.dat e.ssd f.hybrid g.a800` | copies of a blank DSD, ADFS L, PC 720K, **the real hard disc**, a truncated SSD, the hybrid and Acorn800 images; host files in `/tmp/drop/proj` (`make_testdata.py host`); offscreen |
+| `guitest2` | `<dir>` [`<copy of a real 640K hybrid>`] containing `a.dsd b.adl c.img d.dat e.ssd f.hybrid g.a800` | copies of a blank DSD, ADFS L, PC 720K, **the real hard disc**, a truncated SSD, the hybrid and Acorn800 images; host files in `/tmp/drop/proj` (`make_testdata.py host`); offscreen. Also checks the menu and button order, the title and status bar, and Copy / Paste with the real keys (`QTest`, so the `.pro` has `QT += testlib`) |
 | `sidetest` | `<outdir>` [`<copy of a real 640K hybrid>` [`<copy of a real 800K disc>` [`<copies of real ADFS L discs, named t2_il_<name>.adl in <outdir>>` ...]]] | nothing else (a made-up DOSBOOT is used without the real hybrid; with it, new 640K discs are compared with it): makes every format with `NewDisc` in both side orders, fills, detects, converts both ways, reads in the wrong order, drives MainWindow (offscreen). The real discs are converted and back (must stay byte-identical). Then run `tests/sidecheck.py <outdir>`: an independent reader (own de-interleave, own ADFS/DFS parser, `fsck.fat` + `mtools` for FAT, with the Acorn formats wrapped in a BPB) |
 | `detecttest` | (see above) | also prints each image's side order and whether it could be told |
 | `dragtest` | `<outdir>` | nothing else: makes its own discs. Drives the drag data as Explorer / another instance / another tool would: lazy writing, names, .inf, dates, JSON, direct copy in-process, JSON path cross-process with attributes kept (ADFS, DFS, DOS), DFS directory letters -> ADFS subdirectories (drop on a directory row, reuse, JSON path), single-letter ADFS directories -> DFS letters (Yes/No/Yes to all via JSON/Cancel), disc images dropped (empty window, floppy, hard disc Open/Copy/Cancel/two images), self-drop refused, a foreign (cpm) list, unsafe lists refused, read-only image, stale cleanup. Then run `tests/retrofilescheck.py <outdir>/drag-*` (independent check against the spec) |
@@ -358,8 +394,8 @@ At the owner's request, Disc Image Manager is not used as a source or reference.
   tokens) in any summary to the owner.
 
 ## Known gaps / ideas
-ADFS D/E; Watford DFS; compacting a fragmented ADFS/DFS disc; the clipboard (copy/paste) could carry the same
-retro-files data as a drag.
+ADFS D/E; Watford DFS; compacting a fragmented ADFS/DFS disc; Save As (CP/M Disk Wrangler has one); Cut (a move
+off a disc) is deliberately not offered.
 
 ## Lesson: test against real discs as soon as you can
 The 640K hybrid was implemented from a table and passed every synthetic test (they all used the same
