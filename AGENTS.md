@@ -208,6 +208,8 @@ User-visible behaviour the README no longer spells out:
   the tree is accepted only on a two-sided disc and only from one side to the other (`DropTree::acceptable`, then
   `onInternalDrop` drops the refs already on the target side). `refreshDfs()` keeps the selection, current row and
   collapsed sides across its rebuild.
+  Naming (owner's rule): "side" is always 0/1 (the disc's physical side, as in side order); "drive" is always
+  0/2 (what a BBC Micro calls the two sides of a disc). Never print a side number next to "drive" or the reverse.
 - Slots (`deleteSelected`, `editProperties`, `renameSelected`, ...) dispatch on the active pane:
   `dfsSide()` (>=0), `dosActive()`, else ADFS. `updateUi()` enables actions per pane kind.
 - **Menus, button bar and context menu are laid out like CP/M Disk Wrangler's** (owner's rule: the same order in

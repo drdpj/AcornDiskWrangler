@@ -359,7 +359,7 @@ void MainWindow::dfsProps() {
         form->addRow("Exec address (hex, 18-bit):", execEd);
         form->addRow("Length:", new QLabel(QString("%1 bytes").arg(files[0].length)));
         form->addRow("Start sector:", new QLabel(QString::number(files[0].start)));
-        if (m_dfs[1].attached()) form->addRow("Side:", new QLabel(QString("drive %1").arg(sel[0].side * 2)));
+        if (m_dfs[1].attached()) form->addRow("Drive:", new QLabel(QString("drive %1").arg(sel[0].side * 2)));
     }
     auto *bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     form->addRow(bb);

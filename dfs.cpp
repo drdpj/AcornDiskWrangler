@@ -346,7 +346,7 @@ Report Disc::check() {
     std::sort(ex.begin(), ex.end(), [](const Ext &a, const Ext &b) { return a.s < b.s; });
     for (int i = 1; i < ex.size(); ++i)
         if (ex[i].s < ex[i - 1].e) r.errors << QString("%1 overlaps %2").arg(ex[i].n, ex[i - 1].n);
-    r.info << QString("DFS side %1%2: %3 files, %4 of %5 sectors free")
+    r.info << QString("DFS drive %1%2: %3 files, %4 of %5 sectors free")
                   .arg(m_side).arg(m_title.isEmpty() ? QString() : " '" + m_title + "'").arg(m_files.size()).arg(freeSectors()).arg(m_sectors);
     return r;
 }
