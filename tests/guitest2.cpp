@@ -21,6 +21,7 @@
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
+#include <QFileDialog>
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QMimeData>
@@ -70,6 +71,7 @@ static QStringList tabTexts(MainWindow& w){ QStringList l; for(int i=0;i<w.tabs(
 
 int main(int argc,char**argv){
     QApplication app(argc,argv);
+    QApplication::setAttribute(Qt::AA_DontUseNativeDialogs);   // Qt's own file dialog, which a test can fill in
     QApplication::setOrganizationName("acorndiskwrangler-test"); QApplication::setApplicationName("t2");
     QString d=argv[1];       // directory holding the working copies
     // watchdog: any modal dialog that nobody is expecting is a bug in the app or the test - report it and dismiss it, never hang
@@ -251,6 +253,26 @@ int main(int argc,char**argv){
         autoYes(); drag(*H,H->dosTree(),{"ALARM.DAT"},*A,A->dfsTree(),QString(),A->dfsRoot(1)); CHECK(A->dfs(1).indexOf('$',"ALARM_D")>=0);
         CHECK(B->save()); CHECK(A->save());
     }
+
+    // ---------------------------------------------------------------- Save as: B (the ADFS L floppy, with unsaved changes) to a new file
+    {
+        QString orig=B->image().path(), copy=d+"/b-copy.adl";
+        QFile::remove(copy);
+        QByteArray before; { QFile f(orig); f.open(QIODevice::ReadOnly); before=f.readAll(); }
+        CHECK(B->image().dirty());
+        QTimer::singleShot(150,[copy]{ auto* fd=qobject_cast<QFileDialog*>(QApplication::activeModalWidget());
+            if(fd){ fd->selectFile(copy); fd->accept(); } else printf("  (no Save as dialog)\n"); });
+        QMetaObject::invokeMethod(B,"saveAsDialog",Qt::DirectConnection); pump();
+        CHECK(B->image().path()==copy);                       // the window carries on with the copy
+        CHECK(!B->image().dirty());                           // the changes went into it
+        CHECK(QFileInfo(copy).size()==655360);
+        CHECK(B->windowTitle().startsWith("b-copy.adl - "));
+        QByteArray after; { QFile f(orig); f.open(QIODevice::ReadOnly); after=f.readAll(); }
+        CHECK(after==before);                                 // the original file is untouched
+        MainWindow re; CHECK(re.openImage(copy));             // the copy reopens with the files in it
+        Dir r; QString e; CHECK(re.image().readDir(RootSector,&r,&e)); CHECK(r.indexOf("hello")>=0 && r.indexOf("BeebSCSI")>=0);
+    }
+
 
     // ---------------------------------------------------------------- save everything, check the files
     for(MainWindow* w : {A,B,C,D,E,F,G}){ CHECK(w->save()); }

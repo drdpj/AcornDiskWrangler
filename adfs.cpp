@@ -517,6 +517,21 @@ bool Image::setConvertOnSave(bool toSequential, QString *err) {
     return true;
 }
 
+bool Image::moveToCopy(const QString &dest, QString *err) {
+    if (QFile::exists(dest) && !QFile::remove(dest)) { *err = "could not replace " + dest; return false; }
+    if (!QFile::copy(m_path, dest)) { *err = "could not copy the image to " + dest; return false; }
+    QFile(dest).setPermissions(QFile(dest).permissions() | QFile::WriteOwner);
+    m_file.close();
+    m_file.setFileName(dest);
+    if (!m_file.open(QIODevice::ReadWrite)) {           // back to the original
+        *err = "could not open " + dest + ": " + m_file.errorString();
+        m_file.setFileName(m_path); m_file.open(QIODevice::ReadWrite);
+        return false;
+    }
+    m_path = dest;
+    return true;
+}
+
 QByteArray Image::readSectors(quint32 start, quint32 count) const {
     QByteArray out = readRaw(start, count);
     if (out.size() < int(count * SectorSize)) out.append(QByteArray(int(count * SectorSize) - out.size(), 0));

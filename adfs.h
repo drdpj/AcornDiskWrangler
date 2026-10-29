@@ -167,6 +167,7 @@ public:
     // setConvertOnSave stages a rewrite of the whole file in the given order, done by commit() (revert() drops it).
     const SideLayout &sideLayout() const { return m_sides; }
     bool setConvertOnSave(bool toSequential, QString *err);
+    bool moveToCopy(const QString &dest, QString *err);   // copy the file to dest and work on that from now on
     bool convertPending() const { return m_convert; }
     bool isAdfs() const { return m_isAdfs; }
     quint64 fullSize() const { return m_fullSize; }

@@ -122,6 +122,7 @@ protected:
 
 private slots:
     void openDialog();
+    void saveAsDialog();
     void revert();
     void addFilesDialog();
     void addFolderDialog();
@@ -233,7 +234,7 @@ private:
     Adfs::Image m_img;
     DropTree *m_tree;
     QLabel *m_status;
-    QAction *m_actOpen, *m_actSave, *m_actRevert, *m_actClose, *m_actQuit, *m_actCopy, *m_actPaste;
+    QAction *m_actOpen, *m_actSave, *m_actSaveAs, *m_actRevert, *m_actClose, *m_actQuit, *m_actCopy, *m_actPaste;
     QAction *m_actAddFiles, *m_actAddFolder, *m_actNewDir, *m_actDelete, *m_actProps, *m_actExtract;
     QAction *m_actCheck, *m_optReadInf, *m_optWriteInf, *m_optBackup, *m_actView, *m_actRename, *m_actRenameVol;
     QTabWidget *m_tabs;

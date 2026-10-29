@@ -326,6 +326,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_actNewImage = mk("&New disc image...", QKeySequence::New);
     m_actOpen = mk("&Open...", QKeySequence::Open);
     m_actSave = mk("&Save", QKeySequence::Save);
+    m_actSaveAs = mk("Save &as...", QKeySequence("Ctrl+Shift+S"));
     m_actRevert = mk("&Revert");
     m_actClose = mk("&Close", QKeySequence::Close);
     m_actQuit = mk("&Quit", QKeySequence::Quit);
@@ -368,7 +369,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     QMenu *mf = menuBar()->addMenu("&File");
     mf->addActions({m_actNewWin, m_actNewImage, m_actOpen});
     mf->addSeparator();
-    mf->addActions({m_actSave, m_actRevert});
+    mf->addActions({m_actSave, m_actSaveAs, m_actRevert});
     mf->addSeparator();
     AppSettings::addMenuItem(mf, this);           // where portable settings exist (not a Linux install)
     if (AppSettings::offered()) mf->addSeparator();
@@ -410,6 +411,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
     connect(m_actOpen, &QAction::triggered, this, &MainWindow::openDialog);
     connect(m_actSave, &QAction::triggered, this, [this] { save(); });
+    connect(m_actSaveAs, &QAction::triggered, this, &MainWindow::saveAsDialog);
     connect(m_actRevert, &QAction::triggered, this, &MainWindow::revert);
     connect(m_actClose, &QAction::triggered, this, &QWidget::close);
     connect(m_actQuit, &QAction::triggered, qApp, &QApplication::closeAllWindows);
@@ -670,6 +672,30 @@ void MainWindow::bootOptionDialog() {
     if (!ok) return;
     int opt = items.indexOf(pick);
     if (opt != cur && opt <= 3) setBootOption(opt);
+}
+
+// ---------------------------------------------------------------- save as
+void MainWindow::saveAsDialog() {
+    if (!m_img.isOpen()) return;
+    QFileInfo fi(m_img.path());
+    QString p = QFileDialog::getSaveFileName(this, "Save as", fi.absolutePath() + "/" + fi.completeBaseName() + "-copy." + fi.suffix(),
+                                             QString("Disc image (*.%1);;All files (*)").arg(fi.suffix()));
+    if (p.isEmpty()) return;
+    QString abs = QFileInfo(p).absoluteFilePath();
+    if (abs == fi.absoluteFilePath()) { save(); return; }
+    for (MainWindow *w : windows())
+        if (w != this && w->m_img.isOpen() && QFileInfo(w->m_img.path()).absoluteFilePath() == abs) {
+            QMessageBox::warning(this, "Save as", "That file is open in another window."); return; }
+    QString err;
+    if (!m_img.dirty() || !m_img.editable()) {          // nothing to write, or opened read-only: copy, then open the copy
+        if (!QFile::exists(p) || QFile::remove(p)) QFile::copy(m_img.path(), p);
+        QFile(p).setPermissions(QFile(p).permissions() | QFile::WriteOwner);
+        openImage(p);
+        return;
+    }
+    if (!m_img.moveToCopy(p, &err)) { QMessageBox::warning(this, "Save as", err); return; }
+    save();                                              // writes the staged changes into the copy
+    updateUi();                                          // title now shows the new name
 }
 
 // ---------------------------------------------------------------- new image
