@@ -26,6 +26,7 @@
 #endif
 
 int main(int argc, char *argv[]) {
+    QGuiApplication::setDesktopFileName("acorndiskwrangler");   // before QApplication: registers with the portal first
     QApplication app(argc, argv);
     QApplication::setOrganizationName("acorndiskwrangler");
     QApplication::setApplicationName("acorndiskwrangler");
