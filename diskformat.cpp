@@ -258,6 +258,25 @@ DiskInfo detectDisk(const QString &path, int force) {
         }
     }
 
+    // ---- Torch CP/N (Torch Z80 second processor): 80 x 2 x 10 x 256, cylinder by cylinder. Cylinder 0 side 1
+    // (file offset 2560) holds the allocation map in sectors 6-7 - every word has its top six bits set, tracks 0 and 1
+    // are all in use, words 160-255 are FC00 or FFFF - and in sectors 8-9 the bytes Torch's formatter writes (the same on
+    // every disc seen but for one byte). CP/M Disk Wrangler reads and writes these discs (its torchfs.cpp has the details).
+    if (size == 409600) {
+        QByteArray map = rdAt(f, 2560 + 6 * 256, 512), fmt = rdAt(f, 2560 + 8 * 256, 512);
+        auto w = [&](int i) { return quint8(map[2 * i]) | quint8(map[2 * i + 1]) << 8; };
+        bool mapOk = map.size() == 512 && w(0) == 0xFFFF && w(1) == 0xFFFF;
+        for (int i = 0; mapOk && i < 256; ++i) mapOk = (w(i) & 0xFC00) == 0xFC00 && (i < 160 || w(i) == 0xFC00 || w(i) == 0xFFFF);
+        bool formatter = fmt.size() == 512;
+        for (int i = 0; formatter && i < 512; ++i)
+            formatter = i == 256 + 254 || quint8(fmt[i]) == (i < 256 ? quint8(0xD6 + i) : 0);   // byte 510 varies (85, 80, 47 seen)
+        if (mapOk && formatter) {
+            info.kind = DiskInfo::TorchCpn;
+            info.description = "Torch CP/N disc";
+            return info;
+        }
+    }
+
     // ---- DFS (SSD / DSD). Each side has its own catalogue on its own track 0, so the second catalogue's position
     // (file sector 10 if interleaved, file sector <sectors per side> if sequential) settles the side order.
     quint32 sec = 0;

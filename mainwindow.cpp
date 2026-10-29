@@ -545,6 +545,12 @@ bool MainWindow::openImage(const QString &path, int force) {
                                  "the CP/M files. Open it with CP/M Disk Wrangler (github.com/drdpj/CPMDiskWrangler).");
         return false;
     }
+    if (info.kind == DiskInfo::TorchCpn) {
+        QMessageBox::information(this, "A CP/M disc",
+                                 info.description + "\n\nIts files are CP/M files, kept in Torch's own filesystem. Open it with "
+                                 "CP/M Disk Wrangler (github.com/drdpj/CPMDiskWrangler).");
+        return false;
+    }
     QString err;
     bool raw = info.kind == DiskInfo::Dfs || info.kind == DiskInfo::DosPc || info.kind == DiskInfo::DosAcorn800;
     bool ok = raw ? m_img.openRaw(path, info.fullSize, &err, info.sides)

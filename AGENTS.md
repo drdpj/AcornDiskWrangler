@@ -156,6 +156,12 @@ Wrangler (github.com/drdpj/CPMDiskWrangler): keep the two copies identical.
   sector 2 to the end of the side; seen on a real disc) so that DFS leaves them alone. Detection reports them as
   `AcornCpm` and Open refuses them, pointing at CP/M Disk Wrangler: editing one as DFS, or writing on side 1 (no
   catalogue), would destroy the CP/M files. CP/M Disk Wrangler writes the same catalogue on new Acorn Z80 discs.
+- **Torch CP/N discs** (Torch Z80 second processor; 409,600 bytes, cylinder by cylinder) have no DFS catalogue; they
+  are recognised by cylinder 0 side 1: the allocation map in sectors 6-7 (every word's top six bits set, tracks 0-1
+  in use, words 160-255 FC00 or FFFF) and the formatter's bytes in sectors 8-9
+  (all but sector 9's byte 254, which varies). Detection reports `TorchCpn` and Open
+  refuses them, pointing at CP/M Disk Wrangler, which reads and writes them (checked on five of the owner's real
+  discs, which detected as Unknown here before).
 - The BBC BASIC token table and line-number encoding (`viewtext.cpp`) are from memory,
   checked on hand-made programs and one real program; report oddities rather than guess.
 

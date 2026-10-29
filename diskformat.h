@@ -33,7 +33,8 @@ struct DiskInfo {
         DosPc,          // PC FAT floppy (360K, 720K, 1.2M, 1.44M, or any BPB-described FAT12/16 volume)
         DosAcorn800,    // Acorn DOS Plus 800K (no boot record)
         AdfsNewMap,     // ADFS D/E (new map): recognised but not supported
-        AcornCpm        // an Acorn Z80 CP/M disc: its DFS catalogue only fences CP/M's data off ($.CPMDISC); refused
+        AcornCpm,       // an Acorn Z80 CP/M disc: its DFS catalogue only fences CP/M's data off ($.CPMDISC); refused
+        TorchCpn        // a Torch CP/N disc (CP/M files in Torch's own filesystem); refused, CP/M Disk Wrangler opens it
     };
     Kind kind = Unknown;
     QString description;
