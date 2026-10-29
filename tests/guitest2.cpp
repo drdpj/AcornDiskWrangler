@@ -256,12 +256,13 @@ int main(int argc,char**argv){
 
     // ---------------------------------------------------------------- Save as: B (the ADFS L floppy, with unsaved changes) to a new file
     {
-        QString orig=B->image().path(), copy=d+"/b-copy.adl";
+        QString orig=B->image().path(), copy=QFileInfo(d+"/b-copy.adl").absoluteFilePath();
         QFile::remove(copy);
         QByteArray before; { QFile f(orig); f.open(QIODevice::ReadOnly); before=f.readAll(); }
+        B->tabs()->setCurrentWidget(B->tree()); CHECK(B->setBootOption(2));   // an unsaved change for the copy to carry
         CHECK(B->image().dirty());
         QTimer::singleShot(150,[copy]{ auto* fd=qobject_cast<QFileDialog*>(QApplication::activeModalWidget());
-            if(fd){ fd->selectFile(copy); fd->accept(); } else printf("  (no Save as dialog)\n"); });
+            if(fd){ fd->selectFile(copy); QMetaObject::invokeMethod(fd,"accept"); } else printf("  (no Save as dialog)\n"); });
         QMetaObject::invokeMethod(B,"saveAsDialog",Qt::DirectConnection); pump();
         CHECK(B->image().path()==copy);                       // the window carries on with the copy
         CHECK(!B->image().dirty());                           // the changes went into it
@@ -271,6 +272,7 @@ int main(int argc,char**argv){
         CHECK(after==before);                                 // the original file is untouched
         MainWindow re; CHECK(re.openImage(copy));             // the copy reopens with the files in it
         Dir r; QString e; CHECK(re.image().readDir(RootSector,&r,&e)); CHECK(r.indexOf("hello")>=0 && r.indexOf("BeebSCSI")>=0);
+        CHECK(re.bootOption()==2);                            // ... and the change made before Save as
     }
 
 

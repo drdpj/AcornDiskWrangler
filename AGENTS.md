@@ -186,6 +186,10 @@ User-visible behaviour the README no longer spells out:
   The rest are imported as before. All queued (no dialog or window inside the drop handler). An empty window also
   ignores the retro-files JSON and takes the files, so it can open an image dragged out of another window. Add
   files never opens images.
+- Save as (`saveAsDialog`): with unsaved changes, `Image::moveToCopy()` copies the file to the new name and reopens
+  it there, keeping the staged changes, then `save()` writes them into the copy (the original is untouched). With
+  none, or a read-only image, it copies the file and opens the copy. `guitest2` checks both the copy (and a change
+  made before it) and the untouched original.
 - Side order (Tools > Side order): *Read as* re-opens the file with `openImage(path, 0|1)` (nothing written);
   *Convert* stages `Image::setConvertOnSave`. The status bar shows "sides ..." with how it was settled.
   New image: `newImageDialog()` -> `NewDisc::create()` -> opened like File > Open.
@@ -214,7 +218,7 @@ User-visible behaviour the README no longer spells out:
   `dfsSide()` (>=0), `dosActive()`, else ADFS. `updateUi()` enables actions per pane kind.
 - **Menus, button bar and context menu are laid out like CP/M Disk Wrangler's** (owner's rule: the same order in
   both programs; one program's extra items may sit in between). File: New window (Ctrl+Shift+N), New disc image
-  (Ctrl+N), Open | Save, [Save as], Revert | Create local config file | Close (Ctrl+W), Quit (all windows). Edit:
+  (Ctrl+N), Open | Save, Save as (Ctrl+Shift+S), Revert | Create local config file | Close (Ctrl+W), Quit (all windows). Edit:
   View (F3), Extract to folder (Ctrl+E) | Add files (Ctrl+Shift+F), [Add folder (Ctrl+Shift+D), New directory
   (F7)] | Copy, Paste (the platform's keys: `QKeySequence::Copy/Paste`) | Rename (F2), Properties (Alt+Return),
   Delete (`deleteKeys()`: Delete, plus Cmd+Backspace on macOS) | the disc's own items. Tools: Check disc (Ctrl+K)
@@ -397,7 +401,7 @@ At the owner's request, Disc Image Manager is not used as a source or reference.
   tokens) in any summary to the owner.
 
 ## Known gaps / ideas
-ADFS D/E; Watford DFS; compacting a fragmented ADFS/DFS disc; Save As (CP/M Disk Wrangler has one); Cut (a move
+ADFS D/E; Watford DFS; compacting a fragmented ADFS/DFS disc; Cut (a move
 off a disc) is deliberately not offered.
 
 ## Lesson: test against real discs as soon as you can
