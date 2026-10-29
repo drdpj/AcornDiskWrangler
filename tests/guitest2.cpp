@@ -22,6 +22,8 @@
 #include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QFileDialog>
+#include <QDialogButtonBox>
+#include <QLineEdit>
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QMimeData>
@@ -38,6 +40,7 @@
 #include <QUrl>
 #include <QFile>
 #include <cstdio>
+#include <functional>
 using namespace Adfs;
 static int fails=0;
 #define CHECK(c) do{ if(!(c)){printf("FAIL line %d: %s\n",__LINE__,#c);++fails;} }while(0)
@@ -65,7 +68,15 @@ static void drag(MainWindow& src,DropTree* srcTree,const QStringList& names,Main
     dst.tabs()->setCurrentWidget(dstTree);
     QTreeWidgetItem* tgt = ontoItem?ontoItem:onto.isEmpty()?nullptr:find(dstTree,onto);
     sendDrop(dstTree,m,tgt); delete m; }
-static void autoYes(int ms=150){ QTimer::singleShot(ms,[]{ auto* mb=qobject_cast<QMessageBox*>(QApplication::activeModalWidget()); if(mb){ auto*b=mb->button(QMessageBox::Yes); if(b) b->click(); else printf("  (no Yes button)\n"); } else printf("  (expected a prompt)\n"); }); }
+// Runs act on the first modal dialog of type T to appear within 3 s (polling: a fixed delay can fire before a slow
+// dialog shows, which made the tests flaky), else says what was missing.
+template<class T> static void whenModal(std::function<void(T*)> act,const char* missing){
+    auto* t=new QTimer; auto* waited=new int(0); t->setInterval(50);
+    QObject::connect(t,&QTimer::timeout,[t,waited,act,missing]{
+        if(T* w=qobject_cast<T*>(QApplication::activeModalWidget())){ t->stop(); t->deleteLater(); delete waited; act(w); return; }
+        if((*waited+=50)>=3000){ printf("  (%s)\n",missing); t->stop(); t->deleteLater(); delete waited; } });
+    t->start(); }
+static void autoYes(){ whenModal<QMessageBox>([](QMessageBox* mb){ auto*b=mb->button(QMessageBox::Yes); if(b) b->click(); else printf("  (no Yes button)\n"); },"expected a prompt"); }
 static MainWindow* openWin(const QString& path){ auto* w=new MainWindow; w->resize(900,600); w->show(); if(!w->openImage(path)){ printf("open failed %s\n",qPrintable(path)); ++fails; } pump(); return w; }
 static QStringList tabTexts(MainWindow& w){ QStringList l; for(int i=0;i<w.tabs()->count();++i) l<<w.tabs()->tabText(i); return l; }
 
@@ -156,10 +167,10 @@ int main(int argc,char**argv){
     dropFiles(*G,G->dosTree(),{"/tmp/drop/proj/sub"}); { QVector<Dos::DEntry> L; QString e; G->dos().listDir(0,&L,&e); bool s=false; for(auto&x:L) if(x.name=="SUB"&&x.isDir()) s=true; CHECK(s); }
     // DFS rename / properties / delete through the real slots
     { auto*it=find(A->dfsTree(),"$.prog"); A->tabs()->setCurrentWidget(A->dfsTree()); A->dfsTree()->clearSelection(); it->setSelected(true);
-      QTimer::singleShot(150,[]{ auto* dlg=qobject_cast<QInputDialog*>(QApplication::activeModalWidget()); if(dlg){ dlg->setTextValue("prog2"); dlg->accept(); } else printf("  (no rename dialog)\n"); });
+      whenModal<QInputDialog>([](QInputDialog* dlg){ dlg->setTextValue("prog2"); dlg->accept(); },"no rename dialog");
       QMetaObject::invokeMethod(A,"renameSelected",Qt::DirectConnection); CHECK(A->dfs(0).indexOf('$',"prog2")>=0 && A->dfs(0).indexOf('$',"prog")<0); }
     { A->tabs()->setCurrentWidget(A->dfsTree()); QTreeWidgetItem* root=A->dfsTree()->topLevelItem(0); A->dfsTree()->clearSelection(); root->setSelected(true);
-      QTimer::singleShot(150,[]{ auto* dlg=qobject_cast<QInputDialog*>(QApplication::activeModalWidget()); if(dlg){ dlg->setTextValue("SIDE ZERO"); dlg->accept(); } else printf("  (no title dialog)\n"); });
+      whenModal<QInputDialog>([](QInputDialog* dlg){ dlg->setTextValue("SIDE ZERO"); dlg->accept(); },"no title dialog");
       QMetaObject::invokeMethod(A,"renameSelected",Qt::DirectConnection); CHECK(A->dfs(0).title()=="SIDE ZERO"); }
 
 
@@ -261,8 +272,7 @@ int main(int argc,char**argv){
         QByteArray before; { QFile f(orig); f.open(QIODevice::ReadOnly); before=f.readAll(); }
         B->tabs()->setCurrentWidget(B->tree()); CHECK(B->setBootOption(2));   // an unsaved change for the copy to carry
         CHECK(B->image().dirty());
-        QTimer::singleShot(150,[copy]{ auto* fd=qobject_cast<QFileDialog*>(QApplication::activeModalWidget());
-            if(fd){ fd->selectFile(copy); QMetaObject::invokeMethod(fd,"accept"); } else printf("  (no Save as dialog)\n"); });
+        whenModal<QFileDialog>([copy](QFileDialog* fd){ fd->selectFile(copy); QMetaObject::invokeMethod(fd,"accept"); },"no Save as dialog");
         QMetaObject::invokeMethod(B,"saveAsDialog",Qt::DirectConnection); pump();
         CHECK(B->image().path()==copy);                       // the window carries on with the copy
         CHECK(!B->image().dirty());                           // the changes went into it
@@ -275,6 +285,43 @@ int main(int argc,char**argv){
         CHECK(re.bootOption()==2);                            // ... and the change made before Save as
     }
 
+
+    // ---------------------------------------------------------------- DFS: several files into one directory (a rename), clashes trapped
+    {
+        A->tabs()->setCurrentWidget(A->dfsTree()); pump();
+        auto row=[&](int side,const QString& n)->QTreeWidgetItem*{ QTreeWidgetItem* r=A->dfsRoot(side); if(r) for(int i=0;i<r->childCount();++i) if(r->child(i)->data(0,Qt::UserRole+1).toString()==n) return r->child(i); return nullptr; };
+        auto select=[&](QList<QPair<int,QString>> l){ A->dfsTree()->clearSelection(); for(auto&p:l){ auto*it=row(p.first,p.second); if(it) it->setSelected(true); else { printf("  (no row %d:%s)\n",p.first,qPrintable(p.second)); ++fails; } } };
+        auto has=[&](int side,QChar dir,const QString& n){ int i=A->dfs(side).indexOf(dir,n); return i>=0 && A->dfs(side).files()[i].dir==dir; };
+        QStringList clashes, errors;
+        // two files, both sides at once: each keeps its name and side
+        select({{0,"$.a_bin"},{0,"$.b_bin"},{1,"$.hello"}});
+        CHECK(A->dfsMoveSelected('G',false,&clashes,&errors)==3 && clashes.isEmpty() && errors.isEmpty());
+        CHECK(has(0,'G',"a_bin") && has(0,'G',"b_bin") && has(1,'G',"hello") && !has(0,'$',"a_bin") && has(0,'$',"hello"));
+        // a name already in the directory: nothing moves; then "move the others"
+        { QString e; CHECK(A->dfs(0).modify('$',"d_bin",'K',"c_bin",false,0,0,&e)); A->refreshDfs(); }    // K.c_bin is taken
+        select({{0,"$.c_bin"},{0,"$.hello"}});
+        CHECK(A->dfsMoveSelected('K',false,&clashes,&errors)==0 && clashes.size()==1 && clashes[0].startsWith("$.c_bin: K.c_bin"));
+        CHECK(has(0,'$',"c_bin") && has(0,'$',"hello"));
+        CHECK(A->dfsMoveSelected('k',true,&clashes,&errors)==1 && has(0,'k',"hello") && has(0,'$',"c_bin"));  // k and K are one directory
+        A->refreshDfs();
+        // two selected files that would get the same name; and a file already there just changes the letter's case
+        { QString e; CHECK(A->dfs(0).addFile('$',"hello",QByteArray("x"),0,0,false,false,&e)); A->refreshDfs(); }
+        select({{0,"k.hello"},{0,"$.hello"}});
+        CHECK(A->dfsMoveSelected('K',false,&clashes,&errors)==0 && clashes.size()==1);
+        select({{0,"k.hello"}});
+        CHECK(A->dfsMoveSelected('K',false,&clashes,&errors)==1 && has(0,'K',"hello"));
+        A->refreshDfs();
+        // the same through Edit > Properties: a letter for several files, a clash, "Move the others"
+        select({{0,"$.c_bin"},{0,"$.prog2"}});
+        whenModal<QDialog>([](QDialog* dlg){ QLineEdit* le=dlg->findChild<QLineEdit*>();
+            whenModal<QMessageBox>([](QMessageBox* mb){ printf("  asked: %s\n",qPrintable(mb->text().section('\n',0,0))); mb->button(QMessageBox::Yes)->click(); },
+                                   "no clash question");          // after the Properties dialog: the clash question
+            if(le){ le->setText("K"); dlg->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Ok)->click(); } else printf("  (no letter field)\n"); },
+                           "no properties dialog");
+        QMetaObject::invokeMethod(A,"editProperties",Qt::DirectConnection); pump();
+        CHECK(has(0,'K',"prog2") && has(0,'$',"c_bin") && has(0,'K',"c_bin"));
+        printf("  drive 0 now:"); for(auto&f:A->dfs(0).files()) printf(" %s",qPrintable(f.fullName())); printf("\n");
+    }
 
     // ---------------------------------------------------------------- save everything, check the files
     for(MainWindow* w : {A,B,C,D,E,F,G}){ CHECK(w->save()); }

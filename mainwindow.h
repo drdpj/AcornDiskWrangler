@@ -88,6 +88,8 @@ public:
     Dfs::Disc &dfs(int side) { return m_dfs[side]; }
     int dfsSide() const;            // the DFS tab is showing: the side of the selection (or current row), else -1
     int dfsTargetSide(QTreeWidgetItem *it) const;       // the side a DFS row belongs to (0 for none)
+    // Edit > Properties with several DFS files and a directory letter: see mainwindow_dfs.cpp
+    int dfsMoveSelected(QChar letter, bool moveOthers, QStringList *clashes, QStringList *errors);
     void refreshDfs();
     bool exportRefs(int pane, const QVector<DragRef> &refs, QVector<XItem> *out, QString *err);
     bool paneEditable(int pane) const;

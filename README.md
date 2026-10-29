@@ -57,7 +57,8 @@ an existing Master 512 disc image or a DOSBOOT file.
 * **View** (double-click, F3): text, hex, or a BBC BASIC listing of a tokenised program. The text can be copied
   or saved.
 * **New directory** (F7) on ADFS and DOS discs (DFS discs have none). **Rename** (F2) files, directories and the disc itself; **Properties** (Alt+Enter) for access attributes and
-  load/exec addresses, for one file or many.
+  load/exec addresses, for one file or many. On a DFS disc, select several files and give Properties a directory
+  letter to move them all into that directory (it's a rename: names already taken there are pointed out first).
 * **Boot option** (Edit > Boot option): what SHIFT+BREAK does - nothing, `*LOAD`, `*RUN` or `*EXEC !BOOT` - on
   ADFS discs and each side of a DFS disc.
 * **Side order** (Tools > Side order): double-sided images come with their sides stored in one of two orders.

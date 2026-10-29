@@ -214,6 +214,11 @@ User-visible behaviour the README no longer spells out:
   collapsed sides across its rebuild.
   Naming (owner's rule): "side" is always 0/1 (the disc's physical side, as in side order); "drive" is always
   0/2 (what a BBC Micro calls the two sides of a disc). Never print a side number next to "drive" or the reverse.
+  Moving several files into a directory (Properties with more than one file selected: the letter field, blank =
+  unchanged) is a rename, `dfsMoveSelected()`: every new name is checked first, against files not being moved and
+  against the other selected files (keys from `dfsKey`, so case-insensitive, as DFS itself is - `d.moo` and `D.MOO`
+  are one file; the letter's case as typed is kept). With a clash nothing moves unless the user chooses "Move the
+  others". Locked files move too (as for a single-file rename here).
 - Slots (`deleteSelected`, `editProperties`, `renameSelected`, ...) dispatch on the active pane:
   `dfsSide()` (>=0), `dosActive()`, else ADFS. `updateUi()` enables actions per pane kind.
 - **Menus, button bar and context menu are laid out like CP/M Disk Wrangler's** (owner's rule: the same order in
@@ -384,9 +389,11 @@ At the owner's request, Disc Image Manager is not used as a source or reference.
 - Closed windows/viewers use `deleteLater`: call `QCoreApplication::sendPostedEvents(nullptr,
   QEvent::DeferredDelete)` before counting children. `scrollToItem` before computing an
   item's rect or the drop lands on the root.
-- Modal `QMessageBox`/`QInputDialog` inside a test block forever unless a `QTimer::singleShot`
-  clicks/fills them (see `autoYes` in `guitest2.cpp`). `importSummary` only pops a box when
-  there are errors, so a test that provokes errors must handle it.
+- Modal `QMessageBox`/`QInputDialog` inside a test block forever unless something answers them. In `guitest2`, use
+  `whenModal<T>()` (it polls every 50 ms, up to 3 s, for the dialog to appear) or `autoYes()`, built on it: a fixed
+  `QTimer::singleShot` delay made the test fail now and then, when a dialog appeared after the timer had fired
+  (`dragtest` still uses its own `answer()`). `importSummary` only pops a box when there are errors, so a test that
+  provokes errors must handle it.
 
 ## Working practices (learned the hard way)
 - **Check what already exists before editing.** Twice, a patch was applied on top of work that

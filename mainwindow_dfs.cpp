@@ -45,6 +45,8 @@
 #include <QStyle>
 #include <QTabWidget>
 #include <QPair>
+#include <QPushButton>
+#include <QSet>
 #include <QSignalBlocker>
 #include <QTimer>
 #include <algorithm>
@@ -341,6 +343,12 @@ void MainWindow::dfsProps() {
         dirEd->setMaxLength(1);
         form->addRow("Name (max 7 characters):", nameEd);
         form->addRow("Directory letter:", dirEd);
+    } else {                                    // several files: move them all into one directory (a rename)
+        dirEd = new QLineEdit;
+        dirEd->setMaxLength(1);
+        dirEd->setPlaceholderText("unchanged");
+        dirEd->setToolTip("Puts every selected file into this DFS directory, keeping its name");
+        form->addRow("Directory letter:", dirEd);
     }
     auto *cbL = new QCheckBox("L  - locked");
     int on = 0;
@@ -368,11 +376,16 @@ void MainWindow::dfsProps() {
     if (dlg.exec() != QDialog::Accepted) return;
 
     QStringList errors;
+    QChar letter = dirEd && !dirEd->text().isEmpty() ? dirEd->text()[0] : QChar();
+    if (!letter.isNull() && !Dfs::validDir(letter)) {
+        QMessageBox::warning(this, "Properties", QString("'%1' is not a valid DFS directory character.").arg(letter));
+        return;
+    }
     for (int i = 0; i < files.size(); ++i) {
         const Dfs::File &f = files[i];
         int side = sel[i].side;
         QString nn = nameEd ? nameEd->text().trimmed() : f.name;
-        QChar nd = (dirEd && !dirEd->text().isEmpty()) ? dirEd->text()[0] : f.dir;
+        QChar nd = single && !letter.isNull() ? letter : f.dir;     // several files: moved below, all checked first
         bool locked = cbL->checkState() == Qt::PartiallyChecked ? f.locked : cbL->checkState() == Qt::Checked;
         quint32 load = loadEd ? loadEd->text().toUInt(nullptr, 16) : f.load;
         quint32 exec = execEd ? execEd->text().toUInt(nullptr, 16) : f.exec;
@@ -381,9 +394,70 @@ void MainWindow::dfsProps() {
         else if (m_dfs[side].modify(f.dir, f.name, nd, nn, locked, load, exec, &err)) continue;
         errors << QString("%1: %2").arg(f.fullName(), err);
     }
+    if (!single && !letter.isNull()) {
+        refreshDfs();                           // the rows again, after any change to the lock
+        QStringList clashes;
+        dfsMoveSelected(letter, false, &clashes, &errors);
+        if (!clashes.isEmpty()) {
+            int n = dfsSelected().size();
+            if (clashes.size() >= n) {
+                QMessageBox::warning(this, "Properties", QString("No file was moved into %1: the names are taken.\n\n").arg(letter) +
+                                                             clashes.join("\n"));
+            } else {
+                QMessageBox box(QMessageBox::Question, "Properties",
+                                QString("%1 of the %2 files can't go into %3, as the name is taken there:\n\n%4\n\nMove the others?")
+                                    .arg(clashes.size()).arg(n).arg(letter).arg(clashes.join("\n")),
+                                QMessageBox::Yes | QMessageBox::Cancel, this);
+                box.button(QMessageBox::Yes)->setText("Move the others");
+                if (box.exec() == QMessageBox::Yes) dfsMoveSelected(letter, true, &clashes, &errors);
+            }
+        }
+    }
     refreshDfs();
     updateUi();
     if (!errors.isEmpty()) QMessageBox::warning(this, "Properties", errors.join("\n"));
+}
+
+// Moves the selected DFS files (either side) into directory `letter`, keeping their names: on DFS that is only a
+// rename. A name taken there - by a file not being moved, or by another selected file going to the same place - is
+// a clash, listed in *clashes ("$.NAME: D.NAME is taken"); with any clash nothing is moved unless moveOthers is set,
+// when the rest are. Files already in that directory stay (a change of the letter's case only is made). Returns the
+// number moved.
+int MainWindow::dfsMoveSelected(QChar letter, bool moveOthers, QStringList *clashes, QStringList *errors) {
+    clashes->clear();
+    const QVector<FSel> sel = dfsSelected();
+    QSet<QString> mine, taken;
+    for (const FSel &s : sel) {
+        mine << dfsKey(s.side, s.dir, s.name);
+        if (s.dir == letter) taken << dfsKey(s.side, s.dir, s.name);       // stays where it is
+    }
+    QVector<FSel> todo;
+    for (const FSel &s : sel) {
+        if (s.dir == letter) continue;
+        QString to = dfsKey(s.side, letter, s.name);
+        int i = m_dfs[s.side].indexOf(letter, s.name);
+        bool occupied = i >= 0 && !mine.contains(dfsKey(s.side, m_dfs[s.side].files()[i].dir, m_dfs[s.side].files()[i].name));
+        if (occupied || taken.contains(to)) {
+            *clashes << QString("%1.%2: %3.%2 is taken%4").arg(QString(s.dir), s.name, QString(letter))
+                            .arg(m_dfs[1].attached() ? QString(" (drive %1)").arg(s.side * 2) : QString());
+            continue;
+        }
+        taken << to;
+        todo << s;
+    }
+    if (!clashes->isEmpty() && !moveOthers) return 0;
+    int moved = 0;
+    for (const FSel &s : todo) {
+        int i = m_dfs[s.side].indexOf(s.dir, s.name);
+        QString err = "not found";
+        if (!dfsEditable(s.side)) err = "this side is read-only";
+        else if (i >= 0) {
+            const Dfs::File f = m_dfs[s.side].files()[i];
+            if (m_dfs[s.side].modify(f.dir, f.name, letter, f.name, f.locked, f.load, f.exec, &err)) { ++moved; continue; }
+        }
+        *errors << QString("%1.%2: %3").arg(QString(s.dir), s.name, err);
+    }
+    return moved;
 }
 
 void MainWindow::dfsRenameVolume(int side) {
