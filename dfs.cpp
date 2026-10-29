@@ -347,7 +347,7 @@ Report Disc::check() {
     for (int i = 1; i < ex.size(); ++i)
         if (ex[i].s < ex[i - 1].e) r.errors << QString("%1 overlaps %2").arg(ex[i].n, ex[i - 1].n);
     r.info << QString("DFS drive %1%2: %3 files, %4 of %5 sectors free")
-                  .arg(m_side).arg(m_title.isEmpty() ? QString() : " '" + m_title + "'").arg(m_files.size()).arg(freeSectors()).arg(m_sectors);
+                  .arg(m_side * 2).arg(m_title.isEmpty() ? QString() : " '" + m_title + "'").arg(m_files.size()).arg(freeSectors()).arg(m_sectors);
     return r;
 }
 
