@@ -17,6 +17,7 @@
  */
 #include "mainwindow.h"
 #include "viewer.h"
+#include "fileopen.h"
 #include <QApplication>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
@@ -328,6 +329,23 @@ int main(int argc,char**argv){
     CHECK(QFile(d+"/e.ssd").size()==102400);      // the truncated image was padded to a full disc
     CHECK(QFile(d+"/a.dsd").size()==204800);
     for(MainWindow* w : {A,B,C,D,E,F,G}) CHECK(!w->image().dirty() && !w->image().needsPadding());
+
+    // ---------------------------------------------------------------- files opened from the Finder (fileopen.h)
+    {
+        FileOpen::FileOpenFilter filter; qApp->installEventFilter(&filter);
+        auto holding=[](const QString& p){ QList<MainWindow*> r; for(MainWindow* w:MainWindow::windows())
+            if(w->image().isOpen()&&QFileInfo(w->image().path()).canonicalFilePath()==QFileInfo(p).canonicalFilePath()) r<<w; return r; };
+        auto finderOpen=[](const QString& p){ QFileOpenEvent ev(p); QCoreApplication::sendEvent(qApp,&ev); pump(); };
+        QFile::copy(d+"/e.ssd",d+"/fo1.ssd"); QFile::copy(d+"/e.ssd",d+"/fo2.ssd");
+        const int n=MainWindow::windows().size();
+        finderOpen(d+"/e.ssd");                  // already open (E): brought forward, not opened a second time
+        CHECK(MainWindow::windows().size()==n && holding(d+"/e.ssd").size()==1);
+        finderOpen(d+"/fo1.ssd");                // every window holds a disc: it gets a window of its own
+        CHECK(MainWindow::windows().size()==n+1 && holding(d+"/fo1.ssd").size()==1);
+        auto* empty=new MainWindow; empty->setAttribute(Qt::WA_DeleteOnClose); empty->show(); pump();
+        finderOpen(d+"/fo2.ssd");                // an empty window takes it
+        CHECK(MainWindow::windows().size()==n+2 && holding(d+"/fo2.ssd").value(0)==empty);
+    }
     printf("\n%s (%d failures)\n",fails?"FAILED":"ALL OK",fails);
     return fails?1:0;
 }

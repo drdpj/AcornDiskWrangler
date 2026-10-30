@@ -29,6 +29,7 @@ Wrangler (github.com/drdpj/CPMDiskWrangler): keep the two copies identical.
 | `viewer.*` | the read-only viewer window |
 | `appsettings.h` | where settings live: the system's place, or `<program>.ini` beside the program (portable; for an AppImage, beside the `.AppImage` file - `$APPIMAGE` - not in its temporary mount; a program installed on Linux has no portable mode, so File > Create local config file isn't shown). Use `AppSettings` instead of `QSettings` in program code (tests may use `QSettings` to clear the system store). Header only; shared with CP/M Disk Wrangler, keep identical |
 | `buttonbar.h` | the main window's button bar: real QPushButtons kept in step with their QActions (a QToolBar's own buttons draw as flat text on macOS). Header only; shared with CP/M Disk Wrangler, keep identical |
+| `fileopen.h` | macOS opens files from the Finder (double-click, Open With, the Dock icon) by sending the running program a `QFileOpenEvent`, never a command-line argument: `FileOpen::FileOpenFilter` (installed on the application in `main.cpp`) opens the image like File > Open - in an empty window, the active one first, else a new window; one already open just comes forward. Windows and Linux never send it. `guitest2` / CP/M Disk Wrangler's `guitest` send it. Header only; shared with CP/M Disk Wrangler, keep identical |
 | `icon.*` | the application icon (a 5.25" floppy), drawn with QPainter; `icons/` holds PNG exports (`tests/mkicon <dir>` regenerates them) and a matching `acorndiskwrangler.svg` - keep the SVG in step if the geometry changes |
 | `acorndiskwrangler.desktop` | Linux/BSD: name and icon for docks and menus (GNOME ignores the window icon and shows a gear without it). Installed with the hicolor PNGs + SVG by `make install` (qmake `INSTALLS`, CMake `install()`); matched to the windows by `StartupWMClass` (X11 `WM_CLASS` is `acorndiskwrangler`) and `QGuiApplication::setDesktopFileName` (Wayland). Check with `desktop-file-validate` |
 | `icons/acorndiskwrangler.icns` | macOS: the .app's icon (qmake `ICON`, CMake `MACOSX_BUNDLE_ICON_FILE`). Made by `tests/make_icns.py` from `mkicon`'s PNGs, 32-1024 px, every size an exact rendering. Not tested on a Mac |
@@ -37,7 +38,7 @@ Wrangler (github.com/drdpj/CPMDiskWrangler): keep the two copies identical.
 | `mainwindow_dos.cpp` | DOS pane, viewer hookup, renaming, import summary |
 | `mainwindow_dfs.cpp` | window registry, tab management, the DFS pane (both sides in one tree), **cross-disc copy engine**, Copy / Paste |
 | `mainwindow_p.h` | shared private header: item roles, `ImportCtx`, `Pane`, `XItem`, `DragRef`, name helpers |
-| `main.cpp` | opens each command-line image in its own window |
+| `main.cpp` | opens each command-line image in its own window; installs `fileopen.h`'s filter for the Finder's |
 
 ## The rules that must not be broken
 1. **Nothing is written to the image except by `Image::commit()`.** All edits (ADFS, DOS, DFS)
@@ -334,9 +335,11 @@ builds and deploys, `ci/collect-licences.sh` gathers the licences of every shipp
 `licences-bundled.qrc`, and `ci/build.sh` again compiles them in (Help > Licences, `licences.cpp`). On Linux, `ci/make-deb.sh` then packages the same build as a `.deb` that depends on the system's Qt
 (dpkg-shlibdeps; built on 22.04 against Qt 6.2, it installs on Ubuntu 22.04+ and Debian 12+ - the t64-renamed
 libraries of 24.04 provide the old names; checked in clean 22.04-built / 24.04-installed chroots, Qt 6 and Qt 5),
-and the workflow installs it and starts it. A new source
+and the workflow installs it and starts it. On Windows, for a tag or Run workflow only, `ci/installer.iss` (Inno
+Setup) packages `deploy/` as `...-setup.exe` and the workflow installs, starts and uninstalls it; each program's
+AppId in it is fixed for good. A new source
 file in the .pro also goes in CMakeLists.txt and any `tests/*.pro` that build `mainwindow.cpp` (they need
-`../licences.cpp`). `ci/`, `licences.*`, `licences/`, `buttonbar.h`, `appsettings.h` and the workflow are shared with CP/M Disk Wrangler: keep them
+`../licences.cpp`). `ci/`, `licences.*`, `licences/`, `buttonbar.h`, `appsettings.h`, `fileopen.h` and the workflow are shared with CP/M Disk Wrangler: keep them
 identical.
 ```
 qmake acorndiskwrangler.pro && make          # or CMake (CMakeLists.txt)
