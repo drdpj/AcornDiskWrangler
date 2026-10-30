@@ -11,6 +11,9 @@ new blank discs, and drag files between discs, to and from your desktop, and to 
 Get the latest build for Windows, macOS or Linux from the
 [Releases page](https://github.com/drdpj/AcornDiskWrangler/releases).
 
+[![Latest release](https://img.shields.io/github/v/release/drdpj/AcornDiskWrangler?label=release)](https://github.com/drdpj/AcornDiskWrangler/releases/latest)
+[![Latest pre-release](https://img.shields.io/github/v/release/drdpj/AcornDiskWrangler?include_prereleases&label=pre-release)](https://github.com/drdpj/AcornDiskWrangler/releases)
+
 * **Windows** (10 or later, 64-bit): run the `...-setup.exe` installer, which installs into Program Files and
   adds the program to the Start menu (without administrator rights, choose to install it only for you), or unzip
   the `.zip` anywhere and run `acorndiskwrangler.exe`. Neither is signed, so Windows may warn the first time: choose
