@@ -53,6 +53,16 @@ inline QString fmtSectors(quint32 s) {
     return QString("%1 KB").arg(b / 1024.0, 0, 'f', 1);
 }
 
+// "*.dsk *.img" -> "*.dsk *.DSK *.img *.IMG": file dialogs match case-sensitively on Linux, and discs come as DISK.DSK too.
+inline QString anyCase(const QString &patterns) {
+    QStringList out;
+    for (const QString &p : patterns.split(' ', Qt::SkipEmptyParts)) {
+        out << p;
+        if (p.toUpper() != p) out << p.toUpper();
+    }
+    return out.join(' ');
+}
+
 inline QString fmtBytes(quint64 b) {
     if (b >= 1024ull * 1024) return QString("%1 MB").arg(double(b) / (1024.0 * 1024.0), 0, 'f', 1);
     return QString("%1 KB").arg(double(b) / 1024.0, 0, 'f', 1);

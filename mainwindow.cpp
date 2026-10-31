@@ -518,7 +518,7 @@ void MainWindow::openDialog() {
     AppSettings s;
     QString p = QFileDialog::getOpenFileName(
         this, "Open disc image", s.value("lastDir").toString(),
-        "Disc images (*.dat *.img *.ima *.dsk *.hdf *.adf *.adl *.adm *.ads *.ssd *.dsd *.bin);;All files (*)");
+        "Disc images (" + anyCase("*.dat *.img *.ima *.dsk *.hdf *.adf *.adl *.adm *.ads *.ssd *.dsd *.bin") + ");;All files (*)");
     if (p.isEmpty()) return;
     MainWindow *target = this;
     if (m_img.isOpen()) {                       // each disc lives in its own window, so they can be dragged between
@@ -738,7 +738,7 @@ void MainWindow::newImageDialog() {
     connect(browse, &QPushButton::clicked, &dlg, [&] {
         QString p = QFileDialog::getOpenFileName(&dlg, "DOSBOOT from a DOS Plus 640K disc image, or a DOSBOOT file",
                                                  boot->text().isEmpty() ? st.value("lastDir").toString() : boot->text(),
-                                                 "DOS Plus 640K disc or DOSBOOT (*.adl *.adf *.img *.dsk dosboot*);;All files (*)");
+                                                 "DOS Plus 640K disc or DOSBOOT (" + anyCase("*.adl *.adf *.img *.dsk dosboot*") + ");;All files (*)");
         if (!p.isEmpty()) boot->setText(p);
     });
     form->addRow("Format:", type);
