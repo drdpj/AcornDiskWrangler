@@ -38,6 +38,7 @@
 #include <QMessageBox>
 #include <QSettings>
 #include <QTimer>
+#include <QTimeZone>
 #include <cstdio>
 #include <utime.h>
 using namespace Adfs;
@@ -145,7 +146,7 @@ int main(int argc,char**argv){
       CHECK(im.addFile(RootSector,"Elite",elite,0xFFFF1900,0xFFFF8023,FlagL|FlagW|FlagR,false,&e));
       CHECK(im.addFile(RootSector,"Aux",aux,0x1900,0x1900,FlagW|FlagR,false,&e));
       // a RISC OS typed + time-stamped file: centiseconds since 1900 in exec + low byte of load, type FFF
-      quint64 cs=quint64(QDateTime(QDate(1900,1,1),QTime(0,0),Qt::UTC).secsTo(QDateTime(when.date(),when.time(),Qt::UTC)))*100;
+      quint64 cs=quint64(QDateTime(QDate(1900,1,1),QTime(0,0),QTimeZone::utc()).secsTo(QDateTime(when.date(),when.time(),QTimeZone::utc())))*100;
       CHECK(im.addFile(RootSector,"Text",stamped,0xFFFFFF00u|quint32(cs>>32),quint32(cs),FlagW|FlagR,false,&e));
       quint32 games=0,deep=0; CHECK(im.makeDir(RootSector,"Games",&e,&games));
       CHECK(im.addFile(games,"Elite",elite2,0x3000,0x3000,FlagR|FlagE,false,&e));

@@ -558,7 +558,7 @@ bool MainWindow::exportAdfs(quint32 parent, const QString &name, XItem *x, QStri
                           (e.flag(Entry::L) ? FlagL : 0) | (e.flag(Entry::E) ? FlagE : 0));
     if (!e.isDir() && e.hasStamp()) {               // as the tree shows it: only plausible RISC OS dates
         QDateTime t = e.stamp();
-        if (t.date().year() >= 1981 && t.date().year() <= 2100) x->when = QDateTime(t.date(), t.time(), Qt::LocalTime);
+        if (t.date().year() >= 1981 && t.date().year() <= 2100) x->when = QDateTime(t.date(), t.time());   // local time
     }
     if (e.isDir()) {
         if (depth > 32) { *err = "directory nesting too deep"; return false; }
@@ -585,7 +585,7 @@ bool MainWindow::exportDos(quint32 parent, const QString &name, XItem *x, QStrin
         x->locked = (e.attr & Dos::AttrR) != 0;
         x->dosAttr = e.attr;
         QDateTime w = e.when();
-        if (w.isValid()) x->when = QDateTime(w.date(), w.time(), Qt::LocalTime);
+        if (w.isValid()) x->when = QDateTime(w.date(), w.time());   // local time
         if (e.isDir()) {
             if (depth > 32) { *err = "directory nesting too deep"; return false; }
             QVector<Dos::DEntry> C;

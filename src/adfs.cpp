@@ -18,6 +18,7 @@
 #include "adfs.h"
 
 #include <QSet>
+#include <QTimeZone>
 #include <algorithm>
 #include <cstring>
 
@@ -123,7 +124,7 @@ QString Entry::attrString() const {
 
 QDateTime Entry::stamp() const {
     quint64 cs = (quint64(load & 0xFF) << 32) | exec;
-    return QDateTime(QDate(1900, 1, 1), QTime(0, 0), Qt::UTC).addSecs(qint64(cs / 100));
+    return QDateTime(QDate(1900, 1, 1), QTime(0, 0), QTimeZone::utc()).addSecs(qint64(cs / 100));
 }
 
 // -------------------------------------------------------------------- Dir
@@ -525,7 +526,8 @@ bool Image::moveToCopy(const QString &dest, QString *err) {
     m_file.setFileName(dest);
     if (!m_file.open(QIODevice::ReadWrite)) {           // back to the original
         *err = "could not open " + dest + ": " + m_file.errorString();
-        m_file.setFileName(m_path); m_file.open(QIODevice::ReadWrite);
+        m_file.setFileName(m_path);
+        if (!m_file.open(QIODevice::ReadWrite)) *err += "; the original could not be reopened either: " + m_file.errorString();
         return false;
     }
     m_path = dest;
