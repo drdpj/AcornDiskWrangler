@@ -1,23 +1,30 @@
 # AGENTS.md - working on Acorn Disk Wrangler
 
-Read this before changing code. It records the design rules, the facts about the disc formats
-(and how sure we are of each), how to build and test, and the mistakes already made once.
+Read this before changing code: what the program is, where things are, the rules that must not be broken, how
+the window works and how to build and test. Two companion documents hold the detail you only need for some work:
+
+* **[docs/disc-formats.md](docs/disc-formats.md)** - the facts about each disc format, how sure we are of each, side
+  order, and how they were checked. Read it before touching `adfs`, `dfs`, `dosfs`, `diskformat` or `newdisc`.
+* **[docs/testing.md](docs/testing.md)** - every test, what it needs, the test data and the independent checks.
 
 ## What this is
-A Qt 6 / Qt 5.15 (C++17) desktop tool for editing Acorn 8-bit disc images. It opens ADFS old-map hard
-discs and S/M/L floppies, DFS (.ssd/.dsd), PC FAT floppies, Acorn DOS Plus 800K, the Acorn
-640K ADFS/DOS hybrid, and the FAT16 DOS Plus partition stored in `$.DOS.DRIVE_C` on an ADFS
-hard disc. One disc per window; files can be dragged between windows. GPLv3-or-later; the
-copyright line in every header is `Copyright (C) 2026 Daniel Jameson`; put the same header on any
-new source file (`#` comments for Python). The notice also appears in Help > About (`MainWindow::about`)
-and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`, `LegalCopyright` in the `.rc`). Build files
-(`.pro`, `CMakeLists.txt`, `.desktop`, `.rc`, the SVG) carry a short form of it. **Anything taken from or closely
-modelled on someone else's work goes in `THIRD-PARTY-NOTICES.md`** with its terms (and in About if it ships in the
-program); material only consulted for facts goes in its "Consulted" table. Never commit third-party disc images
-(or DOSBOOT): the tests read them from outside the repo. `docs/retro-files-format.md` is shared with CP/M Disk
-Wrangler (github.com/drdpj/CPMDiskWrangler): keep the two copies identical.
+A Qt 6 / Qt 5.15 (C++17) desktop tool for editing Acorn 8-bit disc images: ADFS old-map hard discs and S/M/L
+floppies, DFS (.ssd/.dsd), PC FAT floppies, Acorn DOS Plus 800K, the Acorn 640K ADFS/DOS hybrid, and the FAT16 DOS
+Plus partition in `$.DOS.DRIVE_C` on an ADFS hard disc. One disc per window; files can be dragged between windows.
+Its sibling is CP/M Disk Wrangler (github.com/drdpj/CPMDiskWrangler): the two look and behave alike and share some
+files (see Build).
 
-## Source map (all in the repo root; tests in `tests/`)
+* **Licence and headers.** GPLv3-or-later. Every source file starts with the header naming
+  `Copyright (C) 2026 Daniel Jameson` (`#` comments for Python); put it on any new file. The notice also appears in
+  Help > About (`MainWindow::about`) and the Windows version info (`QMAKE_TARGET_COPYRIGHT` in the `.pro`,
+  `LegalCopyright` in the `.rc`); build files (`.pro`, `CMakeLists.txt`, `.desktop`, `.rc`, the SVG) carry a short form.
+* **Other people's work.** Anything taken from or closely modelled on someone else's work goes in
+  `THIRD-PARTY-NOTICES.md` with its terms (and in About if it ships in the program); material only consulted for facts
+  goes in its "Consulted" table. Disc Image Manager is not used as a source or reference (the owner's wish).
+* **Never commit third-party disc images** (or Acorn's DOSBOOT): the tests read them from outside the repo.
+* `docs/retro-files-format.md` is shared with CP/M Disk Wrangler: keep the two copies identical.
+
+## Source map (program in `src/`, tests in `tests/`)
 | File | Role |
 |---|---|
 | `adfs.h/.cpp` | `Adfs::Image`: the staged sector store used by **every** format, plus the ADFS old-map filesystem (`FsMap`, `Dir`, `Entry`), validation, commit |
@@ -25,20 +32,22 @@ Wrangler (github.com/drdpj/CPMDiskWrangler): keep the two copies identical.
 | `dfs.h/.cpp` | `Dfs::Disc`: one side of a DFS disc (catalogue in sectors 0-1); a .dsd = two `Disc`s |
 | `diskformat.h/.cpp` | `detectDisk(path, force)` -> `DiskInfo` (kind, full size, DFS layout, side layout + whether the side order was confirmed). Decides how a file is opened |
 | `newdisc.h/.cpp` | `NewDisc::create()`: blank images of every format (File > New image); pure QtCore, checks its own output with `detectDisk`. The 640K DOS Plus disc needs a `bootSource` (an existing 640K disc to copy the boot track from, or a DOSBOOT file): DOSBOOT is Acorn's code and must never be put in the repo |
-| `viewtext.*` | text / hex / BBC BASIC detokeniser (pure QtCore, no GUI) |
-| `viewer.*` | the read-only viewer window |
-| `appsettings.h` | where settings live: the system's place, or `<program>.ini` beside the program (portable; for an AppImage, beside the `.AppImage` file - `$APPIMAGE` - not in its temporary mount; a program installed on Linux, or by the Windows installer - `installedHere()`: Inno Setup's `unins000.dat` beside it -, has no portable mode, so File > Create local config file isn't shown). Use `AppSettings` instead of `QSettings` in program code (tests may use `QSettings` to clear the system store). Header only; shared with CP/M Disk Wrangler, keep identical |
-| `buttonbar.h` | the main window's button bar: real QPushButtons kept in step with their QActions (a QToolBar's own buttons draw as flat text on macOS). Header only; shared with CP/M Disk Wrangler, keep identical |
-| `fileopen.h` | macOS opens files from the Finder (double-click, Open With, the Dock icon) by sending the running program a `QFileOpenEvent`, never a command-line argument: `FileOpen::FileOpenFilter` (installed on the application in `main.cpp`) opens the image like File > Open - in an empty window, the active one first, else a new window; one already open just comes forward. Windows and Linux never send it. `guitest2` / CP/M Disk Wrangler's `guitest` send it. Header only; shared with CP/M Disk Wrangler, keep identical |
-| `icon.*` | the application icon (a 5.25" floppy), drawn with QPainter; `icons/` holds PNG exports (`tests/mkicon <dir>` regenerates them) and a matching `acorndiskwrangler.svg` - keep the SVG in step if the geometry changes |
-| `acorndiskwrangler.desktop` | Linux/BSD: name and icon for docks and menus (GNOME ignores the window icon and shows a gear without it). Installed with the hicolor PNGs + SVG by `make install` (qmake `INSTALLS`, CMake `install()`); matched to the windows by `StartupWMClass` (X11 `WM_CLASS` is `acorndiskwrangler`) and `QGuiApplication::setDesktopFileName` (Wayland). Check with `desktop-file-validate` |
-| `icons/acorndiskwrangler.icns` | macOS: the .app's icon (qmake `ICON`, CMake `MACOSX_BUNDLE_ICON_FILE`). Made by `tests/make_icns.py` from `mkicon`'s PNGs, 32-1024 px, every size an exact rendering. Not tested on a Mac |
-| `acorndiskwrangler.rc`, `icons/acorndiskwrangler.ico` | Windows only: the .exe icon in Explorer/taskbar. CMake compiles `acorndiskwrangler.rc`; qmake uses `RC_ICONS` in the `.pro` (it generates its own .rc, so the two are independent). Regenerate the .ico from the PNGs with Pillow if the design changes. Not testable on Linux |
 | `mainwindow.h/.cpp` | main window, `DropTree`, open/save/refresh/updateUi, ADFS pane |
 | `mainwindow_dos.cpp` | DOS pane, viewer hookup, renaming, import summary |
 | `mainwindow_dfs.cpp` | window registry, tab management, the DFS pane (both sides in one tree), **cross-disc copy engine**, Copy / Paste |
 | `mainwindow_p.h` | shared private header: item roles, `ImportCtx`, `Pane`, `XItem`, `DragRef`, name helpers |
+| `dragout.h/.cpp` | dragging out and the `retro-files` JSON: `DragOutMime`, writing to temporary drag folders, reading another program's list (see *Dragging out* below; spec in `docs/retro-files-format.md`) |
+| `viewtext.*` | text / hex / BBC BASIC detokeniser (pure QtCore, no GUI) |
+| `viewer.*` | the read-only viewer window |
 | `main.cpp` | opens each command-line image in its own window; installs `fileopen.h`'s filter for the Finder's |
+| `appsettings.h` | where settings live: the system's place, or `<program>.ini` beside the program (portable; for an AppImage, beside the `.AppImage` file - `$APPIMAGE` - not in its temporary mount; a program installed on Linux, or by the Windows installer - `installedHere()`: Inno Setup's `unins000.dat` beside it -, has no portable mode, so File > Create local config file isn't shown). Use `AppSettings` instead of `QSettings` in program code (tests may use `QSettings` to clear the system store). Header only; shared with CP/M Disk Wrangler, keep identical |
+| `buttonbar.h` | the main window's button bar: real QPushButtons kept in step with their QActions (a QToolBar's own buttons draw as flat text on macOS). Header only; shared with CP/M Disk Wrangler, keep identical |
+| `fileopen.h` | macOS opens files from the Finder (double-click, Open With, the Dock icon) by sending the running program a `QFileOpenEvent`, never a command-line argument: `FileOpen::FileOpenFilter` (installed on the application in `main.cpp`) opens the image like File > Open - in an empty window, the active one first, else a new window; one already open just comes forward. Windows and Linux never send it. `guitest2` / CP/M Disk Wrangler's `guitest` send it. Header only; shared with CP/M Disk Wrangler, keep identical |
+| `licences.*` | Help > Licences: the texts compiled in from `src/licences.qrc` (and `licences-bundled.qrc` in a release build). Shared with CP/M Disk Wrangler, keep identical |
+| `icon.*` | the application icon (a 5.25" floppy), drawn with QPainter; `icons/` (at the top level) holds PNG exports (`tests/mkicon <dir>` regenerates them) and a matching `acorndiskwrangler.svg` - keep the SVG in step if the geometry changes |
+| `acorndiskwrangler.desktop` (top level) | Linux/BSD: name and icon for docks and menus (GNOME ignores the window icon and shows a gear without it). Installed with the hicolor PNGs + SVG by `make install` (qmake `INSTALLS`, CMake `install()`); matched to the windows by `StartupWMClass` (X11 `WM_CLASS` is `acorndiskwrangler`) and `QGuiApplication::setDesktopFileName` (Wayland). Check with `desktop-file-validate` |
+| `icons/acorndiskwrangler.icns` | macOS: the .app's icon (qmake `ICON`, CMake `MACOSX_BUNDLE_ICON_FILE`). Made by `tests/make_icns.py` from `mkicon`'s PNGs, 32-1024 px, every size an exact rendering. Not tested on a Mac |
+| `acorndiskwrangler.rc` (top level), `icons/acorndiskwrangler.ico` | Windows only: the .exe icon in Explorer/taskbar. CMake compiles `acorndiskwrangler.rc`; qmake uses `RC_ICONS` in the `.pro` (it generates its own .rc, so the two are independent). Regenerate the .ico from the PNGs with Pillow if the design changes. Not testable on Linux |
 
 ## The rules that must not be broken
 1. **Nothing is written to the image except by `Image::commit()`.** All edits (ADFS, DOS, DFS)
@@ -54,7 +63,7 @@ Wrangler (github.com/drdpj/CPMDiskWrangler): keep the two copies identical.
    size; a short file is padded in memory on open (`needsPadding()`), Save is enabled for pad-only, and
    `commit()` resizes the file to `fullSize` before writing. For ADFS, padding only happens up to a
    *standard floppy size* (160K/320K/640K); never trust an ADFS map's size claim to grow a file (see the
-   hybrid gotcha below). A save with nothing changed must leave the file byte-identical.
+   hybrid gotcha in docs/disc-formats.md). A save with nothing changed must leave the file byte-identical.
 4. **Every mutating operation is atomic**: take `Image::snapshot()`, do the work, `restore()` on
    failure (see `DOS_TXN` in `dosfs.cpp`, and the ADFS `addFile`/`makeDir`/... wrappers). A
    failed add (disc full, directory full) must leave no trace.
@@ -62,122 +71,6 @@ Wrangler (github.com/drdpj/CPMDiskWrangler): keep the two copies identical.
    locked (`Image::setAdfsLocked`) so ADFS edits cannot corrupt the FAT. Don't weaken this.
 6. ADFS-only operations go through `Image::checkAdfs()`; raw containers (`openRaw`) never
    parse or write an ADFS map. `m_map.total` is reused as a bounds limit for raw images.
-
-## Disc format facts (confidence noted)
-- **ADFS old map** (verified against a real BeebSCSI image): sectors 0-1 = free space map;
-  checksum = ADC-style over bytes 254..0, carry propagated, final carry dropped; root dir at
-  sector 2 (5 sectors, "Hugo", 47 x 26-byte entries, 53-byte tail: name, parent, 19-byte
-  title, end sequence). Dir sequence numbers are BCD; a new entry's seq = the parent's bumped
-  seq. Names: max 10 chars, bit 7 of bytes 0-4 = R W L D E, terminated/padded by CR (junk may
-  follow). Entries are kept sorted case-insensitively. Files are contiguous; best-fit
-  allocation. Zero-length files use no sectors (real ADFS behaviour **unconfirmed**). The disc
-  name limit is deliberately 10 chars (title field is 19 bytes, but >10 is unproven safe).
-- **DFS** (verified with an independent Python reader): catalogue = sectors 0-1 per side,
-  <=31 files, names 7 chars + directory letter (bit 7 = locked), 18-bit load/exec/length,
-  10-bit start sector, entries kept in *descending start* order, BCD cycle number. .dsd
-  interleaves by track (`phys = ((n/10)*2+side)*10 + n%10`); a sequential-side variant is
-  detected too. 204800 bytes is ambiguous (80-track SSD vs 40-track DSD): the catalogue
-  sector count and the second catalogue's plausibility decide, then the file suffix.
-- **PC FAT**: standard; checked against `fsck.fat` and `mtools`. FAT12/16 chosen by cluster
-  count. `Dos::Volume::attach` reads the BPB; `attachFormat` uses the table in `dosfs.cpp`.
-- **New DOS Plus 640K discs** copy the real layout: track 0 side 0 = free space map (total 2720, no free runs),
-  root "Acorn DOS Boot Disc" with one entry `dosboot` (WR, load/exec &04000000, length of the DOSBOOT file - 2303
-  on the real disc - at sector 7), DOSBOOT in sectors 7-15; then the empty FAT at interleaved track 2. From a disc
-  image the 4096-byte boot track is copied byte for byte (`sidetest` checks this against `M512_1.ADL`).
-- **Acorn 640K ADFS/DOS Plus hybrid** (real Master 512 disc `M512_1.ADL`, 655360 bytes; **file content
-  verified**: 39 files are byte-identical to the same files on the hard disc's `DRIVE_C`, and the edited
-  image passes `fsck.fat` / `mtools` after de-interleaving). A *valid* ADFS catalogue (title "Acorn DOS
-  Boot Disc", one file `dosboot` at sector 7, no free space) shares the disc with a DOS Plus FAT12 volume.
-  - **Logical DOS layout** (256-byte sectors): 16 reserved sectors (= ADFS cat 0-6 + DOSBOOT 7-15),
-    **FAT at logical 16-17** (1 copy, media FF), **root dir 18-31** (112 entries), data from **logical
-    sector 32**, 8-sector (2048-byte) clusters, **316 clusters**, 2560 sectors.
-  - **Track interleave (the bug that corrupted every file):** DOS Plus numbers sectors side 0 first
-    (cylinders 0-79), then side 1, but the image file is stored cylinder by cylinder (side 0, side 1, ...).
-    A track is 16 x 256 = 4096 bytes; **logical track t is at file track 2t (t < 80) or 2(t-80)+1
-    (t >= 80)**. This is now done by `Adfs::Image` (`SideLayout::sideFirst`, the same as for ADFS L - see the
-    side order notes below); `Dos::Volume` only ever sees the disc's own numbering. Detection
-    (`diskformat.cpp`) looks for the FAT signature at *file* offset 8192 (= logical sector 16; 4096 in a
-    sequential file).
-  - **How it was found:** extract the DOS files from the hard disc's `DRIVE_C` (`tests/extract_hd_dos.py`),
-    search the hybrid for each cluster's first 64 bytes, compare with the cluster the FAT says. Two earlier
-    "verified" versions (16 reserved sectors from a table, then FAT at file offset 8192 read as sector 32)
-    both passed every structural check and both read garbage data.
-  - **Gotcha:** the ADFS map claims **2720 sectors** while the file holds 2560, so the ADFS map size must
-    never be used to pad or size this disc (an earlier version would have grown the file by 40960 bytes).
-    `Image::open(path, err, forceFullSize)` handles it; detection is by content (valid map + consistent DOS
-    volume), not by the map size.
-- **Acorn DOS Plus 800K** (1024-byte sectors, no boot sector, 1 FAT, 192 root entries, media FD): built
-  verified against a real GEM disc (`M512_3.IMG`, 819200 bytes, label "M512 Disk 3"): logical layout is
-  FAT at sector 0-1, root dir 2-7 (192 entries), data from **sector 8**, **1 sector (1024 bytes) per cluster**,
-  792 clusters. The file is **interleaved** (the usual layout), and DOS Plus numbers this format's sectors in that
-  same order (sector, side, track), so no remapping is needed - unlike the hybrid. (An earlier version of this
-  note called it "sequential", meaning "no remap"; that was misleading.) ISSUE.BAT, GEM
-  fonts (`DIBHSS07.FNT` header "Swiss") and the `.RSC` file all read correctly, FAT chain lengths match
-  every file size, and after edits `fsck.fat`/`mtools` (via a prepended BPB sector) are clean.
-  `floptest real800 <copy of the disc>` checks all of that. The image is not in the repo.
-- **Side order of the image FILE** (Acorn double-sided floppies only: ADFS L, DFS .dsd, DOS Plus 800K / 640K.
-  The owner's rule: **PC floppies (360K/720K/1.2M/1.44M) are always interleaved** - they get no `SideLayout`, so
-  no detection, Read as, Convert or sequential creation; only the Acorn formats can be odd): *interleaved* = cylinder 0 side 0, cylinder 0
-  side 1, ...; *sequential* = all of side 0, then all of side 1. Two separate things must not be mixed up,
-  and `Adfs::Image` handles both (`SideLayout`, translated in `readRaw`/`writeRaw`; everything above `Image`
-  sees the disc in its own sector numbering): (1) the file's side order (`sequential`); (2) how the disc
-  numbers its sectors (`sideFirst`). **ADFS L and DOS Plus 640K number side 0 first** - the machine reads all
-  of side 0, then side 1 - so even an interleaved file is always remapped (verified on real discs: the Master
-  Welcome disc, Acorn User Tau85 and ARM Evaluation disc 4, from b-em's `discs/` and oaknut's test data: only
-  this mapping gives a valid directory tree, and every BBC BASIC program on them reads intact end to end).
-  **DOS Plus 800K (and PC FAT) number sector, side, track**, i.e. the same as an interleaved file (verified on
-  the real 800K disc). A DFS .dsd's sides are separate discs, mapped by `Dfs::Disc` on top of an interleaved
-  view (`sideFirst` false). Geometry (track bytes x cylinders): ADFS L / hybrid 4096 x 80, DFS 2560 x 40|80,
-  Acorn 800K 5120 x 80.
-  - **Bug fixed with this (owner, please note):** earlier versions read and wrote ADFS L floppies as if ADFS
-    numbered sides alternately. Real .adl discs with data beyond the first track failed validation (and so
-    opened read-only), and ADFS L discs created blank (tests/mkimg, or by hand) and then filled by those
-    versions are self-consistent in the tool but scrambled on a real machine or an emulator.
-  - **Detection** (`diskformat.cpp`) reads the disc both ways and keeps the order in which structures *beyond
-    track 0* line up (track 0 side 0 is first in both orders, so the boot sector, ADFS map and side-0 DFS
-    catalogue prove nothing): DFS - the side-1 catalogue at file sector 10 vs <sectors per side>; hybrid - the
-    DOS FAT signature at file offset 8192 vs 4096; ADFS L - `validate()` of the directory tree; FAT - `check()`
-    plus correct `.`/`..` in every subdirectory, then the order with **fewer lost clusters** wins (needed for
-    1.44M, whose root directory is entirely on side 1 of cylinder 0: read the wrong way it is an empty, "valid"
-    directory while the FAT says the disc is full). When both orders pass equally (blank discs; files only in a
-    root directory on track 0) `sidesConfirmed` is false and the format's usual order is used: interleaved for
-    every Acorn format (ADFS L, DSD, DOS Plus 800K and 640K - b-em's `src/sdf-geo.c` geometry table and MAME's
-    Acorn formats agree). That ADFS numbers an L disc's sectors side 0 first comes from Acorn's own floppy driver
-    (ADFS 1.30 `floppy.asm` in dominicbeesley/ADFS-multi-target: track = sector / 16, track >= 80 is side 1). The owner's rule: **never** fall back on an order used before for that file - no
-    per-file memory. `sidetest` asserts the rule that matters: detection may say it can't tell, but it must
-    **never be sure of the wrong order**.
-  - **Conversion** (`Image::setConvertOnSave`) is staged like any edit (`dirty()`); `commit()` rewrites the whole
-    file from the interleaved view (pending edits included), sectors 0-1 last. Converting and converting back
-    must give a byte-identical file (`sidetest`, also on the real discs).
-- **A damaged ADFS map** with a valid root directory is still detected as ADFS (and opens read-only) so that it is
-  read with the right geometry - an ADFS L floppy needs its side-first numbering even to be inspected
-  (`dragtest` caught this: before, such a disc read scrambled beyond the first track).
-- **ADFS D/E (new map)** is detected and refused; Watford 62-file DFS is not supported.
-- **Acorn Z80 CP/M discs** carry a DFS catalogue on side 0 (title "Acorn CP/M", one locked file `$.CPMDISC` from
-  sector 2 to the end of the side; seen on a real disc) so that DFS leaves them alone. Detection reports them as
-  `AcornCpm` and Open refuses them, pointing at CP/M Disk Wrangler: editing one as DFS, or writing on side 1 (no
-  catalogue), would destroy the CP/M files. CP/M Disk Wrangler writes the same catalogue on new Acorn Z80 discs.
-- **Torch CP/N discs** (Torch Z80 second processor; 409,600 bytes, cylinder by cylinder) have no DFS catalogue; they
-  are recognised by cylinder 0 side 1: the allocation map in sectors 6-7 (every word's top six bits set, tracks 0-1
-  in use, words 160-255 FC00 or FFFF) and the formatter's bytes in sectors 8-9
-  (all but sector 9's byte 254, which varies). Detection reports `TorchCpn` and Open
-  refuses them, pointing at CP/M Disk Wrangler, which reads and writes them (checked on five of the owner's real
-  discs, which detected as Unknown here before).
-- The BBC BASIC token table and line-number encoding (`viewtext.cpp`) are from memory,
-  checked on hand-made programs and one real program; report oddities rather than guess.
-
-## Behaviour details (moved from the README)
-User-visible behaviour the README no longer spells out:
-
-* **Side order** that can't be told (a blank ADFS L or DOS Plus 800K disc, or one with only a few files in the
-  root) falls back to the format's usual order - interleaved for every Acorn format - and the status bar says
-  "Sides: interleaved (assumed)". *Read as* applies to this window only; the next open detects again.
-* **Saving**: data is written first, directories next, the ADFS free space map last, then the image is read back
-  and verified. Save is refused if the map changed on disk since the image was opened.
-* **DOS names** that clash after conversion to 8.3 become `NAME~1.EXT`; new DOS files get the host clock's time.
-* **New DOS Plus 640K disc**: ADFS free space map of 2720 sectors with none free, root "Acorn DOS Boot Disc"
-  holding DOSBOOT, then an empty DOS Plus FAT and root. A DOSBOOT file may be at most 2304 bytes; from a disc
-  image the whole boot track is copied exactly.
 
 ## GUI architecture
 - Boot option (Edit > Boot option): `MainWindow::bootOption()/setBootOption()` act on the current pane -
@@ -319,76 +212,39 @@ User-visible behaviour the README no longer spells out:
   (with files dropped on it) and every tab of every further image, at 1300px and at the default window
   size (`*_narrow.png`), offscreen, on copies of the images.
 
-## Build and test
-
-**Version.** `version.pri` (qmake) and `version.cmake` (CMake) compile in `git describe --tags --always --dirty`
-as APP_VERSION, shown in Help > About; "unknown" without git, or set it with `qmake APP_VERSION=...` /
-`-DAPP_VERSION=...`. It is read when qmake/CMake runs, so re-run them after a new commit or tag. Both files are
-shared with the other wrangler.
-
-How to build on each platform and how releases work, for people: `docs/building.md` (shared); a 32-bit Windows 7
-build (Qt 5.15, MinGW 8.1 32-bit; not tried yet): `docs/building-windows-32bit.md` (shared).
-
-**Release builds and licences.** `.github/workflows/build.yml` builds Windows, macOS and Linux packages, linked to
-Qt's shared libraries (keep it that way: the LGPL lets users replace them). Each is built twice: `ci/build.sh`
-builds and deploys, `ci/collect-licences.sh` gathers the licences of every shipped library into
-`licences-bundled.qrc`, and `ci/build.sh` again compiles them in (Help > Licences, `licences.cpp`). On Linux, `ci/make-deb.sh` then packages the same build as a `.deb` that depends on the system's Qt
-(dpkg-shlibdeps; built on 22.04 against Qt 6.2, it installs on Ubuntu 22.04+ and Debian 12+ - the t64-renamed
-libraries of 24.04 provide the old names; checked in clean 22.04-built / 24.04-installed chroots, Qt 6 and Qt 5),
-and the workflow installs it and starts it. On Windows, for a tag or Run workflow only, `ci/installer.iss` (Inno
-Setup) packages `deploy/` as `...-setup.exe` and the workflow installs, starts and uninstalls it; each program's
-AppId in it is fixed for good. A new source
-file in the .pro also goes in CMakeLists.txt and any `tests/*.pro` that build `mainwindow.cpp` (they need
-`../licences.cpp`). `ci/`, `licences.*`, `licences/`, `buttonbar.h`, `appsettings.h`, `fileopen.h` and the workflow are shared with CP/M Disk Wrangler: keep them
-identical.
+## Build
 ```
-qmake acorndiskwrangler.pro && make          # or CMake (CMakeLists.txt)
+qmake acorndiskwrangler.pro && make          # or: cmake -S . -B build && cmake --build build
 ```
-Needs Qt 6 or Qt 5.15 widgets; both must keep building (qmake picks whichever `qmake` you run, CMake prefers
-Qt 6, `-DUSE_QT5=ON` forces 5). Where the two differ the code uses `#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)`:
-`DropTree::mimeData` (list by reference in 6), `DragOutMime::retrieveData` (QMetaType in 6) and `dropPos()`
-(QDropEvent::position() in 6). Each test is its own project in `tests/`: `mkdir b && cd b && qmake ../tests/X.pro && make`.
+The `.pro`, `CMakeLists.txt`, `.rc`, `.desktop` and `icons/` stay at the top level (the CI scripts look for `./*.pro`);
+the program's sources are in `src/`. A new source file goes in the `.pro`, in `CMakeLists.txt`, and in any
+`tests/*.pro` that builds `mainwindow.cpp` (they need `../src/licences.cpp` too).
 
-| Test | Args | Needs |
-|---|---|---|
-| `viewtest` | none | nothing |
-| `settingstest` | none | nothing (offscreen): where settings live on Linux - an installed program has no portable mode; an AppImage keeps `acorndiskwrangler.ini`-style files beside the `.AppImage` file. Shared with CP/M Disk Wrangler |
-| `mkimg` | `<outdir>` | writes blank ADFS S/M/L, a truncated L, a fake ADFS D/E, a junk file |
-| `detecttest` | image paths | prints the detected kind for each (eyeball it) |
-| `floptest` | `plainl <blank ADFS L>` (must not detect as hybrid) / `bpb <img>` / `table <img> <idx 0-3>` / `acorn800 <out>` / `hybrid640 <out>` / `real800 <copy of a real 800K disc>` / `real640 <copy of a real hybrid disc> [<dir of files from extract_hd_dos.py>]` | PC images via `mkfs.fat -C x.img 360\|720\|1200\|1440`; the Acorn modes create their own |
-| `dfstest` | `<img> ssd\|dsd <sectors-per-side>` | DFS images (see below) |
-| `selftest` | `<hard-disc img> [<copy with a disc name in its map>]` | **the owner's real `scsi0.dat`**; make the 2nd arg with `make_testdata.py mapname <copy>` |
-| `dostest` | `<hard-disc img>` | **the real `scsi0.dat`** (has `$.DOS.DRIVE_C`) |
-| `screenshot` | `<outdir> <dsd> [<image> ...]` | renders PNGs of each pane for eyeballing (see GUI layout conventions); host files from `make_testdata.py host` |
-| `guitest` | `<hard-disc img>` | **the real `scsi0.dat`**; run with `QT_QPA_PLATFORM=offscreen` |
-| `guitest2` | `<dir>` [`<copy of a real 640K hybrid>`] containing `a.dsd b.adl c.img d.dat e.ssd f.hybrid g.a800` | copies of a blank DSD, ADFS L, PC 720K, **the real hard disc**, a truncated SSD, the hybrid and Acorn800 images; host files in `/tmp/drop/proj` (`make_testdata.py host`); offscreen. Also checks the menu and button order, the title and status bar, and Copy / Paste with the real keys (`QTest`, so the `.pro` has `QT += testlib`) |
-| `sidetest` | `<outdir>` [`<copy of a real 640K hybrid>` [`<copy of a real 800K disc>` [`<copies of real ADFS L discs, named t2_il_<name>.adl in <outdir>>` ...]]] | nothing else (a made-up DOSBOOT is used without the real hybrid; with it, new 640K discs are compared with it): makes every format with `NewDisc` in both side orders, fills, detects, converts both ways, reads in the wrong order, drives MainWindow (offscreen). The real discs are converted and back (must stay byte-identical). Then run `tests/sidecheck.py <outdir>`: an independent reader (own de-interleave, own ADFS/DFS parser, `fsck.fat` + `mtools` for FAT, with the Acorn formats wrapped in a BPB) |
-| `detecttest` | (see above) | also prints each image's side order and whether it could be told |
-| `dragtest` | `<outdir>` | nothing else: makes its own discs. Drives the drag data as Explorer / another instance / another tool would: lazy writing, names, .inf, dates, JSON, direct copy in-process, JSON path cross-process with attributes kept (ADFS, DFS, DOS), DFS directory letters -> ADFS subdirectories (drop on a directory row, reuse, JSON path), single-letter ADFS directories -> DFS letters (Yes/No/Yes to all via JSON/Cancel), disc images dropped (empty window, floppy, hard disc Open/Copy/Cancel/two images), self-drop refused, a foreign (cpm) list, unsafe lists refused, read-only image, stale cleanup. Then run `tests/retrofilescheck.py <outdir>/drag-*` (independent check against the spec) |
-| `xdragtest` | `<outdir>`, run as `xvfb-run -a -s "-screen 0 1280x800x24" xdragtest <outdir>` | Linux/X11 only, needs Xvfb and xdotool. Real drags with the real pointer to a stand-in Explorer in another process: dropped (files arrive, message), passed over and let go back in the window (no message), refused (message not reliable on X11 - printed only) |
-| `acorncheck.py` | images ... [`--sequential` images ...] | independent ADFS/DFS checker, see "Verify independently" below |
-| `boottest` | `<outdir>` [`<copy of a hard disc image>`] | ADFS S/M/L and the hard disc: options 0-3 set, saved, re-read, only byte &FD (+ checksums) changed; DFS sides independent; refusals; MainWindow per pane; a 640K disc with an earlier version's sector-1 check byte (00) is corrected. `tests/acorncheck.py` re-checks the checksums independently |
+* **Qt 6 and Qt 5.15 must both keep building.** qmake uses whichever `qmake` you run; CMake prefers Qt 6 and
+  `-DUSE_QT5=ON` forces 5. Where they differ the code uses `#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)`:
+  `DropTree::mimeData` (list by reference in 6), `DragOutMime::retrieveData` (QMetaType in 6) and `dropPos()`
+  (QDropEvent::position() in 6).
+* **Version.** `version.pri` (qmake) and `version.cmake` (CMake) compile in `git describe --tags --always --dirty` as
+  APP_VERSION, shown in Help > About; "unknown" without git, or set it with `qmake APP_VERSION=...` /
+  `-DAPP_VERSION=...`. It is read when qmake/CMake runs, so re-run them after a new commit or tag.
+* **Releases.** `.github/workflows/build.yml` builds Windows, macOS and Linux packages linked to Qt's *shared*
+  libraries (keep it that way: the LGPL lets users replace them). Each is built twice so that the licences of every
+  shipped library (`ci/collect-licences.sh` -> `licences-bundled.qrc`) are compiled in (Help > Licences,
+  `src/licences.cpp`). Linux also gets a `.deb` against the system's Qt (`ci/make-deb.sh`; built on Ubuntu 22.04, it
+  installs on 22.04+ and Debian 12+); Windows, for a tag or Run workflow only, an Inno Setup installer
+  (`ci/installer.iss`; each program's AppId in it is fixed for good). A tag `vX.Y.Z` publishes a GitHub release
+  whose notes are `release-notes/<tag>.md` when that file exists. The details for people are in `docs/building.md`;
+  a 32-bit Windows 7 build (not tried yet) in `docs/building-windows-32bit.md`.
+* **Shared with CP/M Disk Wrangler - keep identical:** `ci/`, the workflow, `src/licences.*`, `licences/`,
+  `src/buttonbar.h`, `src/appsettings.h`, `src/fileopen.h`, `version.pri`, `version.cmake`, `docs/building.md`,
+  `docs/building-windows-32bit.md` and `docs/retro-files-format.md`.
 
-`selftest`, `dostest`, `guitest` and `guitest2` assert details of the owner's image (12 root
-entries, 69 DOS root entries, `BeebSCSI`, `!Config`, ...). That image is **not** in the repo; if
-you don't have it, those tests cannot run - say so rather than loosening them. Tests modify
-the image they are given, so always run on a **copy** (it is 512 MB: delete copies afterwards;
-the sandbox disk filled up once).
-
-`tests/make_testdata.py` generates the rest (stdlib only; see its docstring): blank, truncated
-and sequential-side DFS images, the PC floppies (via `mkfs.fat`), the host files `guitest2`
-drops, and the map-name variant for `selftest`. ADFS floppies come from `tests/mkimg`, the
-Acorn 800K/hybrid images from `floptest acorn800|hybrid640 <out>`.
-
-**Verify independently, not just with our own code.** For FAT use `fsck.fat -n` and `mtools`
-(`MTOOLSRC=/dev/null mdir -i img ::`); for ADFS and DFS run `tests/acorncheck.py` on real discs (b-em's `discs/`,
-the owner's) and on everything the tests wrote. It is written only from Acorn's ADFS ROM (map checksum routine,
-floppy sector numbering), b-em's image layouts and the RISC OS Open old-map description - not from this program -
-and walks every directory and checks BBC BASIC programs read intact, so a wrong side order fails on any disc with
-data beyond the first track. Our own reader agreeing with our own writer proves little: the map checksum started
-at 0 instead of Acorn's &FF through all the earlier testing, which only matters for an all-zero sector 1 (new 640K DOS Plus
-discs made from a DOSBOOT file got 00 where ADFS expects FF), and only acorncheck found it.
-At the owner's request, Disc Image Manager is not used as a source or reference.
+## Test
+Each test is its own project in `tests/`: `mkdir b && cd b && qmake ../tests/X.pro && make`; GUI tests run with
+`QT_QPA_PLATFORM=offscreen`. [docs/testing.md](docs/testing.md) lists them all with their arguments. The ones a UI
+change most often needs: `guitest2` (menus, buttons, title, status bar, drops, Copy / Paste), `dragtest` (drag data
+and retro-files), `screenshot` (look at the result). Several tests need the owner's real hard disc image, which is
+not in the repo: if you don't have it, say so rather than loosening the tests.
 
 ## Testing GUI code (things that bit us)
 - Synthetic drops must send `QDragEnterEvent`, then `QDragMoveEvent`, then `QDropEvent` to the
@@ -411,24 +267,12 @@ At the owner's request, Disc Image Manager is not used as a source or reference.
   all assertions pass).
 - Keep the staging model; don't add "quick" direct writes. Keep user-facing limits conservative
   (e.g. 10-char ADFS disc name) unless verified.
-- After any change run the whole suite from a clean unpack of the zip and the independent
-  checks above. When a test fails, find out whether the code or the test is wrong, and say so.
+- After any change run the whole suite and the independent checks ([docs/testing.md](docs/testing.md)). When a test fails, find out whether the code or the test is wrong, and say so.
 - State plainly what is unverified (zero-length ADFS files, BASIC
   tokens) in any summary to the owner.
+- **Test against real discs as soon as you can**: synthetic images only prove the code agrees with itself (see the
+  lesson at the end of [docs/disc-formats.md](docs/disc-formats.md)).
 
 ## Known gaps / ideas
 ADFS D/E; Watford DFS; compacting a fragmented ADFS/DFS disc; Cut (a move
 off a disc) is deliberately not offered.
-
-## Lesson: test against real discs as soon as you can
-The 640K hybrid was implemented from a table and passed every synthetic test (they all used the same
-wrong assumption), yet the first real disc showed bugs: the FAT offset, a padding rule that would have
-corrupted the file, and (found only when the owner opened a file) the track interleave, which made every
-file read as garbage although the FAT and directory were perfectly valid. Synthetic images prove
-self-consistency only, and **a valid directory/FAT does not prove the data is where you think it is:
-always compare file CONTENT with a known-good copy** (`floptest real640 <copy> <dir from
-tests/extract_hd_dos.py>`). The same thing happened again with ADFS L: synthetic images were consistent with the
-wrong sector numbering, and only real .adl discs (b-em `discs/`, oaknut `tests/`) showed it - check new disc
-formats against real images from those repos before trusting them. The real disc is not in
-the repo (it contains Acorn's DOS Plus software), so `floptest real640` and `guitest2`'s optional
-argument take its path; ask the owner for one if you need to change anything hybrid-related.
