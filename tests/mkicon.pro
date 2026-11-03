@@ -3,6 +3,6 @@
 QT += gui
 CONFIG += c++17 console
 TARGET = mkicon
-INCLUDEPATH += ..
-SOURCES += mkicon.cpp ../icon.cpp
-HEADERS += ../icon.h
+INCLUDEPATH += ../src
+SOURCES += mkicon.cpp ../src/icon.cpp
+HEADERS += ../src/icon.h

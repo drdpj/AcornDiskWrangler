@@ -26,8 +26,8 @@ if(APPLE)                      # the .app's icon (Finder, Dock before it starts)
     set(ACORNDISKWRANGLER_ICNS icons/acorndiskwrangler.icns)
     set_source_files_properties(${ACORNDISKWRANGLER_ICNS} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 endif()
-add_executable(acorndiskwrangler MACOSX_BUNDLE ${ACORNDISKWRANGLER_RC} ${ACORNDISKWRANGLER_ICNS} main.cpp licences.cpp licences.h licences.qrc mainwindow.cpp mainwindow_dos.cpp mainwindow_dfs.cpp dfs.cpp diskformat.cpp viewer.cpp viewtext.cpp dosfs.cpp adfs.cpp icon.cpp newdisc.cpp dragout.cpp
-    appsettings.h buttonbar.h fileopen.h icon.h mainwindow.h mainwindow_p.h viewer.h viewtext.h dosfs.h dfs.h diskformat.h adfs.h newdisc.h dragout.h)
+add_executable(acorndiskwrangler MACOSX_BUNDLE ${ACORNDISKWRANGLER_RC} ${ACORNDISKWRANGLER_ICNS} src/main.cpp src/licences.cpp src/licences.h src/licences.qrc src/mainwindow.cpp src/mainwindow_dos.cpp src/mainwindow_dfs.cpp src/dfs.cpp src/diskformat.cpp src/viewer.cpp src/viewtext.cpp src/dosfs.cpp src/adfs.cpp src/icon.cpp src/newdisc.cpp src/dragout.cpp
+    src/appsettings.h src/buttonbar.h src/fileopen.h src/icon.h src/mainwindow.h src/mainwindow_p.h src/viewer.h src/viewtext.h src/dosfs.h src/dfs.h src/diskformat.h src/adfs.h src/newdisc.h src/dragout.h)
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/licences-bundled.qrc)   # a release build's library licences (ci/)
     target_sources(acorndiskwrangler PRIVATE licences-bundled.qrc)
 endif()

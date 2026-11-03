@@ -3,6 +3,6 @@
 QT = core
 CONFIG += c++17 console
 TARGET = detecttest
-INCLUDEPATH += ..
-SOURCES += detecttest.cpp ../diskformat.cpp ../adfs.cpp ../dfs.cpp ../dosfs.cpp
-HEADERS += ../diskformat.h ../adfs.h ../dfs.h ../dosfs.h
+INCLUDEPATH += ../src
+SOURCES += detecttest.cpp ../src/diskformat.cpp ../src/adfs.cpp ../src/dfs.cpp ../src/dosfs.cpp
+HEADERS += ../src/diskformat.h ../src/adfs.h ../src/dfs.h ../src/dosfs.h

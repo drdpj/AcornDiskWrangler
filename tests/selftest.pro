@@ -3,6 +3,6 @@
 QT = core
 CONFIG += c++17 console
 TARGET = selftest
-SOURCES += selftest.cpp ../adfs.cpp
-HEADERS += ../adfs.h
-INCLUDEPATH += ..
+SOURCES += selftest.cpp ../src/adfs.cpp
+HEADERS += ../src/adfs.h
+INCLUDEPATH += ../src

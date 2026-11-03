@@ -3,6 +3,6 @@
 QT = core
 CONFIG += c++17 console
 TARGET = mkimg
-INCLUDEPATH += ..
-SOURCES += mkimg.cpp ../adfs.cpp
-HEADERS += ../adfs.h
+INCLUDEPATH += ../src
+SOURCES += mkimg.cpp ../src/adfs.cpp
+HEADERS += ../src/adfs.h

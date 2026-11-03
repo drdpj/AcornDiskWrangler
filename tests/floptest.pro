@@ -3,6 +3,6 @@
 QT = core
 CONFIG += c++17 console
 TARGET = floptest
-INCLUDEPATH += ..
-SOURCES += floptest.cpp ../adfs.cpp ../dosfs.cpp ../dfs.cpp ../diskformat.cpp
-HEADERS += ../adfs.h ../dosfs.h ../dfs.h ../diskformat.h
+INCLUDEPATH += ../src
+SOURCES += floptest.cpp ../src/adfs.cpp ../src/dosfs.cpp ../src/dfs.cpp ../src/diskformat.cpp
+HEADERS += ../src/adfs.h ../src/dosfs.h ../src/dfs.h ../src/diskformat.h

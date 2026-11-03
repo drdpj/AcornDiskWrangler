@@ -3,6 +3,6 @@
 QT = core
 CONFIG += c++17 console
 TARGET = dfstest
-INCLUDEPATH += ..
-SOURCES += dfstest.cpp ../adfs.cpp ../dfs.cpp
-HEADERS += ../adfs.h ../dfs.h
+INCLUDEPATH += ../src
+SOURCES += dfstest.cpp ../src/adfs.cpp ../src/dfs.cpp
+HEADERS += ../src/adfs.h ../src/dfs.h

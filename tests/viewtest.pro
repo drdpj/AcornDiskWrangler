@@ -3,6 +3,6 @@
 QT = core
 CONFIG += c++17 console
 TARGET = viewtest
-INCLUDEPATH += ..
-SOURCES += viewtest.cpp ../viewtext.cpp
-HEADERS += ../viewtext.h
+INCLUDEPATH += ../src
+SOURCES += viewtest.cpp ../src/viewtext.cpp
+HEADERS += ../src/viewtext.h

@@ -3,6 +3,6 @@
 QT = core
 CONFIG += c++17 console
 TARGET = dostest
-INCLUDEPATH += ..
-SOURCES += dostest.cpp ../adfs.cpp ../dosfs.cpp
-HEADERS += ../adfs.h ../dosfs.h
+INCLUDEPATH += ../src
+SOURCES += dostest.cpp ../src/adfs.cpp ../src/dosfs.cpp
+HEADERS += ../src/adfs.h ../src/dosfs.h

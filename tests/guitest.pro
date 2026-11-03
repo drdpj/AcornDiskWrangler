@@ -3,7 +3,7 @@
 QT += widgets
 CONFIG += c++17
 TARGET = guitest
-INCLUDEPATH += ..
-SOURCES += guitest.cpp ../mainwindow.cpp ../licences.cpp ../mainwindow_dos.cpp ../mainwindow_dfs.cpp ../viewer.cpp ../viewtext.cpp \
-           ../dosfs.cpp ../dfs.cpp ../diskformat.cpp ../adfs.cpp ../newdisc.cpp ../dragout.cpp
-HEADERS += ../dragout.h ../mainwindow.h ../mainwindow_p.h ../viewer.h ../viewtext.h ../dosfs.h ../dfs.h ../diskformat.h ../adfs.h
+INCLUDEPATH += ../src
+SOURCES += guitest.cpp ../src/mainwindow.cpp ../src/licences.cpp ../src/mainwindow_dos.cpp ../src/mainwindow_dfs.cpp ../src/viewer.cpp ../src/viewtext.cpp \
+           ../src/dosfs.cpp ../src/dfs.cpp ../src/diskformat.cpp ../src/adfs.cpp ../src/newdisc.cpp ../src/dragout.cpp
+HEADERS += ../src/dragout.h ../src/mainwindow.h ../src/mainwindow_p.h ../src/viewer.h ../src/viewtext.h ../src/dosfs.h ../src/dfs.h ../src/diskformat.h ../src/adfs.h
