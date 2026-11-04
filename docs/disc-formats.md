@@ -20,23 +20,31 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
   interleaves by track (`phys = ((n/10)*2+side)*10 + n%10`); a sequential-side variant is
   detected too. 204800 bytes is ambiguous (80-track SSD vs 40-track DSD): the catalogue
   sector count and the second catalogue's plausibility decide, then the file suffix.
-- **Watford DFS 62-file discs** (`.ssd` or either side of a `.dsd`; checked on a real disc, Superior Software 8,
-  and with `tests/acorncheck.py`). A second catalogue in the same layout sits in sectors 2-3, so files start at
-  sector 4. Recognised (Watford's manual, section 9.2) by eight &AA bytes at sector 2 bytes 0-7 (where the
-  title would be) and four zeros at sector 3 bytes 0-3; both catalogues must be plausible and no file of the first
-  may start below sector 4 - except Watford's guard entry `!.!!!!!!!` (start 2, length &200; BeebWiki), which
-  keeps Acorn DFS off sectors 2-3. A file at sector 2 whose data happens to start with &AA means an ordinary disc.
-  The guard is hidden in the window, kept on writes, and takes a slot (61 files then).
-  - **What the real disc shows** (not documented elsewhere): the first catalogue is full (31 files, the lowest on
-    the disc) and the second holds the rest, the highest; this program splits them the same way on every write
-    (the second catalogue empty until there are more than 31). Sector 3 bytes 6-7 hold the true disc size (800),
-    its byte 4 its own cycle number; its boot bits were 0 while sector 1's were 3, so the boot option is read from
-    and written to sector 1 only, and sector 3 byte 6's other bits are kept as found. On drive 0 the first
-    catalogue's size was **lowered to 587 = the start of the second catalogue's lowest file** (so Acorn DFS sees a
-    full disc rather than writing over files it can't see); drive 2 has the full 800. The true size is the larger
-    of the two; a disc found lowered is kept lowered (re-computed on each write), one that wasn't is left full.
-    Whether Watford's own DFS writes it that way is **unverified** - check on a real machine. Detection uses the
-    true size, which matters for placing side 1 of a sequential `.dsd`.
+- **Watford DFS 62-file discs** (`.ssd` or either side of a `.dsd`). Checked against Watford's own ROMs, DFS 1.44
+  and DDFS 1.54T (disassembled; their 62-file code is the same), a real disc (Superior Software 8) and
+  `tests/acorncheck.py`. Neither ROM is in the repo.
+  - **Layout:** a second catalogue in sectors 2-3, laid out like sectors 0-1, so files start at sector 4. Watford
+    loads one catalogue at a time into the same buffer (&E00/&F00).
+  - **Recognition:** eight &AA bytes at sector 2 bytes 0-7 (where the title would be) are all the ROM checks.
+    `watfordCatalogue()` also wants both catalogues plausible and no first-catalogue file below sector 4, so a file
+    at sector 2 whose data happens to start with &AA leaves an ordinary disc (Watford's manual warns of this case).
+    The exception is a guard entry `!.!!!!!!!` (start 2, length &200; from BeebWiki). Neither ROM makes or knows it,
+    so it comes from some other tool. It is hidden in the window, kept on writes, and takes a slot (61 files then).
+  - ***FORM ... L** (DFS 1.44 at &9A73): writes a blank first catalogue, then the same buffer with &AA in bytes 0-7
+    to sectors 2-3. Sector 3 bytes 0-3 are zero, byte 4 is its own cycle number, and bytes 6-7 hold the true size
+    with boot bits 0. The boot option lives in sector 1 only (the real disc: 3 there, 0 in sector 3). Sector 3's
+    bytes 0-3 and byte 6's other bits are kept as found.
+  - **Saving a file** (DFS 1.44 at &8D0E, DDFS at the same code): the lowest free gap that fits is used. The file
+    goes in the first catalogue unless it lies above the second's lowest file. If the chosen catalogue is full, the
+    entry at the boundary moves across: the first's highest to the second, or the second's lowest to the first. So
+    the first catalogue's files always lie below the second's, and existing files otherwise stay where they are.
+    Only the catalogue that changes is written, and only its cycle number goes up. `Disc::placeWatford` and the
+    Watford part of `writeCatalogue` do the same.
+  - **The first catalogue's size:** every save sets it to the start of the second's lowest entry (the true size
+    while the second is empty), so that Acorn DFS finds no room among files it can't see. Drive 0 of the real disc
+    shows this (587). Drive 2 claims the full 800 although its second catalogue has files: some other tool, or no
+    save since. Our next write there sets it as Watford would. The true size is the larger of the two catalogues'
+    claims; detection uses it, which matters for placing side 1 of a sequential `.dsd`.
 - **PC FAT**: standard; checked against `fsck.fat` and `mtools`. FAT12/16 chosen by cluster
   count. `Dos::Volume::attach` reads the BPB; `attachFormat` uses the table in `dosfs.cpp`.
 - **New DOS Plus 640K discs** copy the real layout: track 0 side 0 = free space map (total 2720, no free runs),

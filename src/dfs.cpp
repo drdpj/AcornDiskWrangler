@@ -110,8 +110,7 @@ static bool isGuard(const File &f) {
 bool watfordCatalogue(const QByteArray &t, quint32 *sectors) {
     if (t.size() < 4 * SectorSize) return false;
     QByteArray s0 = t.mid(0, 256), s1 = t.mid(256, 256), s2 = t.mid(512, 256), s3 = t.mid(768, 256);
-    for (int i = 0; i < 8; ++i) if (quint8(s2[i]) != 0xAA) return false;
-    for (int i = 0; i < 4; ++i) if (s3[i] != 0) return false;
+    for (int i = 0; i < 8; ++i) if (quint8(s2[i]) != 0xAA) return false;     // all Watford's DFS 1.44 looks for
     quint32 sec2 = 0;
     if (!plausibleCatalogue(s2, s3, &sec2)) return false;
     quint32 sec1 = (quint32(quint8(s1[6]) & 3) << 8) | quint8(s1[7]);
@@ -186,15 +185,16 @@ bool Disc::load(QString *err) {
     if (end >= 0) tt.truncate(end);
     m_title = QString::fromLatin1(tt).trimmed();
     m_files = parseEntries(s0, s1);
-    m_guard = m_lowered = false;
+    m_guard = false;
     if (m_watford) {
         for (int i = 0; i < m_files.size(); ++i)
             if (isGuard(m_files[i])) { m_guard = true; m_guardFile = m_files.takeAt(i); break; }
-        m_lowered = ((quint32(quint8(s1[6]) & 3) << 8) | quint8(s1[7])) < sec;
         m_cycle2 = quint8(s3[4]);
         m_s3b6 = quint8(s3[6]);
-        // the second catalogue holds the files highest on the disc (seen on real discs), so it comes first
-        m_files = parseEntries(s2, s3) + m_files;
+        // Watford keeps the second catalogue's files above the first's, so it comes first in descending order
+        QVector<File> c2 = parseEntries(s2, s3);
+        for (File &f : c2) f.cat = 1;
+        m_files = c2 + m_files;
     }
     return true;
 }
@@ -214,35 +214,75 @@ bool Disc::writeCatalogue(QString *err) {
         putEntries(s0, s1, m_files);
         return wr(0, s0 + s1, err);
     }
-    // Watford 62-file disc. The files, highest start sector first, are split as on real discs: the first
-    // catalogue holds the lowest 31 (less the guard entry, which stays last), the second the rest.
+    // Watford 62-file disc: each file stays in its own catalogue (placeWatford chose a new file's), and only a
+    // catalogue whose contents change is written, with its own cycle number counted on - as Watford's DFS does.
     QVector<File> all = m_files;
     std::stable_sort(all.begin(), all.end(), [](const File &a, const File &b) { return a.start > b.start; });
-    int cap1 = MaxFiles - (m_guard ? 1 : 0);
-    int n2 = qMax(0, int(all.size()) - cap1);
-    QVector<File> cat2 = all.mid(0, n2), cat1 = all.mid(n2);
+    QVector<File> cat1, cat2;
+    for (const File &f : all) (f.cat ? cat2 : cat1).append(f);
     if (m_guard) cat1.append(m_guardFile);
-    // The first catalogue's size: the true size, or - if the disc had it lowered - the start of the second
-    // catalogue's lowest file, so that Acorn DFS sees a full disc instead of writing over those files.
+    // The first catalogue's size is the start of the second's lowest file (the true size while it has none), so
+    // that Acorn DFS, which can't see those files, finds no room among them. Watford's DFS 1.44 and DDFS 1.54T set
+    // it so on every save. Never below the top of the first catalogue's own files.
     quint32 size1 = m_sectors;
-    if (m_lowered && !cat2.isEmpty()) {
-        quint32 top = firstData();
-        for (const File &f : cat1) if (f.sectors()) top = qMax(top, f.start + f.sectors());
-        quint32 low = m_sectors;
-        for (const File &f : cat2) if (f.sectors()) low = qMin(low, f.start);
-        size1 = qMax(top, low);
+    if (!cat2.isEmpty()) {
+        size1 = cat2.last().start;
+        for (const File &f : cat1) size1 = qMax(size1, f.start + f.sectors());
     }
     s1[6] = char(((m_boot & 3) << 4) | ((size1 >> 8) & 3));
     s1[7] = char(size1 & 0xFF);
     putEntries(s0, s1, cat1);
     QByteArray s2(SectorSize, 0), s3(SectorSize, 0);
+    QByteArray cur;
+    if (!rd(0, 4, &cur, err)) return false;
     for (int i = 0; i < 8; ++i) s2[i] = char(0xAA);
-    m_cycle2 = bcdInc(m_cycle2);
+    for (int i = 0; i < 4; ++i) s3[i] = cur[768 + i];        // whatever was there (zeros from Watford's *FORM)
     s3[4] = char(m_cycle2);
     s3[6] = char((m_s3b6 & ~3) | ((m_sectors >> 8) & 3));
     s3[7] = char(m_sectors & 0xFF);
     putEntries(s2, s3, cat2);
-    return wr(0, s0 + s1 + s2 + s3, err);
+    // s1 got the counted-on cycle above; compare the first catalogue as it would be without counting
+    QByteArray s1Same = s1;
+    s1Same[4] = cur[256 + 4];
+    if (s0 + s1Same == cur.left(512)) {
+        m_cycle = quint8(cur[256 + 4]);
+    } else if (!wr(0, s0 + s1, err)) {
+        return false;
+    }
+    if (s2 + s3 != cur.mid(512, 512)) {
+        m_cycle2 = bcdInc(m_cycle2);
+        s3[4] = char(m_cycle2);
+        if (!wr(2, s2 + s3, err)) return false;
+    }
+    return true;
+}
+
+// Watford's rule for a new file (DFS 1.44's save routine): it goes in the first catalogue unless it lies above the
+// second catalogue's lowest file. If that catalogue is full, the entry at the boundary moves across - the first's
+// highest to the second, or the second's lowest to the first - so the first catalogue's files stay below the
+// second's. Existing files are never shuffled between catalogues otherwise.
+void Disc::placeWatford(int idx) {
+    File &nf = m_files[idx];
+    bool have2 = false;
+    quint32 low2 = 0;
+    int n1 = 0, n2 = 0;
+    for (int i = 0; i < m_files.size(); ++i) {
+        if (i == idx) continue;
+        const File &f = m_files[i];
+        if (f.cat) { low2 = have2 ? qMin(low2, f.start) : f.start; have2 = true; ++n2; } else ++n1;
+    }
+    nf.cat = (have2 && nf.start > low2) ? 1 : 0;
+    (nf.cat ? n2 : n1)++;
+    auto pick = [&](int cat, bool highest) {
+        int best = -1;
+        for (int i = 0; i < m_files.size(); ++i) {
+            if (m_files[i].cat != cat) continue;
+            if (best < 0 || (highest ? m_files[i].start > m_files[best].start : m_files[i].start < m_files[best].start)) best = i;
+        }
+        return best;
+    };
+    if (n1 > MaxFiles - (m_guard ? 1 : 0)) m_files[pick(0, true)].cat = 1;
+    else if (n2 > MaxFiles) m_files[pick(1, false)].cat = 0;
 }
 
 int Disc::indexOf(QChar dir, const QString &name) const {
@@ -354,6 +394,7 @@ bool Disc::addInner(QChar dir, const QString &name, const QByteArray &data, quin
     f.load = load & 0x3FFFF; f.exec = exec & 0x3FFFF;
     f.length = quint32(data.size()); f.start = start;
     m_files.append(f);
+    if (m_watford) placeWatford(m_files.size() - 1);
     std::stable_sort(m_files.begin(), m_files.end(), [](const File &a, const File &b) { return a.start > b.start; });
     return writeCatalogue(err);
 }

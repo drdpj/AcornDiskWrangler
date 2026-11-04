@@ -35,9 +35,10 @@ ADFS (.adl/.adm/.ads, hard discs, the ADFS side of a DOS Plus 640K disc):
   * Then every directory is walked from the root (sector 2): "Hugo" at both ends, matching sequence numbers, entries
     and objects inside the disc, no overlaps, and the free space list neither overlaps an object nor runs off the disc.
 DFS (.ssd, .dsd): the catalogue must be plausible; on a .dsd the side-1 catalogue is at file sector 10 (interleaved, b-em) and must be plausible.
-  Watford 62-file sides (sector 2 starts with eight &AA, sector 3 with four zeros - Watford Electronics' DFS
-  manual, section 9.2): the second catalogue must be plausible too, and no two files of either catalogue may
-  overlap each other or sectors 0-3 (BeebWiki "Acorn DFS disc format": except Watford's !.!!!!!!! guard entry).
+  Watford 62-file sides (sector 2 starts with eight &AA - Watford Electronics' DFS manual, section 9.2): the
+  second catalogue must be plausible too, no two files of either catalogue may overlap each other or sectors 0-3
+  (BeebWiki "Acorn DFS disc format": except a !.!!!!!!! guard entry), and the first catalogue's files must all lie
+  below the second's (Watford's save routine keeps them so).
 
 Standard library only. Exit status 0 if every image passes.
 """
@@ -180,7 +181,7 @@ def cat_entries(s0, s1):
 def check_watford(s, base, side, problems):
     """s(n) = file sector n; base = the side's track 0. Returns True if this side is a Watford 62-file disc."""
     s2, s3 = s(base + 2), s(base + 3)
-    if s2[:8] != b'\xaa' * 8 or s3[:4] != b'\0' * 4:
+    if s2[:8] != b'\xaa' * 8:
         return False
     if any(st < 4 and not (n == '!.!!!!!!!' and st == 2) for n, st, _ in cat_entries(s(base), s(base + 1))):
         return False                 # a file in sectors 2-3: an ordinary disc whose file data starts with &AA
@@ -197,6 +198,10 @@ def check_watford(s, base, side, problems):
             problems.append('side %d: %s runs past the end of the disc' % (side, name))
         if n:
             used.append((start, start + n, name))
+    c1 = [st for n, st, _ in cat_entries(s(base), s(base + 1)) if not (n == '!.!!!!!!!' and st == 2)]
+    c2 = [st for _, st, _ in cat_entries(s2, s3)]
+    if c1 and c2 and max(c1) >= min(c2):
+        problems.append('side %d: a first-catalogue file lies above a second-catalogue file' % side)
     used.sort()
     for a, b in zip(used, used[1:]):
         if b[0] < a[1]:

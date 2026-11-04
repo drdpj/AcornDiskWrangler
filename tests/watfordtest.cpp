@@ -62,6 +62,20 @@ static Files contents(Opened &o) {
 static QByteArray track0(const QString &path, int side) { return slurp(path).mid(side * 2560, 1024); }
 static quint32 cat1Size(const QByteArray &t) { return (quint32(quint8(t[256 + 6]) & 3) << 8) | quint8(t[256 + 7]); }
 static quint32 cat3Size(const QByteArray &t) { return (quint32(quint8(t[768 + 6]) & 3) << 8) | quint8(t[768 + 7]); }
+static int count1(const QByteArray &t) { return quint8(t[256 + 5]) / 8; }
+static int count2(const QByteArray &t) { return quint8(t[768 + 5]) / 8; }
+static quint32 entryStart(const QByteArray &t, int sec1, int i) { int o = sec1 * 256 + i * 8; return (quint32(quint8(t[o + 6]) & 3) << 8) | quint8(t[o + 7]); }
+// what Watford's DFS 1.44 / DDFS 1.54T leave: every first-catalogue file below every second-catalogue file, and the
+// first catalogue's size = the start of the second's lowest file (the true size while it has none)
+static void watfordRules(const QByteArray &t, quint32 sec) {
+    int n1 = count1(t), n2 = count2(t);
+    quint32 high1 = 0, low2 = sec;
+    for (int i = 1; i <= n1; ++i) high1 = qMax(high1, entryStart(t, 1, i));
+    for (int i = 1; i <= n2; ++i) low2 = qMin(low2, entryStart(t, 3, i));
+    CHECK(n2 == 0 || high1 < low2);
+    CHECK(cat1Size(t) == (n2 ? entryStart(t, 3, n2) : sec));
+    CHECK(cat3Size(t) == sec);
+}
 
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
@@ -97,16 +111,8 @@ int main(int argc, char **argv) {
         o.img.close();
         for (int s = 0; s < sides; ++s) {
             QByteArray t0 = track0(p, s);
-            CHECK(quint8(t0[256 + 5]) == 31 * 8); CHECK(quint8(t0[768 + 5]) == 31 * 8);
-            CHECK(cat1Size(t0) == sec); CHECK(cat3Size(t0) == sec);           // not lowered on a new disc
-            // the second catalogue holds the files highest on the disc
-            quint32 low2 = 0xFFFF, high1 = 0;
-            for (int i = 1; i <= 31; ++i) {
-                quint32 s1 = (quint32(quint8(t0[256 + i * 8 + 6]) & 3) << 8) | quint8(t0[256 + i * 8 + 7]);
-                quint32 s3 = (quint32(quint8(t0[768 + i * 8 + 6]) & 3) << 8) | quint8(t0[768 + i * 8 + 7]);
-                high1 = qMax(high1, s1); low2 = qMin(low2, s3);
-            }
-            CHECK(high1 < low2);
+            CHECK(count1(t0) == 31); CHECK(count2(t0) == 31);
+            watfordRules(t0, sec);
         }
         Opened o2; CHECK(openIt(o2, p));
         if (o2.ok) {
@@ -116,7 +122,8 @@ int main(int argc, char **argv) {
             CHECK(o2.d[0].check().ok());
             CHECK(o2.img.commit(&e, false, nullptr)); o2.img.close();
             QByteArray t0 = track0(p, 0);
-            CHECK(quint8(t0[256 + 5]) == 31 * 8); CHECK(quint8(t0[768 + 5]) == 29 * 8);
+            CHECK(count1(t0) == 30); CHECK(count2(t0) == 30);          // each from its own catalogue
+            watfordRules(t0, sec);
             Opened o3; CHECK(openIt(o3, p)); if (o3.ok) { CHECK(o3.d[0].files().size() == 60); CHECK(o3.d[0].check().ok()); }
         }
     }
@@ -132,6 +139,68 @@ int main(int argc, char **argv) {
             CHECK(quint8(t0[256 + 5]) == 5 * 8); CHECK(quint8(t0[768 + 5]) == 0);
             CHECK(t0.mid(512, 8) == QByteArray(8, char(0xAA)));
             Opened o2; CHECK(openIt(o2, p)); if (o2.ok) CHECK(o2.d[0].watford() && o2.d[0].files().size() == 5);
+        }
+    }
+
+    // ---- where a new file goes (DFS 1.44's save routine)
+    {
+        QString p = out + "/place.ssd"; CHECK(NewDisc::create(p, NewDisc::WatSs80, "", false, &e));
+        Opened o; CHECK(openIt(o, p));
+        if (o.ok) {
+            Dfs::Disc &d = o.d[0];
+            for (int i = 0; i < 40; ++i) CHECK(d.addFile('$', QString("P%1").arg(i), rnd(256, i), 0, 0, false, false, &e));   // P0 at 4 ... P39 at 43
+            CHECK(o.img.commit(&e, false, nullptr));
+            QByteArray t0 = track0(p, 0); CHECK(count1(t0) == 31); CHECK(count2(t0) == 9); watfordRules(t0, 800);
+            // one-sector holes in the first catalogue, a two-sector hole in the second's range: a two-sector file
+            // fits only there, so it joins the second catalogue although the first has room
+            CHECK(d.remove('$', "P3", &e)); CHECK(d.remove('$', "P5", &e));
+            CHECK(d.remove('$', "P35", &e)); CHECK(d.remove('$', "P36", &e));
+            CHECK(d.addFile('$', "TWO", rnd(512, 77), 0, 0, false, false, &e));
+            CHECK(d.files()[d.indexOf('$', "TWO")].start == 39);
+            CHECK(o.img.commit(&e, false, nullptr));
+            t0 = track0(p, 0); CHECK(count1(t0) == 29); CHECK(count2(t0) == 8); watfordRules(t0, 800);
+            // a one-sector file takes the lowest hole, in the first catalogue
+            CHECK(d.addFile('$', "ONE", rnd(256, 78), 0, 0, false, false, &e));
+            CHECK(d.files()[d.indexOf('$', "ONE")].start == 7);
+            CHECK(o.img.commit(&e, false, nullptr));
+            t0 = track0(p, 0); CHECK(count1(t0) == 30); CHECK(count2(t0) == 8); watfordRules(t0, 800);
+            // renaming a first-catalogue file writes only that catalogue: the second's cycle number stays
+            quint8 c1 = quint8(t0[256 + 4]), c2 = quint8(t0[768 + 4]);
+            CHECK(d.modify('$', "P0", '$', "P0X", false, 0, 0, &e));
+            CHECK(o.img.commit(&e, false, nullptr));
+            t0 = track0(p, 0); CHECK(quint8(t0[256 + 4]) != c1); CHECK(quint8(t0[768 + 4]) == c2);
+            // a full second catalogue gives its lowest file to the first
+            for (int i = 0; i < 24; ++i) CHECK(d.addFile('$', QString("Q%1").arg(i), rnd(256, 200 + i), 0, 0, false, false, &e));
+            CHECK(o.img.commit(&e, false, nullptr));
+            t0 = track0(p, 0); CHECK(count1(t0) == 31); CHECK(count2(t0) == 31); watfordRules(t0, 800);
+            CHECK(d.remove('$', "P0X", &e)); CHECK(d.remove('$', "P1", &e));           // room in the first
+            CHECK(d.remove('$', "P38", &e));                                           // a hole in the second's range
+            CHECK(d.addFile('$', "MID", rnd(256, 300), 0, 0, false, false, &e));
+            CHECK(d.files()[d.indexOf('$', "MID")].start == 4);                        // lowest hole first, as Watford
+            CHECK(d.addFile('$', "MID2", rnd(256, 301), 0, 0, false, false, &e));
+            CHECK(d.files()[d.indexOf('$', "MID2")].start == 5);
+            CHECK(d.addFile('$', "MID3", rnd(512, 302), 0, 0, false, false, &e));     // too big for 41: goes to the top
+            CHECK(o.img.commit(&e, false, nullptr));
+            t0 = track0(p, 0); watfordRules(t0, 800);
+            CHECK(d.check().ok());
+        }
+    }
+    {
+        // second catalogue full and the only room in its range: its lowest entry moves to the first
+        QString p = out + "/move.ssd"; CHECK(NewDisc::create(p, NewDisc::WatSs80, "", false, &e));
+        Opened o; CHECK(openIt(o, p));
+        if (o.ok) {
+            Dfs::Disc &d = o.d[0];
+            for (int i = 0; i < 62; ++i) CHECK(d.addFile('$', QString("M%1").arg(i), rnd(256, i), 0, 0, false, false, &e));   // M0 at 4 ... M61 at 65
+            CHECK(d.remove('$', "M0", &e));            // first catalogue now 30
+            CHECK(d.remove('$', "M50", &e)); CHECK(d.remove('$', "M51", &e));      // a two-sector hole at 54-55
+            CHECK(d.addFile('$', "BIG", rnd(300, 9), 0, 0, false, false, &e));   // needs 2: only 54 fits below the top
+            CHECK(d.files()[d.indexOf('$', "BIG")].start == 54);
+            CHECK(o.img.commit(&e, false, nullptr));
+            QByteArray t0 = track0(p, 0);
+            CHECK(count1(t0) == 30); CHECK(count2(t0) == 30);  // 31 + the new one in the second, its lowest moved
+            watfordRules(t0, 800);
+            CHECK(d.check().ok());
         }
     }
 
@@ -203,7 +272,7 @@ int main(int argc, char **argv) {
                 CHECK(o2.d[0].modify(bottom.dir, "RENAME2", bottom.dir, bottom.name, bottom.locked, bottom.load, bottom.exec, &e));
                 CHECK(o2.img.commit(&e, false, nullptr)); o2.img.close();
                 t0 = track0(p, 0);
-                CHECK(cat1Size(t0) == was1); CHECK(cat3Size(t0) == was3);   // the disc's own size convention is kept
+                CHECK(cat1Size(t0) == was1); CHECK(cat3Size(t0) == was3);   // drive 0 already follows Watford's rule
                 QByteArray a = slurp(p), b = orig;
                 // only the cycle numbers (sector 1 and 3 byte 4, each side) may differ
                 for (int s = 0; s < 2; ++s) for (int k : {256 + 4, 768 + 4}) { a[s * 2560 + k] = 0; b[s * 2560 + k] = 0; }
@@ -221,6 +290,12 @@ int main(int argc, char **argv) {
                             CHECK(o4.d[0].files().size() == n + 1); CHECK(o4.d[0].check().ok());
                             Files now = contents(o4); now.remove(QString("0:$.NEWONE 1900 1900 0"));
                             CHECK(now == before);
+                            watfordRules(track0(p, 0), 800);
+                            // drive 2's first catalogue claims the full 800 although its second has files: the
+                            // next write there sets it the way Watford's DFS would
+                            CHECK(o4.d[1].addFile('$', "NEWTWO", rnd(500, 10), 0, 0, false, false, &e));
+                            CHECK(o4.img.commit(&e, false, nullptr));
+                            watfordRules(track0(p, 1), 800);
                         }
                     }
                 }

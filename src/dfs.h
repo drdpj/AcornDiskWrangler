@@ -42,6 +42,7 @@ struct File {
     QChar dir = '$';         // single-letter "directory"
     bool locked = false;
     quint32 load = 0, exec = 0, length = 0, start = 0;
+    int cat = 0;             // Watford 62-file disc: 0 = first catalogue (sectors 0-1), 1 = second (sectors 2-3)
     quint32 sectors() const { return (length + SectorSize - 1) / SectorSize; }
     QString fullName() const { return QString(dir) + "." + name; }
 };
@@ -60,7 +61,7 @@ QString sanitizeName(const QString &hostName);
 // Catalogue sanity check used for format detection (sectors = disc size the catalogue claims).
 bool plausibleCatalogue(const QByteArray &sector0, const QByteArray &sector1, quint32 *sectors = nullptr);
 // Is track0 (at least sectors 0-3 of one side) a Watford 62-file catalogue? sectors = the disc's true size (the
-// larger of the two catalogues' claims: Watford may lower the first one's, see docs/disc-formats.md).
+// larger of the two catalogues' claims: Watford lowers the first one's, see docs/disc-formats.md).
 bool watfordCatalogue(const QByteArray &track0, quint32 *sectors = nullptr);
 
 class Disc {
@@ -97,6 +98,7 @@ private:
     bool wr(quint32 n, const QByteArray &data, QString *err);
     bool load(QString *err);
     bool writeCatalogue(QString *err);
+    void placeWatford(int idx);                                 // choose the catalogue of a new file (m_files[idx])
     quint32 firstData() const { return m_watford ? 4 : 2; }    // the first sector after the catalogue(s)
     bool findGap(quint32 n, quint32 *start) const;
     bool addInner(QChar dir, const QString &name, const QByteArray &data, quint32 load, quint32 exec, bool locked,
@@ -113,7 +115,6 @@ private:
     bool m_watford = false;
     bool m_guard = false;        // the first catalogue holds Watford's "!.!!!!!!!" entry (sectors 2-3, hidden here)
     File m_guardFile;
-    bool m_lowered = false;      // the first catalogue's disc size was lowered to keep Acorn DFS off the second's files
     quint8 m_cycle2 = 0;         // sector 3 byte 4
     quint8 m_s3b6 = 0;           // sector 3 byte 6 as found (its sector-count bits are rewritten, the rest kept)
     quint32 m_sectors = 0;

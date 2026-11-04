@@ -78,7 +78,7 @@ def dfs_files(img, sides):
             p = ((n // 10) * 2 + s) * 10 + n % 10 if sides == 2 else n
             return img[p * 256:(p + 1) * 256]
         cats = [(sector(0), sector(1))]
-        if sector(2)[:8] == b'\xaa' * 8 and sector(3)[:4] == b'\0' * 4:      # Watford 62-file: a second catalogue
+        if sector(2)[:8] == b'\xaa' * 8:                                    # Watford 62-file: a second catalogue
             cats.append((sector(2), sector(3)))
         for s0, s1 in cats:
             for i in range(s1[5] // 8):

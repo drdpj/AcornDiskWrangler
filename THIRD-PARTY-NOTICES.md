@@ -27,8 +27,9 @@ These were read for facts about formats or behaviour. No code or text was copied
 | Stardot `.inf` format specification (<https://github.com/stardot/inf_format>) | the access letters used in `docs/retro-files-format.md` | facts only |
 | RPCEmu 0.9.5 host file system (`src/hostfs.c`) | the `,ttt` and `,llllllll-eeeeeeee` host file name conventions described in the spec | facts only |
 | Qt 5.15 `qwindowsmime.cpp` | when Windows asks a drag source for its files | facts only |
+| Watford Electronics DFS 1.44 and DDFS 1.54T ROMs (the owner's copies, disassembled; not in the repo) | how a 62-file disc is formatted, recognised and written: the split between the two catalogues, the first catalogue's lowered size, which cycle number counts on | facts only (the ROMs are Watford Electronics') |
 | Watford Electronics DFS manual, section 9.2 "Disc Catalogue" (1983; text at bbc.nvg.org `doc/WatfordDFS.txt`) | the 62-file disc's second catalogue in sectors 2-3 and its &AA recognition bytes | facts only |
-| BeebWiki, "Acorn DFS disc format" (<https://beebwiki.mdfs.net/Acorn_DFS_disc_format>) and J.G. Harston's DFS format notes (<https://mdfs.net/Docs/Comp/Disk/Format/DFS>) | Watford's guard entry `!.!!!!!!!`, and telling a 62-file disc from a file whose data starts with &AA | facts only |
+| BeebWiki, "Acorn DFS disc format" (<https://beebwiki.mdfs.net/Acorn_DFS_disc_format>) and J.G. Harston's DFS format notes (<https://mdfs.net/Docs/Comp/Disk/Format/DFS>) | the `!.!!!!!!!` guard entry some tools write, and telling a 62-file disc from a file whose data starts with &AA | facts only |
 | Feedback from Rob Smallshire, author of oaknut (GitHub issue #1) | public access, name character set, typed loads | - |
 
 ## Used only for testing (not included, not distributed)
