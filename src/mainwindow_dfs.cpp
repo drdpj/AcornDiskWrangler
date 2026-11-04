@@ -173,8 +173,8 @@ void MainWindow::refreshDfs() {
             auto *it = new QTreeWidgetItem(r);
             it->setText(0, f.fullName());
             it->setText(1, f.locked ? "L" : "");
-            setNumCell(it, 2, QString("%1").arg(f.load, 6, 16, QChar('0')).toUpper());
-            setNumCell(it, 3, QString("%1").arg(f.exec, 6, 16, QChar('0')).toUpper());
+            setNumCell(it, 2, dfsAddrText(f.load));
+            setNumCell(it, 3, dfsAddrText(f.exec));
             setNumCell(it, 4, QString::number(f.length));
             setNumCell(it, 5, QString::number(f.start));
             it->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
@@ -358,13 +358,15 @@ void MainWindow::dfsProps() {
     else { cbL->setTristate(true); cbL->setCheckState(Qt::PartiallyChecked); }
     form->addRow("Attributes:", cbL);
     if (single) {
-        auto *v = new QRegularExpressionValidator(QRegularExpression("[0-9A-Fa-f]{1,6}"), &dlg);
-        loadEd = new QLineEdit(QString("%1").arg(files[0].load, 6, 16, QChar('0')).toUpper());
-        execEd = new QLineEdit(QString("%1").arg(files[0].exec, 6, 16, QChar('0')).toUpper());
+        auto *v = new QRegularExpressionValidator(QRegularExpression("[0-9A-Fa-f]{1,8}"), &dlg);
+        loadEd = new QLineEdit(dfsAddrText(files[0].load));
+        execEd = new QLineEdit(dfsAddrText(files[0].exec));
         loadEd->setValidator(v);
         execEd->setValidator(v);
-        form->addRow("Load address (hex, 18-bit):", loadEd);
-        form->addRow("Exec address (hex, 18-bit):", execEd);
+        loadEd->setToolTip("18-bit DFS address: up to 3FFFF; FFFFxxxx is the same as 3xxxx (the I/O processor)");
+        execEd->setToolTip(loadEd->toolTip());
+        form->addRow("Load address (hex):", loadEd);
+        form->addRow("Exec address (hex):", execEd);
         form->addRow("Length:", new QLabel(QString("%1 bytes").arg(files[0].length)));
         form->addRow("Start sector:", new QLabel(QString::number(files[0].start)));
         if (m_dfs[1].attached()) form->addRow("Drive:", new QLabel(QString::number(sel[0].side * 2)));
@@ -375,6 +377,16 @@ void MainWindow::dfsProps() {
     connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
     if (dlg.exec() != QDialog::Accepted) return;
 
+    // DFS keeps 18 bits: accept up to 3FFFF, or the FFFFxxxx form the program shows for 3xxxx; nothing else
+    for (QLineEdit *ed : {loadEd, execEd}) {
+        if (!ed) continue;
+        quint32 a = ed->text().toUInt(nullptr, 16);
+        if (extendDfsAddr(a & 0x3FFFFu) != a && a > 0x3FFFFu) {
+            QMessageBox::warning(this, "Properties", QString("%1 is not a DFS address: use up to 3FFFF, or FFFFxxxx "
+                                                         "(the same as 3xxxx).").arg(ed->text().toUpper()));
+            return;
+        }
+    }
     QStringList errors;
     QChar letter = dirEd && !dirEd->text().isEmpty() ? dirEd->text()[0] : QChar();
     if (!letter.isNull() && !Dfs::validDir(letter)) {

@@ -222,3 +222,9 @@ inline QString uniqueDfsName(const QString &base, QChar dir, const Dfs::Disc &d,
 
 // DFS keeps 18-bit addresses; values with bits 16 and 17 set stand for 0xFFFFxxxx (I/O processor).
 inline quint32 extendDfsAddr(quint32 v) { return (v & 0x30000u) == 0x30000u ? (v | 0xFFFC0000u) : v; }
+// A DFS address as the machine means it: FFFF1900 for one with both high bits set (the I/O processor, which is
+// how *INFO shows it), else 6 hex digits.
+inline QString dfsAddrText(quint32 v) {
+    quint32 x = extendDfsAddr(v & 0x3FFFFu);
+    return QString("%1").arg(x, x > 0x3FFFFu ? 8 : 6, 16, QChar('0')).toUpper();
+}
