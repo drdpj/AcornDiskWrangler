@@ -279,8 +279,11 @@ DiskInfo detectDisk(const QString &path, int force) {
 
     // ---- DFS (SSD / DSD). Each side has its own catalogue on its own track 0, so the second catalogue's position
     // (file sector 10 if interleaved, file sector <sectors per side> if sequential) settles the side order.
+    // A Watford 62-file disc may lower the first catalogue's disc size (see docs/disc-formats.md): its true size,
+    // which places side 1 of a sequential image, is the larger of the two catalogues' claims.
     quint32 sec = 0;
-    if (Dfs::plausibleCatalogue(rdAt(f, 0, 256), rdAt(f, 256, 256), &sec)) {
+    bool watford = Dfs::watfordCatalogue(rdAt(f, 0, 1024), &sec);
+    if (watford || Dfs::plausibleCatalogue(rdAt(f, 0, 256), rdAt(f, 256, 256), &sec)) {
         // Acorn's CP/M writes a catalogue holding one locked file, $.CPMDISC, from sector 2 to the end of side 0, so
         // that DFS leaves the disc alone (seen on a real Acorn Z80 disc). The disc is CP/M: editing it as DFS (or
         // writing on side 1, which has no catalogue) would destroy it, so it is not opened here.
@@ -304,8 +307,9 @@ DiskInfo detectDisk(const QString &path, int force) {
             info.sides.sequential = force >= 0 ? force == 1 : (!il && seq);
         }
         info.fullSize = qMax(size, quint64(sec) * 256 * (dsd ? 2 : 1));
-        info.description = QString("DFS %1 %2-track (%3 per side)")
-                               .arg(dsd ? "double-sided" : "single-sided").arg(sec / 10).arg(kb(quint64(sec) * 256));
+        info.description = QString("DFS %1 %2-track (%3 per side)%4")
+                               .arg(dsd ? "double-sided" : "single-sided").arg(sec / 10).arg(kb(quint64(sec) * 256))
+                               .arg(watford ? QString(", Watford 62-file catalogue") : QString());
         describeSides(info);
         if (size < info.fullSize)
             info.notes << QString("the image file is %1 bytes shorter than a full disc (blank tracks were trimmed); "

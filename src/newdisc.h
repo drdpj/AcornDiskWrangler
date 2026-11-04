@@ -23,7 +23,8 @@
 
 namespace NewDisc {
 
-enum Type { AdfsS, AdfsM, AdfsL, DfsSs40, DfsSs80, DfsDs40, DfsDs80, Acorn800, Acorn640, Pc360, Pc720, Pc1200, Pc1440 };
+enum Type { AdfsS, AdfsM, AdfsL, DfsSs40, DfsSs80, DfsDs40, DfsDs80, Acorn800, Acorn640, Pc360, Pc720, Pc1200, Pc1440,
+            WatSs40, WatSs80, WatDs40, WatDs80 };       // Watford DFS 62-file discs
 
 struct TypeInfo {
     Type type;

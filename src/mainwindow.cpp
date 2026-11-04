@@ -1058,7 +1058,8 @@ void MainWindow::updateUi() {
         s = n > 1 ? QString("DFS (a disc on each side)") : QString("DFS");
         for (int k = 0; k < n; ++k)
             s += QString(" - %1%2, %3 free of %4, boot %5").arg(n > 1 ? QString("drive %1: ").arg(k * 2) : QString())
-                     .arg(files(m_dfs[k].files().size()), fmtSectors(m_dfs[k].freeSectors()), fmtSectors(m_dfs[k].sectors()))
+                     .arg((m_dfs[k].watford() ? QString("62-file catalogue, ") : QString()) + files(m_dfs[k].files().size()),
+                          fmtSectors(m_dfs[k].freeSectors()), fmtSectors(m_dfs[k].sectors()))
                      .arg(Adfs::bootOptionName(m_dfs[k].bootOption()).mid(4));
     } else if (m_img.isAdfs()) {
         s = QString("%1 - %2 free of %3 (largest block %4), boot %5")

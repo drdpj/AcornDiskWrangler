@@ -16,6 +16,7 @@ The format facts the tests check are in [disc-formats.md](disc-formats.md).
 | `detecttest` | image paths | prints the detected kind, side order and whether the order could be told, for each (eyeball it) |
 | `floptest` | `plainl <blank ADFS L>` (must not detect as hybrid) / `bpb <img>` / `table <img> <idx 0-3>` / `acorn800 <out>` / `hybrid640 <out>` / `real800 <copy of a real 800K disc>` / `real640 <copy of a real hybrid disc> [<dir of files from extract_hd_dos.py>]` | PC images via `mkfs.fat -C x.img 360\|720\|1200\|1440`; the Acorn modes create their own |
 | `dfstest` | `<img> ssd\|dsd <sectors-per-side>` | DFS images (see below) |
+| `watfordtest` | `<outdir>` [`<copy of a real Watford 62-file .dsd>`] | new 62-file discs of every size filled to 62 (the split between the catalogues, the 63rd refused), fewer than 32 files, the guard entry, an ordinary disc whose first file starts with &AA; with the real disc, a save with no changes is byte-identical, renames change only the cycle bytes and keep its lowered first-catalogue size, an add keeps every other file. Then run `tests/acorncheck.py` on its output |
 | `selftest` | `<hard-disc img> [<copy with a disc name in its map>]` | **the owner's real `scsi0.dat`**; make the 2nd arg with `make_testdata.py mapname <copy>` |
 | `dostest` | `<hard-disc img>` | **the real `scsi0.dat`** (has `$.DOS.DRIVE_C`) |
 | `screenshot` | `<outdir> <dsd> [<image> ...]` | renders PNGs of each pane for eyeballing (see GUI layout conventions in AGENTS.md); host files from `make_testdata.py host` |

@@ -39,6 +39,10 @@ const QVector<TypeInfo> &types() {
         {DfsSs80, "DFS - 200K, 80 track, single-sided (.ssd)", "ssd", false, 12, "Disc title"},
         {DfsDs40, "DFS - 2 x 100K, 40 track, double-sided (.dsd)", "dsd", true, 12, "Disc title"},
         {DfsDs80, "DFS - 2 x 200K, 80 track, double-sided (.dsd)", "dsd", true, 12, "Disc title"},
+        {WatSs40, "Watford DFS 62-file - 100K, 40 track, single-sided (.ssd)", "ssd", false, 12, "Disc title"},
+        {WatSs80, "Watford DFS 62-file - 200K, 80 track, single-sided (.ssd)", "ssd", false, 12, "Disc title"},
+        {WatDs40, "Watford DFS 62-file - 2 x 100K, 40 track, double-sided (.dsd)", "dsd", true, 12, "Disc title"},
+        {WatDs80, "Watford DFS 62-file - 2 x 200K, 80 track, double-sided (.dsd)", "dsd", true, 12, "Disc title"},
         {Acorn800, "Acorn DOS Plus 800K", "img", true, 11, "Volume label"},
         {Acorn640, "Acorn DOS Plus 640K (ADFS-compatible, with DOSBOOT)", "adl", true, 11, "Volume label"},
         {Pc360, "PC 360K - 40 track, double-sided", "img", false, 11, "Volume label"},
@@ -169,14 +173,21 @@ bool create(const QString &path, Type t, const QString &titleIn, bool sequential
         if (t == AdfsL) { sides.trackBytes = 4096; sides.cylinders = 80; sides.sideFirst = true; }   // ADFS L counts side 0 first
         kind = DiskInfo::Adfs;
         break;
-    case DfsSs40: case DfsSs80: case DfsDs40: case DfsDs80: {
-        bool ds = t == DfsDs40 || t == DfsDs80;
-        quint32 tracks = (t == DfsSs40 || t == DfsDs40) ? 40 : 80, sec = tracks * 10;
+    case DfsSs40: case DfsSs80: case DfsDs40: case DfsDs80:
+    case WatSs40: case WatSs80: case WatDs40: case WatDs80: {
+        bool ds = t == DfsDs40 || t == DfsDs80 || t == WatDs40 || t == WatDs80;
+        bool wat = t == WatSs40 || t == WatSs80 || t == WatDs40 || t == WatDs80;
+        quint32 tracks = (t == DfsSs40 || t == DfsDs40 || t == WatSs40 || t == WatDs40) ? 40 : 80, sec = tracks * 10;
         img = QByteArray(int(sec * 256 * (ds ? 2 : 1)), 0);
         for (int side = 0; side < (ds ? 2 : 1); ++side) {
             char *cat = img.data() + (side ? 10 * 256 : 0);      // each side's catalogue is on its own track 0
             cat[256 + 6] = char((sec >> 8) & 3);                 // boot option 0, sector count
             cat[256 + 7] = char(sec & 0xFF);
+            if (wat) {                                           // Watford's second catalogue in sectors 2-3
+                for (int i = 0; i < 8; ++i) cat[512 + i] = char(0xAA);
+                cat[768 + 6] = char((sec >> 8) & 3);
+                cat[768 + 7] = char(sec & 0xFF);
+            }
         }
         if (ds) { sides.trackBytes = 2560; sides.cylinders = tracks; }
         kind = DiskInfo::Dfs;
@@ -235,7 +246,7 @@ bool create(const QString &path, Type t, const QString &titleIn, bool sequential
             Dfs::Layout lay;
             lay.doubleSided = sides.doubleSided();
             lay.interleaved = true;
-            lay.sectorsPerSide = (t == DfsSs40 || t == DfsDs40) ? 400 : 800;
+            lay.sectorsPerSide = (t == DfsSs40 || t == DfsDs40 || t == WatSs40 || t == WatDs40) ? 400 : 800;
             for (int side = 0; side < (lay.doubleSided ? 2 : 1); ++side) {
                 Dfs::Disc d;
                 if (!d.attach(&im, side, lay, &e) || !d.setTitle(title, &e)) return fail(e);

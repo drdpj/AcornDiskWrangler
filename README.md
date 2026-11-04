@@ -103,8 +103,8 @@ too:
 * ADFS new-map discs (D and E format, from the Archimedes) are recognised but not supported.
 * ADFS: names of up to 10 characters, at most 47 entries in a directory, and each file needs a contiguous run of
   free space. It can't compact a fragmented disc (`*COMPACT` on the machine can).
-* DFS: at most 31 files per side, names of 7 characters plus a directory letter. Watford's 62-file DFS isn't
-  supported.
+* DFS: at most 31 files per side (62 on a Watford 62-file disc), names of 7 characters plus a directory letter.
+  Watford's double-density DDFS isn't supported.
 * DOS: names are made upper-case 8.3. Only `$.DOS.DRIVE_C` is looked for as a hard disc's DOS partition.
 * DFS images saved with their blank end trimmed off open normally and are saved full length.
 * Discs with non-standard or copy-protected tracks aren't handled.

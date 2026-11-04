@@ -28,7 +28,8 @@ import os, re, struct, subprocess, sys, tempfile
 TYPES = {0: ('adfs', 4096, 40, False), 1: ('adfs', 4096, 80, False), 2: ('adfs', 4096, 80, True),
          3: ('dfs', 2560, 40, False), 4: ('dfs', 2560, 80, False), 5: ('dfs', 2560, 40, True), 6: ('dfs', 2560, 80, True),
          7: ('a800', 5120, 80, True), 8: ('h640', 4096, 80, True),
-         9: ('pc', 4608, 40, False), 10: ('pc', 4608, 80, False), 11: ('pc', 7680, 80, False), 12: ('pc', 9216, 80, False)}   # PC: always interleaved
+         9: ('pc', 4608, 40, False), 10: ('pc', 4608, 80, False), 11: ('pc', 7680, 80, False), 12: ('pc', 9216, 80, False),   # PC: always interleaved
+         13: ('dfs', 2560, 40, False), 14: ('dfs', 2560, 80, False), 15: ('dfs', 2560, 40, True), 16: ('dfs', 2560, 80, True)}  # Watford 62-file
 
 def to_interleaved(data, tb, cyl):
     out = bytearray(data)
@@ -76,15 +77,19 @@ def dfs_files(img, sides):
         def sector(n):
             p = ((n // 10) * 2 + s) * 10 + n % 10 if sides == 2 else n
             return img[p * 256:(p + 1) * 256]
-        s0, s1 = sector(0), sector(1)
-        for i in range(s1[5] // 8):
-            nm = s0[8 + 8 * i:15 + 8 * i].decode('latin-1').rstrip(' \0')
-            d = chr(s0[15 + 8 * i] & 0x7F)
-            e = s1[8 + 8 * i:16 + 8 * i]
-            ln = e[4] | e[5] << 8 | ((e[6] >> 4) & 3) << 16
-            st = e[7] | (e[6] & 3) << 8
-            data = b''.join(sector(st + k) for k in range((ln + 255) // 256))[:ln]
-            files['dfs%d/%s.%s' % (s, d, nm)] = data
+        cats = [(sector(0), sector(1))]
+        if sector(2)[:8] == b'\xaa' * 8 and sector(3)[:4] == b'\0' * 4:      # Watford 62-file: a second catalogue
+            cats.append((sector(2), sector(3)))
+        for s0, s1 in cats:
+            for i in range(s1[5] // 8):
+                nm = s0[8 + 8 * i:15 + 8 * i].decode('latin-1').rstrip(' \0')
+                d = chr(s0[15 + 8 * i] & 0x7F)
+                e = s1[8 + 8 * i:16 + 8 * i]
+                ln = e[4] | e[5] << 8 | ((e[6] >> 4) & 3) << 16
+                st = e[7] | (e[6] & 3) << 8
+                if d == '!' and nm == '!!!!!!!' and st == 2: continue         # Watford's guard entry
+                data = b''.join(sector(st + k) for k in range((ln + 255) // 256))[:ln]
+                files['dfs%d/%s.%s' % (s, d, nm)] = data
     return files
 
 def bpb(bps, spc, res, nfats, root, total, media, spf, spt, rootdir=b''):

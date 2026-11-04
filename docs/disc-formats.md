@@ -20,6 +20,23 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
   interleaves by track (`phys = ((n/10)*2+side)*10 + n%10`); a sequential-side variant is
   detected too. 204800 bytes is ambiguous (80-track SSD vs 40-track DSD): the catalogue
   sector count and the second catalogue's plausibility decide, then the file suffix.
+- **Watford DFS 62-file discs** (`.ssd` or either side of a `.dsd`; checked on a real disc, Superior Software 8,
+  and with `tests/acorncheck.py`). A second catalogue in the same layout sits in sectors 2-3, so files start at
+  sector 4. Recognised (Watford's manual, section 9.2) by eight &AA bytes at sector 2 bytes 0-7 (where the
+  title would be) and four zeros at sector 3 bytes 0-3; both catalogues must be plausible and no file of the first
+  may start below sector 4 - except Watford's guard entry `!.!!!!!!!` (start 2, length &200; BeebWiki), which
+  keeps Acorn DFS off sectors 2-3. A file at sector 2 whose data happens to start with &AA means an ordinary disc.
+  The guard is hidden in the window, kept on writes, and takes a slot (61 files then).
+  - **What the real disc shows** (not documented elsewhere): the first catalogue is full (31 files, the lowest on
+    the disc) and the second holds the rest, the highest; this program splits them the same way on every write
+    (the second catalogue empty until there are more than 31). Sector 3 bytes 6-7 hold the true disc size (800),
+    its byte 4 its own cycle number; its boot bits were 0 while sector 1's were 3, so the boot option is read from
+    and written to sector 1 only, and sector 3 byte 6's other bits are kept as found. On drive 0 the first
+    catalogue's size was **lowered to 587 = the start of the second catalogue's lowest file** (so Acorn DFS sees a
+    full disc rather than writing over files it can't see); drive 2 has the full 800. The true size is the larger
+    of the two; a disc found lowered is kept lowered (re-computed on each write), one that wasn't is left full.
+    Whether Watford's own DFS writes it that way is **unverified** - check on a real machine. Detection uses the
+    true size, which matters for placing side 1 of a sequential `.dsd`.
 - **PC FAT**: standard; checked against `fsck.fat` and `mtools`. FAT12/16 chosen by cluster
   count. `Dos::Volume::attach` reads the BPB; `attachFormat` uses the table in `dosfs.cpp`.
 - **New DOS Plus 640K discs** copy the real layout: track 0 side 0 = free space map (total 2720, no free runs),
@@ -94,7 +111,7 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
 - **A damaged ADFS map** with a valid root directory is still detected as ADFS (and opens read-only) so that it is
   read with the right geometry - an ADFS L floppy needs its side-first numbering even to be inspected
   (`dragtest` caught this: before, such a disc read scrambled beyond the first track).
-- **ADFS D/E (new map)** is detected and refused; Watford 62-file DFS is not supported.
+- **ADFS D/E (new map)** is detected and refused; Watford 62-file DFS is supported (above); Watford's double-density DDFS is not.
 - **Acorn Z80 CP/M discs** carry a DFS catalogue on side 0 (title "Acorn CP/M", one locked file `$.CPMDISC` from
   sector 2 to the end of the side; seen on a real disc) so that DFS leaves them alone. Detection reports them as
   `AcornCpm` and Open refuses them, pointing at CP/M Disk Wrangler: editing one as DFS, or writing on side 1 (no

@@ -34,7 +34,10 @@ ADFS (.adl/.adm/.ads, hard discs, the ADFS side of a DOS Plus 640K disc):
     ((track * 2 + side) * 16 + s % 16) * 256.
   * Then every directory is walked from the root (sector 2): "Hugo" at both ends, matching sequence numbers, entries
     and objects inside the disc, no overlaps, and the free space list neither overlaps an object nor runs off the disc.
-DFS (.dsd): the side-1 catalogue is at file sector 10 (interleaved, b-em) and must be plausible.
+DFS (.ssd, .dsd): the catalogue must be plausible; on a .dsd the side-1 catalogue is at file sector 10 (interleaved, b-em) and must be plausible.
+  Watford 62-file sides (sector 2 starts with eight &AA, sector 3 with four zeros - Watford Electronics' DFS
+  manual, section 9.2): the second catalogue must be plausible too, and no two files of either catalogue may
+  overlap each other or sectors 0-3 (BeebWiki "Acorn DFS disc format": except Watford's !.!!!!!!! guard entry).
 
 Standard library only. Exit status 0 if every image passes.
 """
@@ -164,6 +167,43 @@ def plausible_cat(s0, s1):
     return all(0x20 <= (c & 0x7F) <= 0x7E for i in range(1, cnt // 8 + 1) for c in s0[i * 8:i * 8 + 8])
 
 
+def cat_entries(s0, s1):
+    out = []
+    for i in range(1, s1[5] // 8 + 1):
+        e = s1[i * 8:i * 8 + 8]
+        name = bytes(c & 0x7F for c in s0[i * 8:i * 8 + 7]).decode('latin-1').rstrip()
+        out.append((chr(s0[i * 8 + 7] & 0x7F) + '.' + name, e[7] | (e[6] & 3) << 8,
+                    e[4] | e[5] << 8 | ((e[6] >> 4) & 3) << 16))
+    return out
+
+
+def check_watford(s, base, side, problems):
+    """s(n) = file sector n; base = the side's track 0. Returns True if this side is a Watford 62-file disc."""
+    s2, s3 = s(base + 2), s(base + 3)
+    if s2[:8] != b'\xaa' * 8 or s3[:4] != b'\0' * 4:
+        return False
+    if any(st < 4 and not (n == '!.!!!!!!!' and st == 2) for n, st, _ in cat_entries(s(base), s(base + 1))):
+        return False                 # a file in sectors 2-3: an ordinary disc whose file data starts with &AA
+    if not plausible_cat(s2, s3):
+        problems.append('side %d: second (Watford) catalogue is not plausible' % side)
+        return True
+    size = max(((s(base + 1)[6] & 3) << 8) | s(base + 1)[7], ((s3[6] & 3) << 8) | s3[7])
+    used = [(0, 4, 'catalogues')]
+    for name, start, ln in cat_entries(s(base), s(base + 1)) + cat_entries(s2, s3):
+        if name == '!.!!!!!!!' and start == 2:
+            continue
+        n = (ln + 255) // 256
+        if start + n > size:
+            problems.append('side %d: %s runs past the end of the disc' % (side, name))
+        if n:
+            used.append((start, start + n, name))
+    used.sort()
+    for a, b in zip(used, used[1:]):
+        if b[0] < a[1]:
+            problems.append('side %d: %s overlaps %s' % (side, b[2], a[2]))
+    return True
+
+
 def check_dsd(path, data, sequential=False):
     s = lambda n: data[n * SECTOR:(n + 1) * SECTOR]
     problems = []
@@ -172,7 +212,19 @@ def check_dsd(path, data, sequential=False):
         problems.append('side 0 catalogue is not plausible')
     if not plausible_cat(s(side1), s(side1 + 1)):
         problems.append('side 1 catalogue (file sector %d) is not plausible' % side1)
-    return problems, 'DFS double-sided, %s: both catalogues plausible' % ('sequential' if sequential else 'interleaved')
+    # a Watford side's sectors 2-3 are on its track 0 in either order (a track is 10 sectors)
+    w = [check_watford(s, 0, 0, problems), check_watford(s, side1, 1, problems)]
+    extra = ''.join(', side %d Watford 62-file' % i for i in range(2) if w[i])
+    return problems, 'DFS double-sided, %s: both catalogues plausible%s' % ('sequential' if sequential else 'interleaved', extra)
+
+
+def check_ssd(path, data):
+    s = lambda n: data[n * SECTOR:(n + 1) * SECTOR]
+    problems = []
+    if not plausible_cat(s(0), s(1)):
+        problems.append('catalogue is not plausible')
+    w = check_watford(s, 0, 0, problems)
+    return problems, 'DFS single-sided: catalogue plausible%s' % (', Watford 62-file' if w else '')
 
 
 def main(paths):
@@ -185,10 +237,12 @@ def main(paths):
             (len(data) == 655360 and Disc(data, True).read(2, 1)[1:5] == b'Hugo')
         if p.lower().endswith('.dsd'):
             problems, what = check_dsd(p, data, seq)
+        elif p.lower().endswith('.ssd'):
+            problems, what = check_ssd(p, data)
         elif is_adfs:
             problems, what = check_adfs(p, data, seq)
         else:
-            print('%-50s skipped (not ADFS or .dsd)' % os.path.basename(p)); continue
+            print('%-50s skipped (not ADFS, .ssd or .dsd)' % os.path.basename(p)); continue
         if problems:
             failed += 1
             print('%-50s FAIL' % os.path.basename(p))

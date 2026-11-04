@@ -29,7 +29,7 @@ files (see Build).
 |---|---|
 | `adfs.h/.cpp` | `Adfs::Image`: the staged sector store used by **every** format, plus the ADFS old-map filesystem (`FsMap`, `Dir`, `Entry`), validation, commit |
 | `dosfs.h/.cpp` | `Dos::Volume`: FAT12/FAT16 inside an `Image` (BPB, table-driven `Dos::Format`, Acorn layouts); browse/add/mkdir/delete/rename/label/check |
-| `dfs.h/.cpp` | `Dfs::Disc`: one side of a DFS disc (catalogue in sectors 0-1); a .dsd = two `Disc`s |
+| `dfs.h/.cpp` | `Dfs::Disc`: one side of a DFS disc (catalogue in sectors 0-1, plus sectors 2-3 on a Watford 62-file disc: `watford()`, `maxFiles()`); a .dsd = two `Disc`s |
 | `diskformat.h/.cpp` | `detectDisk(path, force)` -> `DiskInfo` (kind, full size, DFS layout, side layout + whether the side order was confirmed). Decides how a file is opened |
 | `newdisc.h/.cpp` | `NewDisc::create()`: blank images of every format (File > New image); pure QtCore, checks its own output with `detectDisk`. The 640K DOS Plus disc needs a `bootSource` (an existing 640K disc to copy the boot track from, or a DOSBOOT file): DOSBOOT is Acorn's code and must never be put in the repo |
 | `mainwindow.h/.cpp` | main window, `DropTree`, open/save/refresh/updateUi, ADFS pane |
@@ -274,5 +274,5 @@ not in the repo: if you don't have it, say so rather than loosening the tests.
   lesson at the end of [docs/disc-formats.md](docs/disc-formats.md)).
 
 ## Known gaps / ideas
-ADFS D/E; Watford DFS; compacting a fragmented ADFS/DFS disc; Cut (a move
+ADFS D/E; Watford DDFS (double density); compacting a fragmented ADFS/DFS disc; Cut (a move
 off a disc) is deliberately not offered.
