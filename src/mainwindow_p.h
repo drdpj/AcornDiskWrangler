@@ -222,9 +222,21 @@ inline QString uniqueDfsName(const QString &base, QChar dir, const Dfs::Disc &d,
 
 // DFS keeps 18-bit addresses; values with bits 16 and 17 set stand for 0xFFFFxxxx (I/O processor).
 inline quint32 extendDfsAddr(quint32 v) { return (v & 0x30000u) == 0x30000u ? (v | 0xFFFC0000u) : v; }
-// A DFS address as the machine means it: FFFF1900 for one with both high bits set (the I/O processor, which is
-// how *INFO shows it), else 6 hex digits.
+// A DFS address as *INFO shows it (Acorn 1770 DFS, Watford DFS 1.44): 6 hex digits, FF1900 for one with both high
+// bits set (the I/O processor), else 001900 / 011900 / 021900. .inf files and the retro-files JSON use 8 digits
+// instead (extendDfsAddr: FFFF1900, 00001900).
 inline QString dfsAddrText(quint32 v) {
-    quint32 x = extendDfsAddr(v & 0x3FFFFu);
-    return QString("%1").arg(x, x > 0x3FFFFu ? 8 : 6, 16, QChar('0')).toUpper();
+    v &= 0x3FFFFu;
+    return QString("%1").arg((v & 0x30000u) == 0x30000u ? (v | 0xFF0000u) : v, 6, 16, QChar('0')).toUpper();
+}
+// What a user typed for a DFS address: up to 3FFFF, or the I/O processor's FFxxxx (as shown) / FFFFxxxx (as in an
+// .inf file), which mean 3xxxx. False for anything else.
+inline bool parseDfsAddr(const QString &text, quint32 *out) {
+    bool ok = false;
+    quint32 a = text.toUInt(&ok, 16);
+    if (!ok) return false;
+    if (a <= 0x3FFFFu) *out = a;
+    else if ((a & 0xFFFF0000u) == 0xFF0000u || (a & 0xFFFF0000u) == 0xFFFF0000u) *out = 0x30000u | (a & 0xFFFFu);
+    else return false;
+    return true;
 }

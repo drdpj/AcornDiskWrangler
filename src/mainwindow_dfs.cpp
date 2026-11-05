@@ -363,7 +363,7 @@ void MainWindow::dfsProps() {
         execEd = new QLineEdit(dfsAddrText(files[0].exec));
         loadEd->setValidator(v);
         execEd->setValidator(v);
-        loadEd->setToolTip("18-bit DFS address: up to 3FFFF; FFFFxxxx is the same as 3xxxx (the I/O processor)");
+        loadEd->setToolTip("18-bit DFS address: up to 3FFFF; FFxxxx (or FFFFxxxx) is the I/O processor, the same as 3xxxx");
         execEd->setToolTip(loadEd->toolTip());
         form->addRow("Load address (hex):", loadEd);
         form->addRow("Exec address (hex):", execEd);
@@ -377,12 +377,11 @@ void MainWindow::dfsProps() {
     connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
     if (dlg.exec() != QDialog::Accepted) return;
 
-    // DFS keeps 18 bits: accept up to 3FFFF, or the FFFFxxxx form the program shows for 3xxxx; nothing else
+    // DFS keeps 18 bits: accept up to 3FFFF, or FFxxxx / FFFFxxxx for 3xxxx; nothing else
+    quint32 newLoad = 0, newExec = 0;
     for (QLineEdit *ed : {loadEd, execEd}) {
-        if (!ed) continue;
-        quint32 a = ed->text().toUInt(nullptr, 16);
-        if (extendDfsAddr(a & 0x3FFFFu) != a && a > 0x3FFFFu) {
-            QMessageBox::warning(this, "Properties", QString("%1 is not a DFS address: use up to 3FFFF, or FFFFxxxx "
+        if (ed && !parseDfsAddr(ed->text(), ed == loadEd ? &newLoad : &newExec)) {
+            QMessageBox::warning(this, "Properties", QString("%1 is not a DFS address: use up to 3FFFF, or FFxxxx "
                                                          "(the same as 3xxxx).").arg(ed->text().toUpper()));
             return;
         }
@@ -399,8 +398,8 @@ void MainWindow::dfsProps() {
         QString nn = nameEd ? nameEd->text().trimmed() : f.name;
         QChar nd = single && !letter.isNull() ? letter : f.dir;     // several files: moved below, all checked first
         bool locked = cbL->checkState() == Qt::PartiallyChecked ? f.locked : cbL->checkState() == Qt::Checked;
-        quint32 load = loadEd ? loadEd->text().toUInt(nullptr, 16) : f.load;
-        quint32 exec = execEd ? execEd->text().toUInt(nullptr, 16) : f.exec;
+        quint32 load = loadEd ? newLoad : f.load;
+        quint32 exec = execEd ? newExec : f.exec;
         QString err;
         if (!dfsEditable(side)) err = "this side is read-only";
         else if (m_dfs[side].modify(f.dir, f.name, nd, nn, locked, load, exec, &err)) continue;
