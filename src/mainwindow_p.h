@@ -57,26 +57,9 @@ inline QString fmtSectors(quint32 s) {
     return QString("%1 KB").arg(b / 1024.0, 0, 'f', 1);
 }
 
-// The helpers below moved to DiskWranglerCore (namespace dw). The call sites still use the old names; these
-// forwarding declarations keep them building until a later step writes dw:: at each and deletes this block.
-using dw::anyCase;
-using dw::ColSpec;
-using dw::deleteKeys;
-using dw::hostSafeName;
-using dw::NumPad;
-using dw::rootLabel;
-using dw::setNumCell;
-using dw::setupTreeColumns;
-inline QString fmtBytes(quint64 b) { return dw::fmtBytes(qint64(b)); }       // Acorn shows a size under 1 KB as KB
-
 // ------------------------------------------------------------- panes and cross-disc copying
 
 enum Pane { PaneAdfs = 0, PaneDos = 1, PaneDfs0 = 2, PaneDfs1 = 3 };
-
-// The private drag types are the family's (core/diskwrangler/xfer/mime.h); the old names stay until a later step.
-#define WRANGLER_MIME_ITEMS  DW_MIME_ITEMS
-#define WRANGLER_MIME_SOURCE DW_MIME_SOURCE
-#define WRANGLER_MIME_CLIP   DW_MIME_CLIP
 
 // One dragged item as identified inside its source window (parent dir sector/cluster + name).
 struct DragRef {

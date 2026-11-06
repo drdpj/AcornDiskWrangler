@@ -81,7 +81,7 @@ DropTree::DropTree(QWidget *parent) : QTreeWidget(parent) {
     setDefaultDropAction(Qt::CopyAction);
 }
 
-QStringList DropTree::mimeTypes() const { return QStringList() << WRANGLER_MIME_ITEMS; }
+QStringList DropTree::mimeTypes() const { return QStringList() << DW_MIME_ITEMS; }
 Qt::DropActions DropTree::supportedDropActions() const { return Qt::CopyAction; }   // copying never removes the source
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 QMimeData *DropTree::mimeData(const QList<QTreeWidgetItem *> &items) const { return makeMime(items); }
@@ -104,8 +104,8 @@ static QByteArray sourceTag(quint64 owner, int pane) {
 }
 
 bool DropTree::fromThisProcess(const QMimeData *m) {
-    if (!m->hasFormat(WRANGLER_MIME_SOURCE) || !m->hasFormat(WRANGLER_MIME_ITEMS)) return false;
-    QList<QByteArray> f = m->data(WRANGLER_MIME_SOURCE).split(':');
+    if (!m->hasFormat(DW_MIME_SOURCE) || !m->hasFormat(DW_MIME_ITEMS)) return false;
+    QList<QByteArray> f = m->data(DW_MIME_SOURCE).split(':');
     // window ids are addresses, so the same id can exist in another copy of the program: check the process too
     return f.size() == 3 && f[0].toLongLong() == qint64(QCoreApplication::applicationPid()) &&
            MainWindow::byId(f[1].toULongLong()) != nullptr;
@@ -171,8 +171,8 @@ QMimeData *DropTree::makeMime(const QList<QTreeWidgetItem *> &items) const {
     };
     auto *m = new RetroFiles::DragOutMime(exporter, win && win->writeInfOnExtract(),
                                           win ? QFileInfo(win->image().path()).fileName() : QString(), m_pane);
-    m->setData(WRANGLER_MIME_ITEMS, payload);
-    m->setData(WRANGLER_MIME_SOURCE, sourceTag(m_owner, m_pane));
+    m->setData(DW_MIME_ITEMS, payload);
+    m->setData(DW_MIME_SOURCE, sourceTag(m_owner, m_pane));
     m_lastDrag = m->state();
     return m;
 }
@@ -180,7 +180,7 @@ QMimeData *DropTree::makeMime(const QList<QTreeWidgetItem *> &items) const {
 bool DropTree::acceptable(const QMimeData *m) const {
     // Only format names are looked at here: asking for a drag's file list would make its source write the files.
     if (fromThisProcess(m)) {                    // items from another tree (but not dropped back onto their own)
-        if (m->data(WRANGLER_MIME_SOURCE) != sourceTag(m_owner, m_pane)) return true;
+        if (m->data(DW_MIME_SOURCE) != sourceTag(m_owner, m_pane)) return true;
         MainWindow *w = MainWindow::byId(m_owner);  // within the DFS tree: from one side to the other
         return w && (m_pane == PaneDfs0 || m_pane == PaneDfs1) && w->dfs(0).attached() && w->dfs(1).attached();
     }
@@ -203,7 +203,7 @@ void DropTree::dropEvent(QDropEvent *e) {
     if (fromThisProcess(e->mimeData())) {        // one of this program's own windows: copy directly
         e->setDropAction(Qt::CopyAction);
         e->accept();
-        emit internalDrop(e->mimeData()->data(WRANGLER_MIME_ITEMS), itemAt(dropPos(e)));
+        emit internalDrop(e->mimeData()->data(DW_MIME_ITEMS), itemAt(dropPos(e)));
         return;
     }
     MainWindow *win = MainWindow::byId(m_owner);
@@ -293,17 +293,17 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
     // Column layouts (see setupTreeColumns). Shared columns use the same sample text in every pane
     // so ADFS, DFS and DOS windows line up; DOS keeps the ADFS order: numbers, then the date.
-    const ColSpec name{"Name", "", false}, attr{"Attr", "DLWRE", false},
+    const dw::ColSpec name{"Name", "", false}, attr{"Attr", "DLWRE", false},
         load{"Load", "FFFFFFFF", true}, exec{"Exec", "FFFFFFFF", true}, length{"Length", "999999999", true},
         sector{"Sector", "9999999", true}, typeDate{"Type / date", "FFF   2026-12-31 23:59", false},
         size{"Size", "999999999", true}, cluster{"Cluster", "9999999", true},
         modified{"Modified", "FFF   2026-12-31 23:59", false};
     m_tree = new DropTree(this);
-    setupTreeColumns(m_tree, {name, attr, load, exec, length, sector, typeDate});
+    dw::setupTreeColumns(m_tree, {name, attr, load, exec, length, sector, typeDate});
     m_dosTree = new DropTree(nullptr);
-    setupTreeColumns(m_dosTree, {name, attr, size, cluster, modified});
+    dw::setupTreeColumns(m_dosTree, {name, attr, size, cluster, modified});
     m_dfsTree = new DropTree(nullptr);          // both sides of a DFS disc, one root row each (as CP/M Disk Wrangler)
-    setupTreeColumns(m_dfsTree, {name, attr, load, exec, length, sector});
+    dw::setupTreeColumns(m_dfsTree, {name, attr, load, exec, length, sector});
     m_tabs = new QTabWidget(this);
     m_tabs->addTab(m_tree, "ADFS");
     setCentralWidget(m_tabs);
@@ -342,7 +342,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_actRename = mk("Re&name...", QKeySequence("F2"));
     m_actProps = mk("P&roperties / attributes...", QKeySequence("Alt+Return"));
     m_actDelete = mk("&Delete");
-    m_actDelete->setShortcuts(deleteKeys());
+    m_actDelete->setShortcuts(dw::deleteKeys());
     m_actRenameVol = mk("Rename disc / &volume...");
     m_actBootOpt = mk("&Boot option...");
     m_actCheck = mk("&Check disc", QKeySequence("Ctrl+K"));
@@ -518,7 +518,7 @@ void MainWindow::openDialog() {
     AppSettings s;
     QString p = QFileDialog::getOpenFileName(
         this, "Open disc image", s.value("lastDir").toString(),
-        "Disc images (" + anyCase("*.dat *.img *.ima *.dsk *.hdf *.adf *.adl *.adm *.ads *.ssd *.dsd *.bin") + ");;All files (*)");
+        "Disc images (" + dw::anyCase("*.dat *.img *.ima *.dsk *.hdf *.adf *.adl *.adm *.ads *.ssd *.dsd *.bin") + ");;All files (*)");
     if (p.isEmpty()) return;
     MainWindow *target = this;
     if (m_img.isOpen()) {                       // each disc lives in its own window, so they can be dragged between
@@ -738,7 +738,7 @@ void MainWindow::newImageDialog() {
     connect(browse, &QPushButton::clicked, &dlg, [&] {
         QString p = QFileDialog::getOpenFileName(&dlg, "DOSBOOT from a DOS Plus 640K disc image, or a DOSBOOT file",
                                                  boot->text().isEmpty() ? st.value("lastDir").toString() : boot->text(),
-                                                 "DOS Plus 640K disc or DOSBOOT (" + anyCase("*.adl *.adf *.img *.dsk dosboot*") + ");;All files (*)");
+                                                 "DOS Plus 640K disc or DOSBOOT (" + dw::anyCase("*.adl *.adf *.img *.dsk dosboot*") + ");;All files (*)");
         if (!p.isEmpty()) boot->setText(p);
     });
     form->addRow("Format:", type);
@@ -775,7 +775,7 @@ void MainWindow::newImageDialog() {
     const NewDisc::TypeInfo &t = NewDisc::info(NewDisc::Type(type->currentData().toInt()));
     QString ext = t.suffix;
     // suggest a file name from the title: "Games Disc" -> "Games Disc.adl"
-    QString base = title->text().trimmed().isEmpty() ? QString("untitled") : hostSafeName(title->text().trimmed());
+    QString base = title->text().trimmed().isEmpty() ? QString("untitled") : dw::hostSafeName(title->text().trimmed());
     QString path = QFileDialog::getSaveFileName(this, "Create disc image", st.value("lastDir").toString() + "/" + base + "." + ext,
                                                 QString("Disc image (*.%1);;All files (*)").arg(ext));
     if (path.isEmpty()) return;
@@ -914,9 +914,9 @@ void MainWindow::refreshTree() {
     QTreeWidgetItem *r = new QTreeWidgetItem(m_tree);
     if (m_img.readDir(RootSector, &root, &err)) {
         QString t = root.title();
-        r->setText(0, rootLabel("$", t));
+        r->setText(0, dw::rootLabel("$", t));
     } else {
-        r->setText(0, rootLabel("$", "unreadable root directory"));
+        r->setText(0, dw::rootLabel("$", "unreadable root directory"));
     }
     r->setIcon(0, style()->standardIcon(QStyle::SP_DriveHDIcon));
     r->setData(0, RoleParent, 0);
@@ -953,7 +953,7 @@ void MainWindow::populate(QTreeWidgetItem *parentItem, quint32 dirSector, QSet<q
         QString nm = e.name();
         it->setText(0, nm.isEmpty() ? "<bad name>" : nm);
         it->setText(1, e.attrString());
-        setNumCell(it, 5, QString::number(e.sin));
+        dw::setNumCell(it, 5, QString::number(e.sin));
         it->setData(0, RoleParent, dirSector);
         it->setData(0, RoleName, nm);
         it->setData(0, RoleIsDir, e.isDir());
@@ -963,9 +963,9 @@ void MainWindow::populate(QTreeWidgetItem *parentItem, quint32 dirSector, QSet<q
             it->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
         } else {
             it->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
-            setNumCell(it, 2, hex8(e.load));
-            setNumCell(it, 3, hex8(e.exec));
-            setNumCell(it, 4, QString::number(e.length));
+            dw::setNumCell(it, 2, hex8(e.load));
+            dw::setNumCell(it, 3, hex8(e.exec));
+            dw::setNumCell(it, 4, QString::number(e.length));
             it->setToolTip(4, QString("%1 bytes (&%2), %3 sectors").arg(e.length).arg(e.length, 0, 16).arg(sectorsFor(e.length)));
             if (e.hasStamp()) {
                 QDateTime t = e.stamp();
@@ -1051,8 +1051,8 @@ void MainWindow::updateUi() {
     auto files = [](int n) { return QString("%1 file%2").arg(n).arg(n == 1 ? "" : "s"); };
     if (dosPane) {
         s = QString("%1 - %2 free of %3").arg(m_tabs->tabText(m_tabs->currentIndex()),
-                                              fmtBytes(quint64(m_dos.freeClusters()) * m_dos.clusterBytes()),
-                                              fmtBytes(quint64(m_dos.totalClusters()) * m_dos.clusterBytes()));
+                                              dw::fmtBytes(quint64(m_dos.freeClusters()) * m_dos.clusterBytes()),
+                                              dw::fmtBytes(quint64(m_dos.totalClusters()) * m_dos.clusterBytes()));
     } else if (ds >= 0) {
         int n = m_dfs[1].attached() ? 2 : 1;
         s = n > 1 ? QString("DFS (a disc on each side)") : QString("DFS");
@@ -1461,7 +1461,7 @@ void MainWindow::editProperties() {
 // ------------------------------------------------------------------ extracting
 
 void MainWindow::extractEntry(quint32 parent, const Entry &e, const QString &hostDir, QStringList &errors) {
-    QString host = hostSafeName(e.name());
+    QString host = dw::hostSafeName(e.name());
     if (e.isDir()) {
         QString sub = hostDir + "/" + host;
         if (!QDir().mkpath(sub)) { errors << "cannot create folder " + sub; return; }
@@ -1517,7 +1517,7 @@ void MainWindow::extractSelected() {
         }
     }
     for (const Entry &e : list)
-        if (QFileInfo::exists(dest + "/" + hostSafeName(e.name()))) {
+        if (QFileInfo::exists(dest + "/" + dw::hostSafeName(e.name()))) {
             if (QMessageBox::question(this, "Extract", "Some files already exist in that folder. Overwrite them?") !=
                 QMessageBox::Yes)
                 return;

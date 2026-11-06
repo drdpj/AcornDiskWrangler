@@ -97,7 +97,7 @@ void MainWindow::refreshDos() {
     if (!have) return;
 
     auto *r = new QTreeWidgetItem(m_dosTree);
-    r->setText(0, rootLabel("C:\\", m_dos.label()));
+    r->setText(0, dw::rootLabel("C:\\", m_dos.label()));
     r->setIcon(0, style()->standardIcon(QStyle::SP_DriveHDIcon));
     r->setData(0, RoleParent, 0);
     r->setData(0, RoleName, "\\");
@@ -130,7 +130,7 @@ void MainWindow::populateDos(QTreeWidgetItem *parentItem, quint32 dirCluster, QS
         auto *it = new QTreeWidgetItem(parentItem);
         it->setText(0, e.name);
         it->setText(1, e.attrString());
-        setNumCell(it, 3, QString::number(e.cluster));
+        dw::setNumCell(it, 3, QString::number(e.cluster));
         QDateTime w = e.when();
         if (w.isValid()) it->setText(4, w.toString("yyyy-MM-dd hh:mm"));
         it->setData(0, RoleParent, dirCluster);
@@ -142,7 +142,7 @@ void MainWindow::populateDos(QTreeWidgetItem *parentItem, quint32 dirCluster, QS
             it->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
         } else {
             it->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
-            setNumCell(it, 2, QString::number(e.size));
+            dw::setNumCell(it, 2, QString::number(e.size));
         }
         if (e.isDir()) populateDos(it, e.cluster, seen, depth + 1);
     }
@@ -435,7 +435,7 @@ void MainWindow::dosProps() {
 // --------------------------------------------------------------- extracting
 
 void MainWindow::dosExtractEntry(const Dos::DEntry &e, quint32 /*cluster*/, const QString &hostDir, QStringList &errors) {
-    QString host = hostSafeName(e.name);
+    QString host = dw::hostSafeName(e.name);
     QString err;
     if (e.isDir()) {
         QString sub = hostDir + "/" + host;
@@ -473,7 +473,7 @@ void MainWindow::dosExtract() {
         }
     }
     for (const Dos::DEntry &e : list)
-        if (QFileInfo::exists(dest + "/" + hostSafeName(e.name))) {
+        if (QFileInfo::exists(dest + "/" + dw::hostSafeName(e.name))) {
             if (QMessageBox::question(this, "Extract", "Some files already exist in that folder. Overwrite them?") != QMessageBox::Yes) return;
             break;
         }

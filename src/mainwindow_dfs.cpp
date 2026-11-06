@@ -156,7 +156,7 @@ void MainWindow::refreshDfs() {
         any = true;
 
         auto *r = new QTreeWidgetItem(m_dfsTree);
-        r->setText(0, rootLabel(QString("Drive %1").arg(s * 2), m_dfs[s].title()));
+        r->setText(0, dw::rootLabel(QString("Drive %1").arg(s * 2), m_dfs[s].title()));
         r->setIcon(0, style()->standardIcon(QStyle::SP_DriveFDIcon));
         r->setData(0, RoleParent, s);
         r->setData(0, RoleName, "$");
@@ -173,10 +173,10 @@ void MainWindow::refreshDfs() {
             auto *it = new QTreeWidgetItem(r);
             it->setText(0, f.fullName());
             it->setText(1, f.locked ? "L" : "");
-            setNumCell(it, 2, dfsAddrText(f.load));
-            setNumCell(it, 3, dfsAddrText(f.exec));
-            setNumCell(it, 4, QString::number(f.length));
-            setNumCell(it, 5, QString::number(f.start));
+            dw::setNumCell(it, 2, dfsAddrText(f.load));
+            dw::setNumCell(it, 3, dfsAddrText(f.exec));
+            dw::setNumCell(it, 4, QString::number(f.length));
+            dw::setNumCell(it, 5, QString::number(f.start));
             it->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
             it->setData(0, RoleParent, s);           // a drag's DragRef::parent: the side
             it->setData(0, RoleName, f.fullName());
@@ -531,7 +531,7 @@ void MainWindow::dfsExtract() {
         QByteArray data;
         QString err;
         if (!m_dfs[p.first].readFile(f, &data, &err)) { errors << QString("%1: %2").arg(f.fullName(), err); continue; }
-        QString host = hostSafeName(f.dir == '$' ? f.name : f.fullName());
+        QString host = dw::hostSafeName(f.dir == '$' ? f.name : f.fullName());
         QFile out(folder + "/" + host);
         if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate) || out.write(data) != data.size()) {
             errors << QString("%1: %2").arg(host, out.errorString());
@@ -860,14 +860,14 @@ void MainWindow::copySelected() {
     auto *m = new RetroFiles::DragOutMime([items](QVector<XItem> *out, QString *) { *out = items; return true; },
                                           writeInfOnExtract(), QFileInfo(m_img.path()).fileName(), pane);
     m->setForClipboard(true);
-    m->setData(WRANGLER_MIME_CLIP, clipToken());
+    m->setData(DW_MIME_CLIP, clipToken());
     QApplication::clipboard()->setMimeData(m);
     static bool once = false;                  // the copied files live in a folder removed at exit: don't leave
     if (!once) {                               // a clipboard behind that names them
         once = true;
         connect(qApp, &QCoreApplication::aboutToQuit, [] {
             const QMimeData *c = QApplication::clipboard()->mimeData();
-            if (c && c->hasFormat(WRANGLER_MIME_CLIP) && QApplication::clipboard()->ownsClipboard()) QApplication::clipboard()->clear();
+            if (c && c->hasFormat(DW_MIME_CLIP) && QApplication::clipboard()->ownsClipboard()) QApplication::clipboard()->clear();
         });
     }
     int n = countItems(items);
@@ -892,7 +892,7 @@ static QStringList clipboardPaths(const QMimeData *m) {
 
 bool MainWindow::clipboardUsable() const {
     const QMimeData *m = QApplication::clipboard()->mimeData();
-    return m && (m->hasFormat(WRANGLER_MIME_CLIP) || m->hasFormat(RetroFiles::MimeType) || m->hasUrls() ||
+    return m && (m->hasFormat(DW_MIME_CLIP) || m->hasFormat(RetroFiles::MimeType) || m->hasUrls() ||
                  m->hasFormat("x-special/gnome-copied-files"));
 }
 
@@ -910,7 +910,7 @@ void MainWindow::paste() {
 }
 
 bool MainWindow::pasteItems(int pane, quint32 dir, const QMimeData *m) {
-    if (m->hasFormat(WRANGLER_MIME_CLIP) && !clipToken().isEmpty() && m->data(WRANGLER_MIME_CLIP) == clipToken()) {
+    if (m->hasFormat(DW_MIME_CLIP) && !clipToken().isEmpty() && m->data(DW_MIME_CLIP) == clipToken()) {
         const QVector<XItem> items = clipItems();          // copied in this program: nothing written to the host
         ImportCtx c;
         importX(pane, dir, items, c);

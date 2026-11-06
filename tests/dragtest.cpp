@@ -26,6 +26,7 @@
 #include "mainwindow.h"
 #include "dragout.h"
 #include "newdisc.h"
+#include <diskwrangler/xfer/mime.h>
 #include <QApplication>
 #include <QDir>
 #include <QDirIterator>
@@ -120,9 +121,9 @@ static void keep(QMimeData* m,const QString& out,const QString& tag){
 // a copy of a drag as it would arrive from ANOTHER process: same formats, but the private tag names another pid
 static QMimeData* asForeign(QMimeData* m){
     auto* f=new QMimeData;
-    for(const QString& fmt:{QString(WRANGLER_MIME_ITEMS),QString(RetroFiles::MimeType)}) f->setData(fmt,m->data(fmt));
-    QList<QByteArray> tag=m->data(WRANGLER_MIME_SOURCE).split(':'); tag[0]=QByteArray::number(tag[0].toLongLong()+1);
-    f->setData(WRANGLER_MIME_SOURCE,tag.join(':'));
+    for(const QString& fmt:{QString(DW_MIME_ITEMS),QString(RetroFiles::MimeType)}) f->setData(fmt,m->data(fmt));
+    QList<QByteArray> tag=m->data(DW_MIME_SOURCE).split(':'); tag[0]=QByteArray::number(tag[0].toLongLong()+1);
+    f->setData(DW_MIME_SOURCE,tag.join(':'));
     f->setUrls(m->urls());
     return f;
 }

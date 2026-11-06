@@ -59,7 +59,7 @@ static void drop(MainWindow& w, const QStringList& paths, QTreeWidgetItem* targe
 int main(int argc,char**argv){
     QApplication app(argc,argv);
     QApplication::setOrganizationName("acorndiskwrangler-test"); QApplication::setApplicationName("t");
-    CHECK(anyCase("*.dat *.dsk dosboot*") == "*.dat *.DAT *.dsk *.DSK dosboot* DOSBOOT*");   // Open dialog filters also match DISK.DSK
+    CHECK(dw::anyCase("*.dat *.dsk dosboot*") == "*.dat *.DAT *.dsk *.DSK dosboot* DOSBOOT*");   // Open dialog filters also match DISK.DSK
     MainWindow w; w.resize(1000,650); w.show();
     CHECK(w.openImage(argv[1]));
     CHECK(w.image().editable());

@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "viewtext.h"
+#include <diskwrangler/text/textviews.h>
 #include <cstdio>
 #include <QByteArray>
 static int fails=0;
@@ -47,8 +48,8 @@ int main(){
     // invalid
     CHECK(!ViewText::looksLikeBasic("Hello world\r\n")); 
     CHECK(!ViewText::looksLikeBasic(p.left(p.size()-2)));
-    CHECK(ViewText::looksLikeText("Hello\r\nworld\r\n")); CHECK(!ViewText::looksLikeText(QByteArray("\x00\x01\x02\x03",4)));
-    CHECK(ViewText::plain("a\r\nb\rc\nd")=="a\nb\nc\nd");
-    printf("%s",qPrintable(ViewText::hexDump("Hello, hex dump!\x01\xFF")));
+    CHECK(dw::text::looksLikeText("Hello\r\nworld\r\n")); CHECK(!dw::text::looksLikeText(QByteArray("\x00\x01\x02\x03",4)));
+    CHECK(dw::text::plain("a\r\nb\rc\nd")=="a\nb\nc\nd");
+    printf("%s",qPrintable(dw::text::hexDump("Hello, hex dump!\x01\xFF")));
     printf("%s (%d failures)\n",fails?"FAILED":"ALL OK",fails); return fails?1:0;
 }

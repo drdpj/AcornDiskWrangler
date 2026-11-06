@@ -24,10 +24,6 @@
 
 namespace ViewText {
 
-using dw::text::hexDump;
-using dw::text::looksLikeText;
-using dw::text::plain;
-
 // True if d is a structurally valid tokenised BBC BASIC (6502 BASIC II/IV) program.
 bool looksLikeBasic(const QByteArray &d);
 // Detokenise. On failure returns false with err set; *out still holds everything decoded so far.

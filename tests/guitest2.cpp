@@ -18,6 +18,7 @@
 #include "mainwindow.h"
 #include "viewer.h"
 #include <diskwrangler/app/fileopen.h>
+#include <diskwrangler/xfer/mime.h>
 #include <QApplication>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
@@ -206,7 +207,7 @@ int main(int argc,char**argv){
         A->tabs()->setCurrentWidget(A->dfsTree()); A->dfsTree()->clearSelection(); find(A->dfsTree(),"$.test_ba")->setSelected(true);
         key(A,A->dfsTree(),QKeySequence::Copy);
         const QMimeData* cm=cb->mimeData();
-        CHECK(cm && cm->hasFormat(WRANGLER_MIME_CLIP) && cm->hasFormat(RetroFiles::MimeType) && cm->hasUrls() && cm->hasFormat("x-special/gnome-copied-files"));
+        CHECK(cm && cm->hasFormat(DW_MIME_CLIP) && cm->hasFormat(RetroFiles::MimeType) && cm->hasUrls() && cm->hasFormat("x-special/gnome-copied-files"));
         // paste onto drive 2 of the same disc with Ctrl+V
         A->dfsTree()->clearSelection(); A->dfsTree()->setCurrentItem(A->dfsRoot(1)); CHECK(A->dfsSide()==1);
         CHECK(action(A,"&Paste") && action(A,"&Paste")->isEnabled());
