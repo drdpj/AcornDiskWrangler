@@ -17,33 +17,16 @@
  */
 #pragma once
 #include <QByteArray>
-#include <QDialog>
-
-class QComboBox;
-class QCheckBox;
-class QLabel;
-class QPlainTextEdit;
+#include <diskwrangler/ui/viewerdialog.h>
 
 // Read-only window showing a file as text, a hex dump, or a detokenised BBC BASIC listing.
-// Text is selectable (Ctrl+C), and there are Copy all / Save as text buttons.
-class ViewerDialog : public QDialog {
+// Text is selectable (Ctrl+C), and there are Copy all / Save as text buttons. The window itself is
+// DiskWranglerCore's dw::ViewerDialog; this class gives it Acorn's views (the core's Text and Hex dump, and BBC BASIC,
+// which is registered here) and the Mode names the tests use.
+class ViewerDialog : public dw::ViewerDialog {
     Q_OBJECT
 public:
     enum Mode { Text = 0, Hex = 1, Basic = 2 };
     ViewerDialog(const QString &title, const QByteArray &data, QWidget *parent = nullptr);
-    Mode mode() const;
-    QString shownText() const;
-
-private slots:
-    void render();
-    void copyAll();
-    void saveText();
-
-private:
-    QString m_title;
-    QByteArray m_data;
-    QComboBox *m_mode;
-    QCheckBox *m_wrap;
-    QLabel *m_info;
-    QPlainTextEdit *m_edit;
+    Mode mode() const { return Mode(viewIndex()); }
 };

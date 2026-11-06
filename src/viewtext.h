@@ -15,19 +15,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-// viewtext.h - turn file bytes into readable text: plain text, hex dump, BBC BASIC listing.
+// viewtext.h - turn file bytes into readable text: plain text, hex dump (both DiskWranglerCore's, kept here under
+// their old names until a later step writes dw::text:: at each use) and the BBC BASIC listing, which is Acorn's.
 #pragma once
 #include <QByteArray>
 #include <QString>
+#include <diskwrangler/text/textviews.h>
 
 namespace ViewText {
 
-// CR / LF / CRLF normalised to newlines; other control characters shown as '.'.
-QString plain(const QByteArray &d);
-// "00000000  41 42 ...  |AB..|" 16 bytes per line.
-QString hexDump(const QByteArray &d);
-// Heuristic: mostly printable, no NULs.
-bool looksLikeText(const QByteArray &d);
+using dw::text::hexDump;
+using dw::text::looksLikeText;
+using dw::text::plain;
+
 // True if d is a structurally valid tokenised BBC BASIC (6502 BASIC II/IV) program.
 bool looksLikeBasic(const QByteArray &d);
 // Detokenise. On failure returns false with err set; *out still holds everything decoded so far.

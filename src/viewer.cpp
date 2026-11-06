@@ -18,100 +18,40 @@
 #include "viewer.h"
 #include "viewtext.h"
 
-#include <QApplication>
-#include <QCheckBox>
-#include <QClipboard>
-#include <QComboBox>
-#include <QFile>
-#include <QFileDialog>
-#include <QFontDatabase>
-#include <QHBoxLayout>
-#include <QLabel>
-#include <QMessageBox>
-#include <QPlainTextEdit>
-#include <QPushButton>
-#include <QVBoxLayout>
+#include <diskwrangler/text/viewers.h>
 
-static const int kMaxShown = 1024 * 1024;     // keep the window responsive for very large files
+// BBC BASIC (II/IV): the program as a detokenised listing. It suits a file that is a structurally valid tokenised
+// program, scores higher than Text so that such a file opens on it, and needs the whole file.
+class BasicViewer : public dw::FileViewer {
+public:
+    QString id() const override { return "basic"; }
+    QString name() const override { return "BBC BASIC listing"; }
+    int order() const override { return 20; }
+    int accepts(const QByteArray &d, const QVariantMap &) const override { return ViewText::looksLikeBasic(d) ? 3 : 0; }
+    bool wantsAllData() const override { return true; }
+    dw::ViewResult render(const QByteArray &d, const QVariantMap &) const override {
+        dw::ViewResult r;
+        QString err;
+        if (!ViewText::detokenise(d, &r.text, &err)) {
+            r.note = "Not a valid tokenised BBC BASIC program: " + err;
+            r.text = r.text.isEmpty() ? QString("[%1]\n\nTry the Text or Hex dump view.").arg(r.note)
+                                      : r.text + QString("\n[%1]\n").arg(r.note);
+        } else {
+            r.note = "BBC BASIC (II/IV) program, detokenised";
+        }
+        return r;
+    }
+};
+
+static const dw::ViewerRegistry &acornViewers() {
+    static dw::ViewerRegistry reg = [] {
+        dw::ViewerRegistry r;
+        dw::addDefaultViewers(r);
+        r.add(std::make_shared<BasicViewer>());
+        return r;
+    }();
+    return reg;
+}
 
 ViewerDialog::ViewerDialog(const QString &title, const QByteArray &data, QWidget *parent)
-    : QDialog(parent), m_title(title), m_data(data) {
-    setAttribute(Qt::WA_DeleteOnClose);
-    setWindowTitle("View - " + title);
-    resize(860, 620);
-
-    m_mode = new QComboBox;
-    m_mode->addItems({"Text", "Hex dump", "BBC BASIC listing"});
-    m_wrap = new QCheckBox("Wrap lines");
-    auto *copy = new QPushButton("Copy all");
-    auto *save = new QPushButton("Save as text...");
-    m_info = new QLabel;
-    m_edit = new QPlainTextEdit;
-    m_edit->setReadOnly(true);
-    m_edit->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-    m_edit->setLineWrapMode(QPlainTextEdit::NoWrap);
-
-    auto *top = new QHBoxLayout;
-    top->addWidget(new QLabel("View as:"));
-    top->addWidget(m_mode);
-    top->addWidget(m_wrap);
-    top->addStretch();
-    top->addWidget(copy);
-    top->addWidget(save);
-    auto *lay = new QVBoxLayout(this);
-    lay->addLayout(top);
-    lay->addWidget(m_edit, 1);
-    lay->addWidget(m_info);
-
-    // pick the most useful view first
-    int auto_ = ViewText::looksLikeBasic(data) ? Basic : (ViewText::looksLikeText(data) ? Text : Hex);
-    m_mode->setCurrentIndex(auto_);
-    connect(m_mode, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &ViewerDialog::render);
-    connect(m_wrap, &QCheckBox::toggled, this, [this](bool on) {
-        m_edit->setLineWrapMode(on ? QPlainTextEdit::WidgetWidth : QPlainTextEdit::NoWrap);
-    });
-    connect(copy, &QPushButton::clicked, this, &ViewerDialog::copyAll);
-    connect(save, &QPushButton::clicked, this, &ViewerDialog::saveText);
-    render();
-}
-
-ViewerDialog::Mode ViewerDialog::mode() const { return Mode(m_mode->currentIndex()); }
-QString ViewerDialog::shownText() const { return m_edit->toPlainText(); }
-
-void ViewerDialog::render() {
-    QString text, note;
-    bool truncated = m_data.size() > kMaxShown;
-    QByteArray d = truncated ? m_data.left(kMaxShown) : m_data;
-    switch (mode()) {
-    case Text:
-        text = ViewText::plain(d);
-        break;
-    case Hex:
-        text = ViewText::hexDump(d);
-        break;
-    case Basic: {
-        QString err;
-        if (!ViewText::detokenise(m_data, &text, &err)) {
-            note = "Not a valid tokenised BBC BASIC program: " + err;
-            text = text.isEmpty() ? QString("[%1]\n\nTry the Text or Hex dump view.").arg(note)
-                                  : text + QString("\n[%1]\n").arg(note);
-        } else note = "BBC BASIC (II/IV) program, detokenised";
-        break;
-    }
-    }
-    if (truncated && mode() != Basic) note += (note.isEmpty() ? "" : " - ") + QString("showing the first 1 MiB only");
-    m_edit->setPlainText(text);
-    m_info->setText(QString("%1 bytes%2").arg(m_data.size()).arg(note.isEmpty() ? QString() : "  -  " + note));
-}
-
-void ViewerDialog::copyAll() {
-    QApplication::clipboard()->setText(m_edit->toPlainText());
-}
-
-void ViewerDialog::saveText() {
-    QString p = QFileDialog::getSaveFileName(this, "Save as text", m_title + (mode() == Hex ? ".hex.txt" : ".txt"));
-    if (p.isEmpty()) return;
-    QFile f(p);
-    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate) || f.write(m_edit->toPlainText().toUtf8()) < 0)
-        QMessageBox::warning(this, "Save", f.errorString());
-}
+    : dw::ViewerDialog(acornViewers(), title, data, parent) {}

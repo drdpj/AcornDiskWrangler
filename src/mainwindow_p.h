@@ -30,6 +30,10 @@
 #include <QStyle>
 #include <QTreeWidget>
 #include <initializer_list>
+#include <diskwrangler/ui/treecolumns.h>
+#include <diskwrangler/ui/uihelpers.h>
+#include <diskwrangler/xfer/hostname.h>
+#include <diskwrangler/xfer/mime.h>
 #include "adfs.h"
 #include "dfs.h"
 #include "dosfs.h"
@@ -53,105 +57,26 @@ inline QString fmtSectors(quint32 s) {
     return QString("%1 KB").arg(b / 1024.0, 0, 'f', 1);
 }
 
-// "*.dsk *.img" -> "*.dsk *.DSK *.img *.IMG": file dialogs match case-sensitively on Linux, and discs come as DISK.DSK too.
-inline QString anyCase(const QString &patterns) {
-    QStringList out;
-    for (const QString &p : patterns.split(' ', Qt::SkipEmptyParts)) {
-        out << p;
-        if (p.toUpper() != p) out << p.toUpper();
-    }
-    return out.join(' ');
-}
-
-inline QString fmtBytes(quint64 b) {
-    if (b >= 1024ull * 1024) return QString("%1 MB").arg(double(b) / (1024.0 * 1024.0), 0, 'f', 1);
-    return QString("%1 KB").arg(double(b) / 1024.0, 0, 'f', 1);
-}
-
-// ------------------------------------------------------------- tree column layout (all panes)
-// Every pane is laid out by setupTreeColumns() so they look the same: the Name column takes the
-// spare width (so the last column always meets the right-hand edge), every other column is sized
-// from the font (never fixed pixels - those break on scaled displays), and numbers are right-
-// aligned, header included, with the same trailing pad (setNumCell) so they never touch the next
-// column. Give a column that appears in several panes the same sample so it lines up across them.
-struct ColSpec {
-    const char *label;
-    const char *sample;      // widest text the column normally shows (ignored for the Name column)
-    bool numeric;
-};
-
-static const char *const NumPad = "  ";
-
-inline void setupTreeColumns(QTreeWidget *t, std::initializer_list<ColSpec> cols) {
-    const QFontMetrics fm(t->font());
-    const int margin = 2 * t->style()->pixelMetric(QStyle::PM_HeaderMargin, nullptr, t) + fm.averageCharWidth();
-    QStringList labels;
-    for (const ColSpec &c : cols) labels << (c.numeric ? QString(c.label) + NumPad : QString(c.label));
-    t->setColumnCount(labels.size());
-    t->setHeaderLabels(labels);
-    QHeaderView *h = t->header();
-    h->setStretchLastSection(false);
-    h->setSectionResizeMode(QHeaderView::Interactive);
-    h->setSectionResizeMode(0, QHeaderView::Stretch);
-    int fixed = 0, i = 0;
-    for (const ColSpec &c : cols) {
-        if (i > 0) {
-            QString pad = c.numeric ? NumPad : "";
-            int w = qMax(fm.horizontalAdvance(c.sample + pad), fm.horizontalAdvance(labels[i])) + margin;
-            t->setColumnWidth(i, w);
-            fixed += w;
-            if (c.numeric) t->headerItem()->setTextAlignment(i, Qt::AlignRight | Qt::AlignVCenter);
-        }
-        ++i;
-    }
-    // Keep a readable Name column: the window can't be made so narrow that the columns squash it.
-    int sb = t->style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, t);
-    t->setMinimumWidth(fixed + fm.averageCharWidth() * 22 + sb + 2 * t->frameWidth());
-    t->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    t->setUniformRowHeights(true);
-    t->setContextMenuPolicy(Qt::CustomContextMenu);
-}
-
-inline void setNumCell(QTreeWidgetItem *it, int col, const QString &text) {
-    it->setText(col, text + NumPad);
-    it->setTextAlignment(col, Qt::AlignRight | Qt::AlignVCenter);
-}
-
-// "$   [BeebSCSI0]", "C:\   [Master 512]", "Drive 0   [SIDE0]": the same shape for every pane's root row.
-inline QString rootLabel(const QString &base, const QString &title) {
-    return title.isEmpty() ? base : base + "   [" + title + "]";
-}
-
-inline QString hostSafeName(const QString &n) {
-    QString s = n;
-    for (QChar &c : s)
-        if (QString("/\\:*?\"<>|").contains(c) || c.unicode() < 0x20) c = '_';
-    // names Windows reserves for devices, with or without an extension (an ADFS file can be called "Aux")
-    static const QStringList dev = {"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
-                                    "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"};
-    if (dev.contains(s.section('.', 0, 0), Qt::CaseInsensitive)) s.insert(s.indexOf('.') < 0 ? s.size() : s.indexOf('.'), '_');
-    if (s.isEmpty() || s == "." || s == "..") s = "_" + s;
-    while (s.endsWith('.') || s.endsWith(' ')) s[s.size() - 1] = '_';     // Windows drops these silently
-    return s;
-}
+// The helpers below moved to DiskWranglerCore (namespace dw). The call sites still use the old names; these
+// forwarding declarations keep them building until a later step writes dw:: at each and deletes this block.
+using dw::anyCase;
+using dw::ColSpec;
+using dw::deleteKeys;
+using dw::hostSafeName;
+using dw::NumPad;
+using dw::rootLabel;
+using dw::setNumCell;
+using dw::setupTreeColumns;
+inline QString fmtBytes(quint64 b) { return dw::fmtBytes(qint64(b)); }       // Acorn shows a size under 1 KB as KB
 
 // ------------------------------------------------------------- panes and cross-disc copying
 
 enum Pane { PaneAdfs = 0, PaneDos = 1, PaneDfs0 = 2, PaneDfs1 = 3 };
 
-#define WRANGLER_MIME_ITEMS  "application/x-acorndiskwrangler-items"
-#define WRANGLER_MIME_SOURCE "application/x-acorndiskwrangler-source"
-#define WRANGLER_MIME_CLIP   "application/x-acorndiskwrangler-clip"     // "pid:n": what Edit > Copy put there
-
-// Delete: the platform's Delete key(s), and on macOS Finder's Cmd+Backspace too (most Mac keyboards have no
-// forward-delete key). Same in CP/M Disk Wrangler.
-inline QList<QKeySequence> deleteKeys() {
-    QList<QKeySequence> k = QKeySequence::keyBindings(QKeySequence::Delete);
-#ifdef Q_OS_MACOS
-    k << QKeySequence("Ctrl+Backspace");               // Ctrl is the Command key on macOS
-#endif
-    return k;
-}
+// The private drag types are the family's (core/diskwrangler/xfer/mime.h); the old names stay until a later step.
+#define WRANGLER_MIME_ITEMS  DW_MIME_ITEMS
+#define WRANGLER_MIME_SOURCE DW_MIME_SOURCE
+#define WRANGLER_MIME_CLIP   DW_MIME_CLIP
 
 // One dragged item as identified inside its source window (parent dir sector/cluster + name).
 struct DragRef {

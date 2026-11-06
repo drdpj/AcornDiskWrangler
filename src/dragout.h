@@ -16,7 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 // dragout.h - dragging files out of a disc to the host or to another program, and the "retro-files" drag format
-// (docs/retro-files-format.md) in both directions.
+// (docs/retro-files-format.md) in both directions. The format itself - the document, the path checks, the drag data -
+// is DiskWranglerCore's (diskwrangler/xfer, diskwrangler/ui/dragoutmime.h); this file turns this program's XItem into
+// the core's dw::TransferItem and back, and holds what is Acorn's: ADFS / DFS / FAT attributes, DFS names and the
+// .inf sidecar files.
 #pragma once
 
 #include <QByteArray>
@@ -26,6 +29,8 @@
 #include <QVector>
 #include <functional>
 #include <memory>
+#include <diskwrangler/ui/dragoutmime.h>
+#include <diskwrangler/xfer/transferitem.h>
 
 #include "mainwindow_p.h"
 
@@ -35,6 +40,11 @@ extern const char *const MimeType;          // "application/x-retro-files+json"
 
 // filesystem name used in the JSON for a pane kind: "adfs", "dfs", "fat"
 QString filesystemName(int srcPane);
+
+// XItem <-> the core's item. toTransfer puts the attributes in the "acorn" (ADFS, DFS) or "fat" family exactly as
+// the document lists them; fromTransfer reads them back from whichever family the item has.
+dw::TransferItem toTransfer(const XItem &x);
+XItem fromTransfer(const dw::TransferItem &t);
 
 // Writes items (files and directory trees) into hostDir the way Extract to host does: host-safe names, a folder per
 // directory, DFS files named NAME or D.NAME, and Acorn .inf sidecars (ADFS and DFS files) when writeInf is set.
@@ -58,42 +68,16 @@ QString dragDirPrefix();                     // e.g. /tmp/acorndiskwrangler-drag
 int cleanStale(qint64 maxAgeSecs = 24 * 3600);
 
 // What a drag did, for the window that started it (filled in when a target asks for the files).
-struct DragState {
-    bool extracted = false;
-    int files = 0, dirs = 0;
-    QString dir;
-    QStringList errors;
-};
+typedef dw::DragState DragState;
 
 // The data of a drag out of a disc: the program's own private formats (set with setData) plus the files, as
 // text/uri-list and the retro-files JSON. The files are written only when a drop target first asks for either,
 // so a drag between this program's own windows, or one that is cancelled, writes nothing.
-class DragOutMime : public QMimeData {
+class DragOutMime : public dw::DragOutMime {
     Q_OBJECT
 public:
     typedef std::function<bool(QVector<XItem> *, QString *)> Exporter;
     DragOutMime(Exporter exporter, bool writeInf, const QString &imageName, int srcPane);
-    QStringList formats() const override;
-    bool hasFormat(const QString &mimeType) const override;
-    std::shared_ptr<DragState> state() const { return m_state; }
-    // For Edit > Copy: also offer GNOME's file list (x-special/gnome-copied-files), which its file manager pastes.
-    void setForClipboard(bool on) { m_clipboard = on; }
-protected:
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)               // Qt 6 passes a QMetaType, Qt 5 a QVariant::Type
-    QVariant retrieveData(const QString &mimeType, QMetaType type) const override;
-#else
-    QVariant retrieveData(const QString &mimeType, QVariant::Type type) const override;
-#endif
-private:
-    void extract() const;
-    Exporter m_exporter;
-    bool m_writeInf;
-    QString m_image;
-    int m_src;
-    mutable QList<QUrl> m_urls;
-    mutable QByteArray m_json;
-    std::shared_ptr<DragState> m_state;
-    bool m_clipboard = false;
 };
 
 } // namespace RetroFiles
