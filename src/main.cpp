@@ -18,8 +18,8 @@
 #include <QApplication>
 #include <QLoggingCategory>
 #include "mainwindow.h"
-#include "appsettings.h"
-#include "fileopen.h"
+#include <diskwrangler/app/appsettings.h>
+#include <diskwrangler/app/fileopen.h>
 #include "icon.h"
 #include "dragout.h"
 
@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     QGuiApplication::setDesktopFileName("acorndiskwrangler");
     QApplication::setWindowIcon(appIcon());          // inherited by every window and dialog
     RetroFiles::cleanStale();                        // drag folders left behind by a crash
-    FileOpen::FileOpenFilter fileOpen;               // macOS: files opened from the Finder (fileopen.h)
+    FileOpen::FileOpenFilter<MainWindow> fileOpen;    // macOS: files opened from the Finder (fileopen.h)
     app.installEventFilter(&fileOpen);
     MainWindow w;
     w.show();

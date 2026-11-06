@@ -15,6 +15,10 @@ else()
 endif()
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 include(GNUInstallDirs)
+if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/core/CMakeLists.txt)   # the code shared with CP/M Disk Wrangler
+    message(FATAL_ERROR "core/ is empty: run 'git submodule update --init' (DiskWranglerCore is a git submodule)")
+endif()
+add_subdirectory(core)
 include(version.cmake)         # APP_VERSION from git describe (Help > About)
 set(ACORNDISKWRANGLER_RC "")
 if(WIN32)                      # the .exe's own icon (Explorer / taskbar) comes from a resource file
@@ -26,8 +30,8 @@ if(APPLE)                      # the .app's icon (Finder, Dock before it starts)
     set(ACORNDISKWRANGLER_ICNS icons/acorndiskwrangler.icns)
     set_source_files_properties(${ACORNDISKWRANGLER_ICNS} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 endif()
-add_executable(acorndiskwrangler MACOSX_BUNDLE ${ACORNDISKWRANGLER_RC} ${ACORNDISKWRANGLER_ICNS} src/main.cpp src/licences.cpp src/licences.h src/licences.qrc src/mainwindow.cpp src/mainwindow_dos.cpp src/mainwindow_dfs.cpp src/dfs.cpp src/diskformat.cpp src/viewer.cpp src/viewtext.cpp src/dosfs.cpp src/adfs.cpp src/icon.cpp src/newdisc.cpp src/dragout.cpp
-    src/appsettings.h src/buttonbar.h src/fileopen.h src/icon.h src/mainwindow.h src/mainwindow_p.h src/viewer.h src/viewtext.h src/dosfs.h src/dfs.h src/diskformat.h src/adfs.h src/newdisc.h src/dragout.h)
+add_executable(acorndiskwrangler MACOSX_BUNDLE ${ACORNDISKWRANGLER_RC} ${ACORNDISKWRANGLER_ICNS} src/main.cpp src/licences.qrc src/mainwindow.cpp src/mainwindow_dos.cpp src/mainwindow_dfs.cpp src/dfs.cpp src/diskformat.cpp src/viewer.cpp src/viewtext.cpp src/dosfs.cpp src/adfs.cpp src/icon.cpp src/newdisc.cpp src/dragout.cpp
+    src/icon.h src/mainwindow.h src/mainwindow_p.h src/viewer.h src/viewtext.h src/dosfs.h src/dfs.h src/diskformat.h src/adfs.h src/newdisc.h src/dragout.h)
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/licences-bundled.qrc)   # a release build's library licences (ci/)
     target_sources(acorndiskwrangler PRIVATE licences-bundled.qrc)
 endif()
@@ -36,7 +40,7 @@ if(APP_VERSION_NUMBER)
     set_target_properties(acorndiskwrangler PROPERTIES MACOSX_BUNDLE_SHORT_VERSION_STRING ${APP_VERSION_NUMBER}
                                                  MACOSX_BUNDLE_BUNDLE_VERSION ${APP_VERSION_NUMBER})
 endif()
-target_link_libraries(acorndiskwrangler Qt${QT_VERSION_MAJOR}::Widgets)
+target_link_libraries(acorndiskwrangler DiskWrangler::Core Qt${QT_VERSION_MAJOR}::Widgets)
 set_target_properties(acorndiskwrangler PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME "Acorn Disk Wrangler"
     MACOSX_BUNDLE_GUI_IDENTIFIER io.github.drdpj.acorndiskwrangler

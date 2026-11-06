@@ -17,7 +17,7 @@
  */
 // mainwindow_dos.cpp - the DOS Plus partition pane ($.DOS.DRIVE_C) and the file viewer hookup.
 #include "mainwindow.h"
-#include "appsettings.h"
+#include <diskwrangler/app/appsettings.h>
 #include "mainwindow_p.h"
 #include "viewer.h"
 

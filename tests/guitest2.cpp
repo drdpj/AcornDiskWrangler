@@ -17,7 +17,7 @@
  */
 #include "mainwindow.h"
 #include "viewer.h"
-#include "fileopen.h"
+#include <diskwrangler/app/fileopen.h>
 #include <QApplication>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
@@ -332,7 +332,7 @@ int main(int argc,char**argv){
 
     // ---------------------------------------------------------------- files opened from the Finder (fileopen.h)
     {
-        FileOpen::FileOpenFilter filter; qApp->installEventFilter(&filter);
+        FileOpen::FileOpenFilter<MainWindow> filter; qApp->installEventFilter(&filter);
         auto holding=[](const QString& p){ QList<MainWindow*> r; for(MainWindow* w:MainWindow::windows())
             if(w->image().isOpen()&&QFileInfo(w->image().path()).canonicalFilePath()==QFileInfo(p).canonicalFilePath()) r<<w; return r; };
         auto finderOpen=[](const QString& p){ QFileOpenEvent ev(p); QCoreApplication::sendEvent(qApp,&ev); pump(); };

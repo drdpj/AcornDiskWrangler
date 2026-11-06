@@ -16,9 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "mainwindow.h"
-#include "appsettings.h"
-#include "buttonbar.h"
-#include "licences.h"
+#include <diskwrangler/app/appsettings.h>
+#include <diskwrangler/ui/buttonbar.h>
+#include <diskwrangler/ui/licences.h>
 #include "mainwindow_p.h"
 #include "viewer.h"
 #include "newdisc.h"

@@ -17,7 +17,7 @@
  */
 // mainwindow_dfs.cpp - DFS panes, tab management, window registry and copying between discs.
 #include "mainwindow.h"
-#include "appsettings.h"
+#include <diskwrangler/app/appsettings.h>
 #include "mainwindow_p.h"
 #include "viewer.h"
 #include "dragout.h"
