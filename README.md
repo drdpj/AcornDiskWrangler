@@ -7,7 +7,7 @@ discs and floppies, DFS floppies, Acorn DOS Plus discs, PC floppies and the DOS 
 disc. You can add, extract, rename and delete files, set attributes and boot options, read BASIC programs and text,
 and make new blank discs. Files drag between discs, to and from your desktop, and to and from
 [CP/M Disk Wrangler](https://github.com/drdpj/CPMDiskWrangler) and other tools that speak
-[retro-files](docs/retro-files-format.md).
+[retro-files](https://github.com/drdpj/DiskWranglerCore/blob/main/docs/retro-files-format.md).
 
 ## Download
 Get the latest build from the [Releases page](https://github.com/drdpj/AcornDiskWrangler/releases/latest).
@@ -86,7 +86,7 @@ use the system's settings, so they don't offer this.
 An ordinary drag between programs carries only a file's name and contents, but a file on a retro disc has more that
 matters: an Acorn file's load and execution addresses (without them a program may not run), its access bits and DFS
 directory letter, DOS attributes, a CP/M user number. Both Wranglers implement
-**[retro-files](docs/retro-files-format.md)** (`application/x-retro-files+json`), an open format that carries these
+**[retro-files](https://github.com/drdpj/DiskWranglerCore/blob/main/docs/retro-files-format.md)** (`application/x-retro-files+json`), an open format that carries these
 too:
 
 * **Nothing is lost between disc tools.** Drag a file between Acorn Disk Wrangler and CP/M Disk Wrangler, between two
@@ -97,7 +97,7 @@ too:
   other program works as usual.
 * **Any tool can join in.** It is a small, versioned JSON document with attributes grouped by filesystem (`acorn`,
   `fat`, `cpm`): a tool for another kind of disc adds its own group and reads the ones it understands. The
-  [specification](docs/retro-files-format.md) explains the format and why it exists.
+  [specification](https://github.com/drdpj/DiskWranglerCore/blob/main/docs/retro-files-format.md) explains the format and why it exists.
 
 ## Limitations
 * ADFS new-map discs (D and E format, from the Archimedes) are recognised but not supported.
@@ -118,7 +118,7 @@ You need Qt 6 (or Qt 5.15) with its widgets module, and a C++17 compiler.
     ./acorndiskwrangler [image ...]                # each image opens in its own window
 
 On Linux, `make install` (or `qmake PREFIX=$HOME/.local ...`, then `make install`, for just you) adds a menu entry
-so docks show the program's icon. [docs/building.md](docs/building.md) covers Windows (MSYS2), macOS, Qt 5, and how
+so docks show the program's icon. [building.md](https://github.com/drdpj/DiskWranglerCore/blob/main/docs/building.md) (in DiskWranglerCore, which is the `core/` submodule: clone with `--recurse-submodules`) covers Windows (MSYS2), macOS, Qt 5, and how
 the release builds are made and carry their licences.
 
 Working on the code? Start with [AGENTS.md](AGENTS.md): the design rules, the source map, the window and the tests.

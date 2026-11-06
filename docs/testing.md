@@ -1,6 +1,7 @@
 # Testing - Acorn Disk Wrangler
 
-Each test is its own qmake project in `tests/`, built against the sources in `src/`:
+Each test is its own qmake project in `tests/`, built against the sources in `src/` and the shared code in the `core/` submodule
+(`git submodule update --init` if it is empty):
 
     mkdir b && cd b && qmake ../tests/X.pro && make
 
@@ -11,7 +12,7 @@ The format facts the tests check are in [disc-formats.md](disc-formats.md).
 | Test | Args | Needs |
 |---|---|---|
 | `viewtest` | none | nothing |
-| `settingstest` | none | nothing (offscreen): where settings live on Linux - an installed program has no portable mode; an AppImage keeps `acorndiskwrangler.ini`-style files beside the `.AppImage` file. Shared with CP/M Disk Wrangler |
+| `settingstest` (`core/tests/settingstest.pro`) | none | nothing (offscreen): where settings live on Linux - an installed program has no portable mode; an AppImage keeps `acorndiskwrangler.ini`-style files beside the `.AppImage` file. In DiskWranglerCore, shared with CP/M Disk Wrangler |
 | `mkimg` | `<outdir>` | writes blank ADFS S/M/L, a truncated L, a fake ADFS D/E, a junk file |
 | `detecttest` | image paths | prints the detected kind, side order and whether the order could be told, for each (eyeball it) |
 | `floptest` | `plainl <blank ADFS L>` (must not detect as hybrid) / `bpb <img>` / `table <img> <idx 0-3>` / `acorn800 <out>` / `hybrid640 <out>` / `real800 <copy of a real 800K disc>` / `real640 <copy of a real hybrid disc> [<dir of files from extract_hd_dos.py>]` | PC images via `mkfs.fat -C x.img 360\|720\|1200\|1440`; the Acorn modes create their own |
