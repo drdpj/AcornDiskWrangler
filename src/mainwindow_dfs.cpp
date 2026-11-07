@@ -667,9 +667,18 @@ void MainWindow::importXAdfs(quint32 dir, const XItem &x, ImportCtx &c) {
         return;
     }
     // A DFS file in a directory other than $ goes into a subdirectory named after the letter, so $.P.FILE
-    // dropped on $.Library becomes $.Library.P.FILE. The subdirectory is reused if it is already there.
-    if ((x.src == PaneDfs0 || x.src == PaneDfs1) && x.dfsDir != '$') {
-        QString err, letter = sanitizeName(QString(x.dfsDir.toUpper()));
+    // dropped on $.Library becomes $.Library.P.FILE. The subdirectory is reused if it is already there. A letter
+    // ADFS can't have as a name (^ @ & * # " and the like) gives X_NAME in the target directory instead, with a
+    // warning (DiskWranglerCore's dw::dfs::placeLetter).
+    const dw::dfs::LetterPlace place = (x.src == PaneDfs0 || x.src == PaneDfs1)
+        ? dw::dfs::placeLetter(x.dfsDir, name, false, [](QChar ch) { return isValidNameChar(ch); })
+        : dw::dfs::LetterPlace();
+    if (place.how == dw::dfs::LetterPlace::Flat) {
+        name = sanitizeName(place.name);
+        c.errors << place.warning;
+    }
+    if (place.how == dw::dfs::LetterPlace::Subdir) {
+        QString err, letter = place.subdir;
         Dir d;
         if (!m_img.readDir(dir, &d, &err)) { c.errors << QString("%1: %2").arg(x.name, err); return; }
         int idx = d.indexOf(letter);
