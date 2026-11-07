@@ -173,8 +173,8 @@ void MainWindow::refreshDfs() {
             auto *it = new QTreeWidgetItem(r);
             it->setText(0, f.fullName());
             it->setText(1, f.locked ? "L" : "");
-            dw::setNumCell(it, 2, dfsAddrText(f.load));
-            dw::setNumCell(it, 3, dfsAddrText(f.exec));
+            dw::setNumCell(it, 2, dw::dfs::addrText(f.load));
+            dw::setNumCell(it, 3, dw::dfs::addrText(f.exec));
             dw::setNumCell(it, 4, QString::number(f.length));
             dw::setNumCell(it, 5, QString::number(f.start));
             it->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
@@ -359,8 +359,8 @@ void MainWindow::dfsProps() {
     form->addRow("Attributes:", cbL);
     if (single) {
         auto *v = new QRegularExpressionValidator(QRegularExpression("[0-9A-Fa-f]{1,8}"), &dlg);
-        loadEd = new QLineEdit(dfsAddrText(files[0].load));
-        execEd = new QLineEdit(dfsAddrText(files[0].exec));
+        loadEd = new QLineEdit(dw::dfs::addrText(files[0].load));
+        execEd = new QLineEdit(dw::dfs::addrText(files[0].exec));
         loadEd->setValidator(v);
         execEd->setValidator(v);
         loadEd->setToolTip("18-bit DFS address: up to 3FFFF; FFxxxx (or FFFFxxxx) is the I/O processor, the same as 3xxxx");
@@ -380,7 +380,7 @@ void MainWindow::dfsProps() {
     // DFS keeps 18 bits: accept up to 3FFFF, or FFxxxx / FFFFxxxx for 3xxxx; nothing else
     quint32 newLoad = 0, newExec = 0;
     for (QLineEdit *ed : {loadEd, execEd}) {
-        if (ed && !parseDfsAddr(ed->text(), ed == loadEd ? &newLoad : &newExec)) {
+        if (ed && !dw::dfs::parseAddr(ed->text(), ed == loadEd ? &newLoad : &newExec)) {
             QMessageBox::warning(this, "Properties", QString("%1 is not a DFS address: use up to 3FFFF, or FFxxxx "
                                                          "(the same as 3xxxx).").arg(ed->text().toUpper()));
             return;
@@ -542,7 +542,7 @@ void MainWindow::dfsExtract() {
             QFile inf(folder + "/" + host + ".inf");
             if (inf.open(QIODevice::WriteOnly | QIODevice::Truncate))
                 inf.write(QString::asprintf("%c.%-7s %08X %08X %08X %02X\n", f.dir.toLatin1(), qPrintable(f.name),
-                                            extendDfsAddr(f.load), extendDfsAddr(f.exec), f.length,
+                                            dw::dfs::extendAddr(f.load), dw::dfs::extendAddr(f.exec), f.length,
                                             f.locked ? 8 : 3).toLatin1());
         }
     }
@@ -706,7 +706,7 @@ void MainWindow::importXAdfs(quint32 dir, const XItem &x, ImportCtx &c) {
         load = x.load; exec = x.exec; flags = x.adfsFlags;
     } else {
         if (x.locked) flags |= FlagL;
-        if (x.src == PaneDfs0 || x.src == PaneDfs1) { load = extendDfsAddr(x.load); exec = extendDfsAddr(x.exec); }
+        if (x.src == PaneDfs0 || x.src == PaneDfs1) { load = dw::dfs::extendAddr(x.load); exec = dw::dfs::extendAddr(x.exec); }
     }
     addOne(dir, name, x.data, load, exec, flags, true, x.name, c);
 }

@@ -129,9 +129,3 @@ inline QString uniqueDfsName(const QString &base, QChar dir, const Dfs::Disc &d,
     }
     return base;
 }
-
-// DFS addresses (18 bits; both high bits set = the I/O processor): DiskWranglerCore's DFS module (dw::dfs::extendAddr,
-// addrText, parseAddr). These names stay for the code that uses them.
-inline quint32 extendDfsAddr(quint32 v) { return dw::dfs::extendAddr(v); }
-inline QString dfsAddrText(quint32 v) { return dw::dfs::addrText(v); }
-inline bool parseDfsAddr(const QString &text, quint32 *out) { return dw::dfs::parseAddr(text, out); }

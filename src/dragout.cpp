@@ -70,8 +70,8 @@ dw::TransferItem toTransfer(const XItem &x) {
         t.attrs["acorn"] = a;
     } else if (dfs) {
         QJsonObject a;
-        a["load"] = hex8(extendDfsAddr(x.load));
-        a["exec"] = hex8(extendDfsAddr(x.exec));
+        a["load"] = hex8(dw::dfs::extendAddr(x.load));
+        a["exec"] = hex8(dw::dfs::extendAddr(x.exec));
         a["access"] = x.locked ? "L" : "WR";
         t.attrs["acorn"] = a;
     } else {
