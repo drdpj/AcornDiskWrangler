@@ -59,6 +59,7 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QRegularExpression>
+#include <diskwrangler/ui/handoffdialog.h>
 #include <QRegularExpressionValidator>
 #include <QStatusBar>
 #include <QStyle>
@@ -521,7 +522,15 @@ void MainWindow::openDialog() {
 
 bool MainWindow::openImage(const QString &path, int force) {
     if (!confirmDiscard()) return false;
-    DiskInfo info = detectDisk(path, force);
+    DiskInfo info;
+    const dw::fs::Verdict verdict = detectCandidates(path, force, &info);
+    const dw::fs::Candidate *pick = verdict.bestCandidate();
+    if (verdict.action == dw::fs::Verdict::Ask) {          // two kinds of disc equally likely: the user says which
+        const int a = dw::ui::askWhich(this, path, *verdict.bestCandidate(), *verdict.rivalCandidate());
+        if (a < 0) return false;
+        if (a == 1) pick = verdict.rivalCandidate();
+    }
+    if (pick) info = diskInfo(*pick);
     // the contents can't always tell (e.g. a blank disc): then detection uses the format's usual order
     QString sidesHow = force >= 0 ? "set by hand" : (info.sides.doubleSided() && !info.sidesConfirmed ? "assumed" : "");
     if (info.kind == DiskInfo::AdfsNewMap) {
@@ -529,16 +538,13 @@ bool MainWindow::openImage(const QString &path, int force) {
                                  info.description + "\n\nADFS D/E (new map) discs are not supported yet.");
         return false;
     }
-    if (info.kind == DiskInfo::AcornCpm) {
-        QMessageBox::information(this, "A CP/M disc",
-                                 info.description + "\n\nIts DFS catalogue holds only $.CPMDISC, a locked file that keeps DFS off "
-                                 "the CP/M files. Open it with CP/M Disk Wrangler (github.com/drdpj/CPMDiskWrangler).");
-        return false;
-    }
-    if (info.kind == DiskInfo::TorchCpn) {
-        QMessageBox::information(this, "A CP/M disc",
-                                 info.description + "\n\nIts files are CP/M files, kept in Torch's own filesystem. Open it with "
-                                 "CP/M Disk Wrangler (github.com/drdpj/CPMDiskWrangler).");
+    // CP/M discs are CP/M Disk Wrangler's: it is started with the image (or, if it isn't here, this says where to get it)
+    if (pick && pick->foreign()) {
+        const QString why = info.kind == DiskInfo::AcornCpm
+            ? "Its DFS catalogue holds only $.CPMDISC, a locked file that keeps DFS off the CP/M files."
+            : "Its files are CP/M files, kept in Torch's own filesystem.";
+        dw::ui::handOff(this, *pick, path, "A CP/M disc",
+                        info.description + "\n\n" + why + " Open it with " + pick->owner.name + " (github.com/drdpj/CPMDiskWrangler).");
         return false;
     }
     QString err;

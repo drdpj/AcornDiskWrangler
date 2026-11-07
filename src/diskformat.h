@@ -21,6 +21,8 @@
 #include <QString>
 #include <QStringList>
 
+#include <diskwrangler/fs/detection.h>
+
 #include "dfs.h"
 #include "dosfs.h"
 
@@ -51,7 +53,14 @@ struct DiskInfo {
     QStringList notes;
 };
 
+// What a disc is, found by DiskWranglerCore's detection by tiers (core/diskwrangler/fs/detection.h): a probe for each
+// filesystem - ADFS (here), FAT and DFS (the core's modules) - and one for the CP/M discs that are CP/M Disk
+// Wrangler's (Torch CP/N here; Acorn Z80 CP/M in the DFS module). Every candidate's data is its DiskInfo.
 // forceSequential: -1 = detect the side order, 0 = read as interleaved, 1 = read as sequential.
+// unknown (if given): what the disc is when no probe recognises it (the Unknown DiskInfo detectDisk gives).
+dw::fs::Verdict detectCandidates(const QString &path, int forceSequential = -1, DiskInfo *unknown = nullptr);
+DiskInfo diskInfo(const dw::fs::Candidate &c);
+// The best candidate's DiskInfo (Unknown if none): what the program opens when it doesn't have to ask.
 DiskInfo detectDisk(const QString &path, int forceSequential = -1);
 // Human-readable side order, e.g. "interleaved" or "sequential (all of side 0, then side 1)".
 QString sideOrderName(bool sequential);
