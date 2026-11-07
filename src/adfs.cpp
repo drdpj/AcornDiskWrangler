@@ -949,6 +949,17 @@ bool Image::commit(QString *err, bool makeBackup, Report *post) {
     return true;
 }
 
+bool Image::reload(QString *err) {
+    if (!isOpen()) { *err = "no image"; return false; }
+    if (!m_isAdfs) return true;                 // DFS / DOS discs: no ADFS map to read
+    QStringList e, w;
+    FsMap map;
+    FsMap::parse(readSectors(0, 2), &map, &e, &w);
+    m_map = map;
+    if (!e.isEmpty() && m_openReport.ok()) { *err = "the free space map: " + e.join("; "); return false; }
+    return true;
+}
+
 void Image::revert() {
     m_c.discardPending();
     m_convert = false;

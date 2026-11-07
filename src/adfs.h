@@ -199,6 +199,10 @@ public:
     // Extra checks of the saved copy, opened again as an Image, before it replaces the file (DFS and DOS volumes);
     // non-empty result vetoes the save.
     void setReopenValidator(std::function<QStringList(Image &saved)> f) { m_reopenCheck = f; }
+    // Reads the free space map again from the (staged) disc: what a dw::fs::Disc transaction calls after it has put
+    // the container's staging back (AdfsVolume::reload).
+    bool reload(QString *err);
+    dw::device::Container &container() { return m_c; }
     Snapshot snapshot() const { return Snapshot{m_map, m_c.snapshot()}; }
     void restore(const Snapshot &s) { m_map = s.map; m_c.restore(s.staged); }
 
