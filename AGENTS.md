@@ -31,9 +31,10 @@ files (see Build).
 |---|---|
 | `adfs.h/.cpp` | `Adfs::Image`: the opened disc used by **every** format - a DiskWranglerCore `Container` (raw, ImageDisk, DSK, TeleDisk) seen through a `Linear` with the side order - plus the ADFS old-map filesystem (`FsMap`, `Dir`, `Entry`), validation, commit |
 | `core/diskwrangler/device/` | DiskWranglerCore's device layer: `Container` (the image file, staged writes, the checked save), `Linear` (the disc in its own numbering, slices), `SideOrder` (was `Adfs::SideLayout`; the old name stays as a `using` for the tests) |
-| `dosfs.h/.cpp` | `Dos::Volume`: FAT12/FAT16 on a `Linear` - an `Image`'s, a whole floppy or the DRIVE_C file in it (BPB, table-driven `Dos::Format`, Acorn layouts); browse/add/mkdir/delete/rename/label/check |
-| `dfs.h/.cpp` | `Dfs::Disc`: one side of a DFS disc, on an `Image`'s `Linear` (catalogue in sectors 0-1, plus sectors 2-3 on a Watford 62-file disc: `watford()`, `maxFiles()`); a .dsd = two `Disc`s |
-| `diskformat.h/.cpp` | `detectDisk(path, force)` -> `DiskInfo` (kind, full size, DFS layout, side layout + whether the side order was confirmed). Decides how a file is opened |
+| `core/diskwrangler/fs/fat/` | DiskWranglerCore's FAT module (was `dosfs.cpp`): `dw::fat::Volume` (still `Dos::Volume` here, through `src/dosfs.h`): FAT12/FAT16 on a `Linear` - an `Image`'s, a whole floppy or the DRIVE_C file in it (BPB, table-driven `Format`, Acorn layouts); browse/add/mkdir/delete/rename/label/check; `fatprobe` (detection), `fatvolume` (the `dw::fs::Volume` adapter) |
+| `core/diskwrangler/fs/dfs/` | DiskWranglerCore's DFS module (was `dfs.cpp`): `dw::dfs::Disc` (still `Dfs::Disc` here, through `src/dfs.h`): one side of a DFS disc on an `Image`'s `Linear` (catalogue in sectors 0-1, plus 2-3 on a Watford 62-file disc); a .dsd = two `Disc`s. Also `.inf` sidecars (`inf.h`), addresses, the directory-letter mapping for copies to ADFS (`placeLetter`), Acorn Z80 CP/M's catalogue, `dfsprobe` (detection), `dfsvolume` (the adapter) |
+| `diskformat.h/.cpp` | detection by tiers (`core/diskwrangler/fs/detection.h`): probes for ADFS and Torch CP/N here, FAT and DFS from the core; `detectCandidates(path, force)` -> `dw::fs::Verdict` (open, ask which, or hand to CP/M Disk Wrangler), each candidate's data a `DiskInfo` (kind, full size, DFS layout, side layout + whether the side order was confirmed); `detectDisk` = the best one's. Decides how a file is opened. `tests/legacydetect.cpp` is the detection before step 4, for `agreetest` |
+| `adfsvolume.h/.cpp` | DiskWranglerCore's filesystem interface: `AdfsVolume` (an `Image` as a `dw::fs::Volume`) and `OpenedDisc` (an opened disc as a `dw::fs::Disc`: ADFS + DOS, DFS drives 0 and 2, or FAT). Not used by the main window yet (step 5); `voltest` and the command-line program (step 4b) |
 | `newdisc.h/.cpp` | `NewDisc::create()`: blank images of every format (File > New image); pure QtCore, checks its own output with `detectDisk`. The 640K DOS Plus disc needs a `bootSource` (an existing 640K disc to copy the boot track from, or a DOSBOOT file): DOSBOOT is Acorn's code and must never be put in the repo |
 | `mainwindow.h/.cpp` | main window, `DropTree`, open/save/refresh/updateUi, ADFS pane |
 | `mainwindow_dos.cpp` | DOS pane, viewer hookup, renaming, import summary |
@@ -72,7 +73,7 @@ files (see Build).
    *standard floppy size* (160K/320K/640K); never trust an ADFS map's size claim to grow a file (see the
    hybrid gotcha in docs/disc-formats.md). A save with nothing changed must leave the file byte-identical.
 4. **Every mutating operation is atomic**: take `Image::snapshot()`, do the work, `restore()` on
-   failure (see `DOS_TXN` in `dosfs.cpp`, and the ADFS `addFile`/`makeDir`/... wrappers). A
+   failure (see `DOS_TXN` in `core/diskwrangler/fs/fat/fat.cpp`, and the ADFS `addFile`/`makeDir`/... wrappers). A
    failed add (disc full, directory full) must leave no trace.
 5. **A disc that fails validation on open is read-only.** The ADFS half of the 640K hybrid is
    locked (`Image::setAdfsLocked`) so ADFS edits cannot corrupt the FAT. Don't weaken this.
@@ -88,7 +89,7 @@ files (see Build).
   ADFS ignores them.
 - Host drops of disc images (`MainWindow::dropImages`, called first by every pane's host-file drop handler; the same
   behaviour as CP/M Disk Wrangler): an empty window opens every dropped file (first here, rest in
-  `openInNewWindow`); otherwise files `detectDisk` recognises are opened in new windows, except on a hard disc
+  `openInNewWindow`); otherwise files `detectDisk` recognises are opened in new windows (a CP/M disc in CP/M Disk Wrangler), except on a hard disc
   (`isHardDisc()`: ADFS over 640K, any of its panes) where one question asks Open / Copy onto this disc / Cancel.
   The rest are imported as before. All queued (no dialog or window inside the drop handler). An empty window also
   ignores the retro-files JSON and takes the files, so it can open an image dragged out of another window. Add

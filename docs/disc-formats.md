@@ -1,7 +1,7 @@
 # Disc formats - Acorn Disk Wrangler
 
 The facts the code relies on for each disc format, how sure we are of each, and how they were found. Read this
-before changing `src/adfs`, `src/dfs`, `src/dosfs`, `src/diskformat` or `src/newdisc`. The design rules (staged
+before changing `src/adfs`, `src/diskformat`, `src/newdisc` or DiskWranglerCore's DFS and FAT modules (`core/diskwrangler/fs/dfs`, `fs/fat`). The design rules (staged
 writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests named here are described in
 [testing.md](testing.md).
 
@@ -46,7 +46,7 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
     save since. Our next write there sets it as Watford would. The true size is the larger of the two catalogues'
     claims; detection uses it, which matters for placing side 1 of a sequential `.dsd`.
 - **PC FAT**: standard; checked against `fsck.fat` and `mtools`. FAT12/16 chosen by cluster
-  count. `Dos::Volume::attach` reads the BPB; `attachFormat` uses the table in `dosfs.cpp`.
+  count. `Dos::Volume::attach` reads the BPB; `attachFormat` uses the table in the core's `fs/fat/fat.cpp`.
 - **New DOS Plus 640K discs** copy the real layout: track 0 side 0 = free space map (total 2720, no free runs),
   root "Acorn DOS Boot Disc" with one entry `dosboot` (WR, load/exec &04000000, length of the DOSBOOT file - 2303
   on the real disc - at sector 7), DOSBOOT in sectors 7-15; then the empty FAT at interleaved track 2. From a disc
