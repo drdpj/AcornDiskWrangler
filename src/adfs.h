@@ -40,6 +40,8 @@
 #include <diskwrangler/device/container.h>
 #include <diskwrangler/device/linear.h>
 #include <diskwrangler/device/sideorder.h>
+#include <diskwrangler/fs/dfs/dfs.h>
+#include <diskwrangler/fs/volume.h>
 
 namespace Adfs {
 
@@ -62,7 +64,7 @@ bool isValidName(const QString &name, QString *why = nullptr);
 QString sanitizeName(const QString &hostName);
 quint8 bcdInc(quint8 v);
 // Boot option (*OPT 4,n) names, shared by ADFS and DFS: 0 off, 1 *LOAD !BOOT, 2 *RUN !BOOT, 3 *EXEC !BOOT.
-QString bootOptionName(int opt);
+using dw::dfs::bootOptionName;
 quint8 mapChecksum(const char *sector256);
 
 // One 26-byte directory entry
@@ -117,10 +119,8 @@ struct FsMap {
     bool release(quint32 start, quint32 n, QString *err);
 };
 
-struct Report {
-    QStringList errors, warnings, info;
-    bool ok() const { return errors.isEmpty(); }
-};
+// The result of a check (errors, warnings, info), as DFS, FAT and every DiskWranglerCore volume give it.
+typedef dw::fs::Report Report;
 
 // A double-sided floppy's two orderings - how the disc numbers its sectors (sideFirst) and how the image file stores
 // its tracks (sequential) - are DiskWranglerCore's dw::device::SideOrder (core/diskwrangler/device/sideorder.h).

@@ -144,12 +144,11 @@ public:
         parseHex(acorn["exec"], &exec);
         QString line;
         if (dfs)
-            line = QString::asprintf("%c.%-7s %08X %08X %08X %02X\n", it.name[0].toLatin1(), qPrintable(it.name.mid(2)), load, exec,
-                                     unsigned(it.data.size()), access.contains('L') ? 8 : 3);
+            line = dw::dfs::infLineDfs(it.name[0], it.name.mid(2), load, exec, quint32(it.data.size()), access.contains('L'));
         else {
-            unsigned attr = (access.contains('R') ? 1 : 0) | (access.contains('W') ? 2 : 0) | (access.contains('E') ? 4 : 0) |
-                            (access.contains('L') ? 8 : 0);
-            line = QString::asprintf("%-10s %08X %08X %08X %02X\n", qPrintable(it.name), load, exec, unsigned(it.data.size()), attr);
+            const quint8 attr = quint8((access.contains('R') ? dw::dfs::InfR : 0) | (access.contains('W') ? dw::dfs::InfW : 0) |
+                                       (access.contains('E') ? dw::dfs::InfE : 0) | (access.contains('L') ? dw::dfs::InfL : 0));
+            line = dw::dfs::infLineAdfs(it.name, load, exec, quint32(it.data.size()), attr);
         }
         QString infName = used.unique(host + ".inf", false);
         QFile inf(absDir + "/" + infName);

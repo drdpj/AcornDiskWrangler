@@ -704,16 +704,6 @@ bool Image::deleteInner(quint32 parent, const QString &name, QString *err) {
     return writeDir(d);
 }
 
-QString bootOptionName(int opt) {
-    switch (opt) {
-    case 0: return "0 - off";
-    case 1: return "1 - *LOAD !BOOT";
-    case 2: return "2 - *RUN !BOOT";
-    case 3: return "3 - *EXEC !BOOT";
-    default: return QString("%1 - not a standard option").arg(opt);
-    }
-}
-
 int Image::bootOption() const {
     return m_map.base.size() == 512 ? quint8(m_map.base[256 + 0xFD]) : 0;
 }

@@ -30,7 +30,7 @@ if(APPLE)                      # the .app's icon (Finder, Dock before it starts)
     set(ACORNDISKWRANGLER_ICNS icons/acorndiskwrangler.icns)
     set_source_files_properties(${ACORNDISKWRANGLER_ICNS} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 endif()
-add_executable(acorndiskwrangler MACOSX_BUNDLE ${ACORNDISKWRANGLER_RC} ${ACORNDISKWRANGLER_ICNS} src/main.cpp src/licences.qrc src/mainwindow.cpp src/mainwindow_dos.cpp src/mainwindow_dfs.cpp src/dfs.cpp src/diskformat.cpp src/viewer.cpp src/viewtext.cpp src/dosfs.cpp src/adfs.cpp src/icon.cpp src/newdisc.cpp src/dragout.cpp
+add_executable(acorndiskwrangler MACOSX_BUNDLE ${ACORNDISKWRANGLER_RC} ${ACORNDISKWRANGLER_ICNS} src/main.cpp src/licences.qrc src/mainwindow.cpp src/mainwindow_dos.cpp src/mainwindow_dfs.cpp src/diskformat.cpp src/viewer.cpp src/viewtext.cpp src/adfs.cpp src/icon.cpp src/newdisc.cpp src/dragout.cpp
     src/icon.h src/mainwindow.h src/mainwindow_p.h src/viewer.h src/viewtext.h src/dosfs.h src/dfs.h src/diskformat.h src/adfs.h src/newdisc.h src/dragout.h)
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/licences-bundled.qrc)   # a release build's library licences (ci/)
     target_sources(acorndiskwrangler PRIVATE licences-bundled.qrc)
@@ -40,7 +40,7 @@ if(APP_VERSION_NUMBER)
     set_target_properties(acorndiskwrangler PROPERTIES MACOSX_BUNDLE_SHORT_VERSION_STRING ${APP_VERSION_NUMBER}
                                                  MACOSX_BUNDLE_BUNDLE_VERSION ${APP_VERSION_NUMBER})
 endif()
-target_link_libraries(acorndiskwrangler DiskWrangler::Core Qt${QT_VERSION_MAJOR}::Widgets)
+target_link_libraries(acorndiskwrangler DiskWrangler::Core DiskWrangler::Dfs DiskWrangler::Fat Qt${QT_VERSION_MAJOR}::Widgets)
 set_target_properties(acorndiskwrangler PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME "Acorn Disk Wrangler"
     MACOSX_BUNDLE_GUI_IDENTIFIER io.github.drdpj.acorndiskwrangler

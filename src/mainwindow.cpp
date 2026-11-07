@@ -232,54 +232,17 @@ void DropTree::dropEvent(QDropEvent *e) {
 static QString hex8(quint32 v) { return QString("%1").arg(v, 8, 16, QChar('0')).toUpper(); }
 
 // --- .inf sidecar files:  NAME LOAD EXEC [LENGTH] [ATTR|L|Locked]   (InfData is declared in mainwindow_p.h)
-static quint32 parseAddr(const QString &tok, bool *ok) {
-    quint32 v = tok.toUInt(ok, 16);
-    if (*ok && tok.size() <= 6 && v >= 0xFF0000) v |= 0xFF000000u;   // 6-digit FFxxxx = I/O processor address
-    return v;
-}
-
 bool readInf(const QString &hostPath, InfData *out) {
-    QString infPath;
-    for (const QString &ext : {QString(".inf"), QString(".INF")})
-        if (QFileInfo::exists(hostPath + ext)) { infPath = hostPath + ext; break; }
-    if (infPath.isEmpty()) return false;
-    QFile f(infPath);
-    if (!f.open(QIODevice::ReadOnly)) return false;
-    QString line = QString::fromLatin1(f.readLine()).trimmed();
-    QString name, rest;
-    if (line.startsWith('"')) {
-        int q = line.indexOf('"', 1);
-        if (q < 0) return false;
-        name = line.mid(1, q - 1);
-        rest = line.mid(q + 1).trimmed();
-    } else {
-        int sp = line.indexOf(QRegularExpression("\\s"));
-        name = sp < 0 ? line : line.left(sp);
-        rest = sp < 0 ? QString() : line.mid(sp + 1).trimmed();
-    }
-    QStringList t = rest.split(QRegularExpression("\\s+"));
-    t.removeAll(QString());
+    dw::dfs::Inf i;
+    if (!dw::dfs::readInf(hostPath, &i)) return false;
     InfData d;
-    QStringList parts = name.split('.');
-    d.name = parts.last();
-    if (parts.size() >= 2 && parts[parts.size() - 2].size() == 1) d.dir = parts[parts.size() - 2][0];   // "D.NAME"
-    bool ok = false;
-    if (t.size() > 0) d.load = parseAddr(t[0], &ok);
-    if (t.size() > 1) d.exec = parseAddr(t[1], &ok);
-    bool sawAttr = false;
-    quint32 attr = 0;
-    for (int i = 2; i < t.size(); ++i) {
-        const QString &k = t[i];
-        if (k.compare("L", Qt::CaseInsensitive) == 0 || k.compare("Locked", Qt::CaseInsensitive) == 0) {
-            attr |= 8; sawAttr = true;
-        } else if (i == 3) {
-            quint32 a = k.toUInt(&ok, 16);
-            if (ok) { attr |= a; sawAttr = true; }
-        }
-    }
-    if (sawAttr)
-        d.flags = quint8(((attr & 1) ? FlagR : 0) | ((attr & 2) ? FlagW : 0) | ((attr & 4) ? FlagE : 0) |
-                         ((attr & 8) ? FlagL : 0));
+    d.name = i.name;
+    d.dir = i.dir;
+    d.load = i.load;
+    d.exec = i.exec;
+    if (i.hasAccess)
+        d.flags = quint8(((i.access & dw::dfs::InfR) ? FlagR : 0) | ((i.access & dw::dfs::InfW) ? FlagW : 0) |
+                         ((i.access & dw::dfs::InfE) ? FlagE : 0) | ((i.access & dw::dfs::InfL) ? FlagL : 0));
     *out = d;
     return true;
 }
