@@ -4,6 +4,7 @@ QT = core
 CONFIG += c++17 console
 TARGET = floptest
 INCLUDEPATH += ../src
-SOURCES += floptest.cpp ../src/adfs.cpp ../src/dosfs.cpp ../src/dfs.cpp ../src/diskformat.cpp
+SOURCES += floptest.cpp ../src/adfs.cpp ../src/diskformat.cpp
 HEADERS += ../src/adfs.h ../src/dosfs.h ../src/dfs.h ../src/diskformat.h
-!include(../core/diskwrangler-device.pri): error("core/ is empty: run 'git submodule update --init'")   # adfs.cpp sits on the core's device layer
+!include(../core/diskwrangler-dfs.pri): error("core/ is empty: run 'git submodule update --init'")   # DFS and FAT: DiskWranglerCore modules on its device layer
+include(../core/diskwrangler-fat.pri)
