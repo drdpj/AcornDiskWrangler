@@ -70,11 +70,11 @@ void MainWindow::refreshDos() {
         const quint32 len = quint32(m_img.fullSize());
         switch (m_info.kind) {
         case DiskInfo::AdfsDosHybrid:
-            have = m_dos.attachFormat(&m_img, 0, len, Dos::FmtAcorn640, &err);
+            have = m_dos.attachFormat(&m_img, 0, len, dw::fat::FmtAcorn640, &err);
             tabText = "DOS Plus (640K hybrid)";
             break;
         case DiskInfo::DosAcorn800:
-            have = m_dos.attachFormat(&m_img, 0, len, Dos::FmtAcorn800, &err);
+            have = m_dos.attachFormat(&m_img, 0, len, dw::fat::FmtAcorn800, &err);
             tabText = "DOS Plus (800K)";
             break;
         case DiskInfo::DosPc:
@@ -118,14 +118,14 @@ void MainWindow::refreshDos() {
 void MainWindow::populateDos(QTreeWidgetItem *parentItem, quint32 dirCluster, QSet<quint32> &seen, int depth) {
     if (depth > 32 || (dirCluster && seen.contains(dirCluster))) return;
     if (dirCluster) seen.insert(dirCluster);
-    QVector<Dos::DEntry> v;
+    QVector<dw::fat::DEntry> v;
     QString err;
     if (!m_dos.listDir(dirCluster, &v, &err)) {
         parentItem->setToolTip(0, err);
         parentItem->setForeground(0, Qt::red);
         return;
     }
-    for (const Dos::DEntry &e : v) {
+    for (const dw::fat::DEntry &e : v) {
         if (e.name == "." || e.name == "..") continue;
         auto *it = new QTreeWidgetItem(parentItem);
         it->setText(0, e.name);
@@ -185,11 +185,11 @@ void MainWindow::viewSelected() {
     } else if (dosActive()) {
         for (const DSel &s : dosSelected()) {
             if (s.isDir || opened >= 8) continue;
-            QVector<Dos::DEntry> L;
+            QVector<dw::fat::DEntry> L;
             QByteArray data;
             bool ok = false;
             if (m_dos.listDir(s.parent, &L, &err))
-                for (const Dos::DEntry &e : L)
+                for (const dw::fat::DEntry &e : L)
                     if (e.name == s.name) { ok = m_dos.readFile(e, &data, &err); break; }
             if (!ok) { QMessageBox::warning(this, "View", QString("%1: %2").arg(s.name, err)); continue; }
             (new ViewerDialog("C:\\" + s.name, data, this))->show();
@@ -257,18 +257,18 @@ void MainWindow::dosImportFile(const QString &path, quint32 dir, ImportCtx &c) {
     }
     QByteArray data = f.readAll();
     f.close();
-    dosAddOne(dir, Dos::Volume::fromHost(QFileInfo(path).fileName()), data, path, c);
+    dosAddOne(dir, dw::fat::Volume::fromHost(QFileInfo(path).fileName()), data, path, c);
 }
 
 void MainWindow::dosAddOne(quint32 dir, QString name, const QByteArray &data, const QString &src, ImportCtx &c,
                            bool readOnly) {
     QString err;
-    QVector<Dos::DEntry> L;
+    QVector<dw::fat::DEntry> L;
     if (!m_dos.listDir(dir, &L, &err)) { c.errors << QString("%1: %2").arg(src, err); return; }
     QString key = QString("D%1:%2").arg(dir).arg(name.toUpper());
     if (c.created.contains(key)) { name = uniqueDosName(name, L, c, dir); key = QString("D%1:%2").arg(dir).arg(name.toUpper()); }
     bool replace = false;
-    for (const Dos::DEntry &e : L) {
+    for (const dw::fat::DEntry &e : L) {
         if (e.name.compare(name, Qt::CaseInsensitive) != 0) continue;
         if (e.isDir()) { c.errors << QString("%1: a directory called '%2' already exists there").arg(src, name); return; }
         int pol = c.policy;
@@ -276,7 +276,7 @@ void MainWindow::dosAddOne(quint32 dir, QString name, const QByteArray &data, co
             auto b = QMessageBox::question(
                 this, "File already exists",
                 QString("'%1' already exists in the target directory%2.\nReplace it with\n%3 ?")
-                    .arg(name, (e.attr & Dos::AttrR) ? " and is READ-ONLY" : "", src),
+                    .arg(name, (e.attr & dw::fat::AttrR) ? " and is READ-ONLY" : "", src),
                 QMessageBox::Yes | QMessageBox::YesToAll | QMessageBox::No | QMessageBox::NoToAll | QMessageBox::Cancel,
                 QMessageBox::No);
             if (b == QMessageBox::Cancel) { c.cancelled = true; return; }
@@ -289,21 +289,21 @@ void MainWindow::dosAddOne(quint32 dir, QString name, const QByteArray &data, co
         break;
     }
     if (!m_dos.addFile(dir, name, data, replace, &err)) { c.errors << QString("%1: %2").arg(src, err); return; }
-    if (readOnly) m_dos.modify(dir, name, name, Dos::AttrA | Dos::AttrR, &err);      // locked/read-only in the source
+    if (readOnly) m_dos.modify(dir, name, name, dw::fat::AttrA | dw::fat::AttrR, &err);      // locked/read-only in the source
     c.created.insert(key);
     if (replace) c.replaced++; else c.files++;
 }
 
 void MainWindow::dosImportDir(const QString &path, quint32 parent, ImportCtx &c) {
-    QString name = Dos::Volume::fromHost(QFileInfo(path).fileName().isEmpty() ? QString("_") : QFileInfo(path).fileName(), true);
+    QString name = dw::fat::Volume::fromHost(QFileInfo(path).fileName().isEmpty() ? QString("_") : QFileInfo(path).fileName(), true);
     QString err;
-    QVector<Dos::DEntry> L;
+    QVector<dw::fat::DEntry> L;
     if (!m_dos.listDir(parent, &L, &err)) { c.errors << QString("%1: %2").arg(path, err); return; }
     QString key = QString("D%1:%2").arg(parent).arg(name.toUpper());
     if (c.created.contains(key)) { name = uniqueDosName(name, L, c, parent); key = QString("D%1:%2").arg(parent).arg(name.toUpper()); }
     quint32 cluster = 0;
     bool found = false;
-    for (const Dos::DEntry &e : L)
+    for (const dw::fat::DEntry &e : L)
         if (e.name.compare(name, Qt::CaseInsensitive) == 0) {
             if (!e.isDir()) { c.errors << QString("%1: a file called '%2' already exists there").arg(path, name); return; }
             cluster = e.cluster;
@@ -336,12 +336,12 @@ void MainWindow::dosNewDir(const QString &name) {
 
 void MainWindow::dosCount(quint32 dirCluster, int &files, int &dirs, int &ro, int depth) const {
     if (depth > 32) return;
-    QVector<Dos::DEntry> v;
+    QVector<dw::fat::DEntry> v;
     QString err;
     if (!m_dos.listDir(dirCluster, &v, &err)) return;
-    for (const Dos::DEntry &e : v) {
+    for (const dw::fat::DEntry &e : v) {
         if (e.name == "." || e.name == "..") continue;
-        if (e.attr & Dos::AttrR) ++ro;
+        if (e.attr & dw::fat::AttrR) ++ro;
         if (e.isDir()) { ++dirs; dosCount(e.cluster, files, dirs, ro, depth + 1); }
         else ++files;
     }
@@ -376,13 +376,13 @@ void MainWindow::dosDelete() {
 void MainWindow::dosProps() {
     QVector<DSel> sel = dosSelected();
     if (sel.isEmpty()) return;
-    QVector<Dos::DEntry> ents;
+    QVector<dw::fat::DEntry> ents;
     QString err;
     for (const DSel &s : sel) {
-        QVector<Dos::DEntry> L;
+        QVector<dw::fat::DEntry> L;
         bool found = false;
         if (m_dos.listDir(s.parent, &L, &err))
-            for (const Dos::DEntry &e : L) if (e.name == s.name) { ents.append(e); found = true; break; }
+            for (const dw::fat::DEntry &e : L) if (e.name == s.name) { ents.append(e); found = true; break; }
         if (!found) { QMessageBox::warning(this, "Properties", err.isEmpty() ? "Entry not found" : err); return; }
     }
     bool single = ents.size() == 1;
@@ -398,14 +398,14 @@ void MainWindow::dosProps() {
     auto mk = [&](const QString &label, int bit) {
         auto *cb = new QCheckBox(label);
         int on = 0;
-        for (const Dos::DEntry &e : ents) on += (e.attr & bit) ? 1 : 0;
+        for (const dw::fat::DEntry &e : ents) on += (e.attr & bit) ? 1 : 0;
         if (on == 0) cb->setCheckState(Qt::Unchecked);
         else if (on == ents.size()) cb->setCheckState(Qt::Checked);
         else { cb->setTristate(true); cb->setCheckState(Qt::PartiallyChecked); }
         return cb;
     };
-    QCheckBox *cbR = mk("R  - read-only", Dos::AttrR), *cbH = mk("H  - hidden", Dos::AttrH),
-              *cbS = mk("S  - system", Dos::AttrS), *cbA = mk("A  - archive", Dos::AttrA);
+    QCheckBox *cbR = mk("R  - read-only", dw::fat::AttrR), *cbH = mk("H  - hidden", dw::fat::AttrH),
+              *cbS = mk("S  - system", dw::fat::AttrS), *cbA = mk("A  - archive", dw::fat::AttrA);
     form->addRow("Attributes:", cbR);
     form->addRow("", cbH);
     form->addRow("", cbS);
@@ -424,7 +424,7 @@ void MainWindow::dosProps() {
             if (cb->checkState() == Qt::PartiallyChecked) return;
             attr = quint8(cb->checkState() == Qt::Checked ? (attr | bit) : (attr & ~bit));
         };
-        apply(cbR, Dos::AttrR); apply(cbH, Dos::AttrH); apply(cbS, Dos::AttrS); apply(cbA, Dos::AttrA);
+        apply(cbR, dw::fat::AttrR); apply(cbH, dw::fat::AttrH); apply(cbS, dw::fat::AttrS); apply(cbA, dw::fat::AttrA);
         QString nn = nameEd ? nameEd->text().trimmed() : ents[i].name;
         if (!m_dos.modify(sel[i].parent, sel[i].name, nn, attr, &err)) errors << QString("%1: %2").arg(sel[i].name, err);
     }
@@ -434,15 +434,15 @@ void MainWindow::dosProps() {
 
 // --------------------------------------------------------------- extracting
 
-void MainWindow::dosExtractEntry(const Dos::DEntry &e, quint32 /*cluster*/, const QString &hostDir, QStringList &errors) {
+void MainWindow::dosExtractEntry(const dw::fat::DEntry &e, quint32 /*cluster*/, const QString &hostDir, QStringList &errors) {
     QString host = dw::hostSafeName(e.name);
     QString err;
     if (e.isDir()) {
         QString sub = hostDir + "/" + host;
         if (!QDir().mkpath(sub)) { errors << "cannot create folder " + sub; return; }
-        QVector<Dos::DEntry> v;
+        QVector<dw::fat::DEntry> v;
         if (!m_dos.listDir(e.cluster, &v, &err)) { errors << QString("%1: %2").arg(e.name, err); return; }
-        for (const Dos::DEntry &c : v)
+        for (const dw::fat::DEntry &c : v)
             if (c.name != "." && c.name != "..") dosExtractEntry(c, e.cluster, sub, errors);
         return;
     }
@@ -458,28 +458,28 @@ void MainWindow::dosExtract() {
     QString dest = QFileDialog::getExistingDirectory(this, "Extract DOS files to folder", s.value("extractDir").toString());
     if (dest.isEmpty()) return;
     s.setValue("extractDir", dest);
-    QVector<Dos::DEntry> list;
+    QVector<dw::fat::DEntry> list;
     QString err;
     QVector<DSel> sel = dosSelected();
     if (sel.isEmpty()) {
-        QVector<Dos::DEntry> v;
+        QVector<dw::fat::DEntry> v;
         if (!m_dos.listDir(0, &v, &err)) { QMessageBox::warning(this, "Extract", err); return; }
         list = v;
     } else {
         for (const DSel &x : sel) {
-            QVector<Dos::DEntry> L;
+            QVector<dw::fat::DEntry> L;
             if (m_dos.listDir(x.parent, &L, &err))
-                for (const Dos::DEntry &e : L) if (e.name == x.name) { list.append(e); break; }
+                for (const dw::fat::DEntry &e : L) if (e.name == x.name) { list.append(e); break; }
         }
     }
-    for (const Dos::DEntry &e : list)
+    for (const dw::fat::DEntry &e : list)
         if (QFileInfo::exists(dest + "/" + dw::hostSafeName(e.name))) {
             if (QMessageBox::question(this, "Extract", "Some files already exist in that folder. Overwrite them?") != QMessageBox::Yes) return;
             break;
         }
     QStringList errors;
     QApplication::setOverrideCursor(Qt::WaitCursor);
-    for (const Dos::DEntry &e : list) dosExtractEntry(e, 0, dest, errors);
+    for (const dw::fat::DEntry &e : list) dosExtractEntry(e, 0, dest, errors);
     QApplication::restoreOverrideCursor();
     if (errors.isEmpty()) statusBar()->showMessage(QString("Extracted %1 item(s) to %2").arg(list.size()).arg(dest), 6000);
     else QMessageBox::warning(this, "Extract", errors.join("\n"));
@@ -504,10 +504,10 @@ void MainWindow::renameSelected() {
                                       QLineEdit::Normal, old, &ok).trimmed();
     if (!ok || n.isEmpty() || n == old) return;
     if (dos) {
-        QVector<Dos::DEntry> L;
+        QVector<dw::fat::DEntry> L;
         quint8 attr = 0;
         if (m_dos.listDir(parent, &L, &err))
-            for (const Dos::DEntry &e : L) if (e.name == old) attr = e.attr;
+            for (const dw::fat::DEntry &e : L) if (e.name == old) attr = e.attr;
         if (!m_dos.modify(parent, old, n, attr, &err)) { QMessageBox::warning(this, "Rename", err); return; }
         refreshDos();
     } else {

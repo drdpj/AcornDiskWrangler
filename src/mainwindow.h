@@ -85,7 +85,7 @@ public:
     const DiskInfo &info() const { return m_info; }
     DropTree *dfsTree() { return m_dfsTree; }            // both sides of a DFS disc
     QTreeWidgetItem *dfsRoot(int side) const;           // that side's root row ("Drive 0", "Drive 2"), or nullptr
-    Dfs::Disc &dfs(int side) { return m_dfs[side]; }
+    dw::dfs::Disc &dfs(int side) { return m_dfs[side]; }
     int dfsSide() const;            // the DFS tab is showing: the side of the selection (or current row), else -1
     int dfsTargetSide(QTreeWidgetItem *it) const;       // the side a DFS row belongs to (0 for none)
     // Edit > Properties with several DFS files and a directory letter: see mainwindow_dfs.cpp
@@ -112,7 +112,7 @@ public:
     void refreshTree();
     void refreshDos();
     bool save();
-    Dos::Volume &dos() { return m_dos; }
+    dw::fat::Volume &dos() { return m_dos; }
     DropTree *dosTree() { return m_dosTree; }
     QTabWidget *tabs() { return m_tabs; }
     bool dosEditable() const { return m_img.editable() && m_dosOk; }
@@ -176,7 +176,7 @@ private:
     void dosDelete();
     void dosProps();
     void dosExtract();
-    void dosExtractEntry(const Dos::DEntry &e, quint32 cluster, const QString &hostDir, QStringList &errors);
+    void dosExtractEntry(const dw::fat::DEntry &e, quint32 cluster, const QString &hostDir, QStringList &errors);
     void dosCount(quint32 dirCluster, int &files, int &dirs, int &readOnly, int depth) const;
     void importSummary(const ImportCtx &c, bool refreshDosOnly);
 
@@ -241,11 +241,11 @@ private:
     QAction *m_actCheck, *m_optReadInf, *m_optWriteInf, *m_optBackup, *m_actView, *m_actRename, *m_actRenameVol;
     QTabWidget *m_tabs;
     DropTree *m_dosTree;
-    Dos::Volume m_dos;
+    dw::fat::Volume m_dos;
     bool m_dosOk = false;          // DOS volume passed its consistency check when the image was opened
     DiskInfo m_info;               // what kind of disc this is
     DropTree *m_dfsTree = nullptr;
-    Dfs::Disc m_dfs[2];
+    dw::dfs::Disc m_dfs[2];
     bool m_dfsOk[2] = {false, false};
     QString m_dfsErr[2];
     QAction *m_actNewWin = nullptr;

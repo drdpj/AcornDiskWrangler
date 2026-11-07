@@ -128,7 +128,7 @@ public:
             // ADFS map, so don't test that.) The FAT must start with its media signature: an all-zero area would
             // otherwise "validate" as an empty DOS volume and turn every blank ADFS L floppy into a hybrid. DOS Plus
             // puts its FAT at logical sector 16 = side 0, cylinder 1: file track 2 if interleaved, 1 if sequential.
-            Dos::Params hp = Dos::Volume::standard(Dos::FmtAcorn640);
+            dw::fat::Params hp = dw::fat::Volume::standard(dw::fat::FmtAcorn640);
             auto fatSig = [&](quint64 off) {
                 QByteArray s = ctx.stored(qint64(off), 3);
                 return quint8(s[0]) == hp.media && quint8(s[1]) == 0xFF && quint8(s[2]) == 0xFF;
@@ -137,12 +137,12 @@ public:
             if (size == 655360)
                 for (int sq = 0; sq < 2; ++sq)
                     if ((force < 0 || force == sq) && fatSig(sq ? 4096 : 8192))
-                        hyb[sq] = dw::fat::sideScore(*ctx.container, 655360, geometry(4096, 80, sq, true), Dos::FmtAcorn640) >= 0;
+                        hyb[sq] = dw::fat::sideScore(*ctx.container, 655360, geometry(4096, 80, sq, true), dw::fat::FmtAcorn640) >= 0;
             QString name = "ADFS";
             if (hyb[0] || hyb[1]) {
                 info.kind = DiskInfo::AdfsDosHybrid;
                 info.description = "Acorn 640K hybrid (ADFS catalogue + DOS Plus FAT)";
-                info.dosFormat = Dos::FmtAcorn640;
+                info.dosFormat = dw::fat::FmtAcorn640;
                 info.fullSize = 655360;
                 name = "ADFS + DOS Plus";
                 if (force >= 0) info.sides.sequential = force == 1;

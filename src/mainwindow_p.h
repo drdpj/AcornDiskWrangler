@@ -104,14 +104,14 @@ inline QString uniqueName(const QString &base, const Adfs::Dir &d, const ImportC
     return base;
 }
 
-inline QString uniqueDosName(const QString &name, const QVector<Dos::DEntry> &L, const ImportCtx &c, quint32 dir) {
+inline QString uniqueDosName(const QString &name, const QVector<dw::fat::DEntry> &L, const ImportCtx &c, quint32 dir) {
     int dot = name.lastIndexOf('.');
     QString base = dot < 0 ? name : name.left(dot), ext = dot < 0 ? QString() : name.mid(dot);
     for (int i = 1; i < 1000; ++i) {
         QString suf = "~" + QString::number(i);
         QString n = base.left(8 - suf.size()) + suf + ext;
         bool clash = c.created.contains(QString("D%1:%2").arg(dir).arg(n.toUpper()));
-        for (const Dos::DEntry &e : L) if (e.name.compare(n, Qt::CaseInsensitive) == 0) clash = true;
+        for (const dw::fat::DEntry &e : L) if (e.name.compare(n, Qt::CaseInsensitive) == 0) clash = true;
         if (!clash) return n;
     }
     return name;
@@ -121,10 +121,10 @@ inline QString dfsKey(int side, QChar dir, const QString &name) {
     return QString("F%1:%2.%3").arg(side).arg(QString(dir.toUpper())).arg(name.toUpper());
 }
 
-inline QString uniqueDfsName(const QString &base, QChar dir, const Dfs::Disc &d, const ImportCtx &c, int side) {
+inline QString uniqueDfsName(const QString &base, QChar dir, const dw::dfs::Disc &d, const ImportCtx &c, int side) {
     for (int i = 1; i < 100; ++i) {
         QString suf = "~" + QString::number(i);
-        QString n = base.left(Dfs::MaxName - suf.size()) + suf;
+        QString n = base.left(dw::dfs::MaxName - suf.size()) + suf;
         if (d.indexOf(dir, n) < 0 && !c.created.contains(dfsKey(side, dir, n))) return n;
     }
     return base;

@@ -100,8 +100,8 @@ public:
 private:
     Image m_img;
     DiskInfo m_info;
-    std::shared_ptr<Dos::Volume> m_dos;
-    std::shared_ptr<Dfs::Disc> m_dfs[2];
+    std::shared_ptr<dw::fat::Volume> m_dos;
+    std::shared_ptr<dw::dfs::Disc> m_dfs[2];
     dw::fs::Disc m_disc;
 };
 

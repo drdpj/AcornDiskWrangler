@@ -295,7 +295,7 @@ bool OpenedDisc::open(const QString &path, const DiskInfo &info, QString *err) {
         else m_dos.reset();
     };
     QString e;
-    m_dos = std::make_shared<Dos::Volume>();
+    m_dos = std::make_shared<dw::fat::Volume>();
     switch (info.kind) {
     case DiskInfo::Adfs: {
         m_disc.addMount({"ADFS", std::make_shared<AdfsVolume>(&m_img), !m_img.editable(),
@@ -311,10 +311,10 @@ bool OpenedDisc::open(const QString &path, const DiskInfo &info, QString *err) {
     case DiskInfo::AdfsDosHybrid:
         m_img.setAdfsLocked(true);
         m_disc.addMount({"ADFS", std::make_shared<AdfsVolume>(&m_img), true, "the ADFS side of a hybrid disc", "ADFS"});
-        mountDos(m_dos->attachFormat(&m_img, 0, len, Dos::FmtAcorn640, &e));
+        mountDos(m_dos->attachFormat(&m_img, 0, len, dw::fat::FmtAcorn640, &e));
         break;
     case DiskInfo::DosAcorn800:
-        mountDos(m_dos->attachFormat(&m_img, 0, len, Dos::FmtAcorn800, &e));
+        mountDos(m_dos->attachFormat(&m_img, 0, len, dw::fat::FmtAcorn800, &e));
         break;
     case DiskInfo::DosPc:
         mountDos(info.dosFromTable ? m_dos->attachFormat(&m_img, 0, len, info.dosFormat, &e) : m_dos->attach(&m_img, 0, len, &e));
@@ -322,7 +322,7 @@ bool OpenedDisc::open(const QString &path, const DiskInfo &info, QString *err) {
     case DiskInfo::Dfs:
         m_dos.reset();
         for (int s = 0; s < (info.dfs.doubleSided ? 2 : 1); ++s) {
-            m_dfs[s] = std::make_shared<Dfs::Disc>();
+            m_dfs[s] = std::make_shared<dw::dfs::Disc>();
             if (!m_dfs[s]->attach(&m_img, s, info.dfs, &e)) { *err = QString("drive %1: %2").arg(s * 2).arg(e); return false; }
             m_disc.addMount({QString("drive %1").arg(s * 2), std::make_shared<dw::dfs::Volume>(m_dfs[s]), false, QString(), "DFS"});
         }

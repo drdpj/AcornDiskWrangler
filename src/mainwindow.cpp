@@ -460,11 +460,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         QStringList out;
         QString err;
         if (m_dos.attached() && m_img.pendingTouches(m_dos.sin(), Adfs::sectorsFor(m_dos.length()))) {
-            Dos::Volume v;
+            dw::fat::Volume v;
             bool ok;
             switch (m_info.kind) {
-            case DiskInfo::AdfsDosHybrid: ok = v.attachFormat(&saved, m_dos.sin(), m_dos.length(), Dos::FmtAcorn640, &err); break;
-            case DiskInfo::DosAcorn800: ok = v.attachFormat(&saved, m_dos.sin(), m_dos.length(), Dos::FmtAcorn800, &err); break;
+            case DiskInfo::AdfsDosHybrid: ok = v.attachFormat(&saved, m_dos.sin(), m_dos.length(), dw::fat::FmtAcorn640, &err); break;
+            case DiskInfo::DosAcorn800: ok = v.attachFormat(&saved, m_dos.sin(), m_dos.length(), dw::fat::FmtAcorn800, &err); break;
             case DiskInfo::DosPc:
                 ok = m_info.dosFromTable ? v.attachFormat(&saved, m_dos.sin(), m_dos.length(), m_info.dosFormat, &err)
                                          : v.attach(&saved, m_dos.sin(), m_dos.length(), &err);
@@ -476,7 +476,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
         }
         for (int s = 0; s < 2; ++s)
             if (m_dfs[s].attached() && m_img.pendingTouches(0, quint32(m_img.fullSize() / Adfs::SectorSize))) {
-                Dfs::Disc d;
+                dw::dfs::Disc d;
                 if (!d.attach(&saved, s, m_info.dfs, &err)) out << QString("DFS drive %1: %2").arg(s * 2).arg(err);
                 else for (const QString &e : d.check().errors) out << QString("DFS drive %1: %2").arg(s * 2).arg(e);
             }

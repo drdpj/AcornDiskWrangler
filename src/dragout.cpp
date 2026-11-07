@@ -76,10 +76,10 @@ dw::TransferItem toTransfer(const XItem &x) {
         t.attrs["acorn"] = a;
     } else {
         QJsonObject f;
-        f["readonly"] = (x.dosAttr & Dos::AttrR) != 0;
-        f["hidden"] = (x.dosAttr & Dos::AttrH) != 0;
-        f["system"] = (x.dosAttr & Dos::AttrS) != 0;
-        f["archive"] = (x.dosAttr & Dos::AttrA) != 0;
+        f["readonly"] = (x.dosAttr & dw::fat::AttrR) != 0;
+        f["hidden"] = (x.dosAttr & dw::fat::AttrH) != 0;
+        f["system"] = (x.dosAttr & dw::fat::AttrS) != 0;
+        f["archive"] = (x.dosAttr & dw::fat::AttrA) != 0;
         t.attrs["fat"] = f;
     }
     for (const XItem &k : x.kids) t.kids.append(toTransfer(k));
@@ -102,7 +102,7 @@ XItem fromTransfer(const dw::TransferItem &t) {
         x.adfsFlags = quint8((access.contains('R') ? Adfs::FlagR : 0) | (access.contains('W') ? Adfs::FlagW : 0) |
                              (access.contains('L') ? Adfs::FlagL : 0) | (access.contains('E') ? Adfs::FlagE : 0));
         if (src == PaneDfs0) {                  // "D.NAME": the directory is part of a DFS name
-            if (x.name.size() >= 3 && x.name[1] == '.' && Dfs::validDir(x.name[0])) {
+            if (x.name.size() >= 3 && x.name[1] == '.' && dw::dfs::validDir(x.name[0])) {
                 x.dfsDir = x.name[0];
                 x.name = x.name.mid(2);
             } else {
@@ -114,8 +114,8 @@ XItem fromTransfer(const dw::TransferItem &t) {
         x.locked = fat["readonly"].toBool() || access.contains('L');
         for (auto ns = t.attrs.begin(); ns != t.attrs.end(); ++ns)          // any namespace's "readonly" (e.g. cpm)
             if (ns.value()["readonly"].toBool()) x.locked = true;
-        x.dosAttr = quint8((x.locked ? Dos::AttrR : 0) | (fat["hidden"].toBool() ? Dos::AttrH : 0) |
-                           (fat["system"].toBool() ? Dos::AttrS : 0) | (fat["archive"].toBool() ? Dos::AttrA : 0));
+        x.dosAttr = quint8((x.locked ? dw::fat::AttrR : 0) | (fat["hidden"].toBool() ? dw::fat::AttrH : 0) |
+                           (fat["system"].toBool() ? dw::fat::AttrS : 0) | (fat["archive"].toBool() ? dw::fat::AttrA : 0));
     }
     for (const dw::TransferItem &k : t.kids) x.kids.append(fromTransfer(k));
     return x;

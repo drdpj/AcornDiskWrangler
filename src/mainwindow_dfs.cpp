@@ -164,12 +164,12 @@ void MainWindow::refreshDfs() {
         r->setData(0, RoleSector, 0);
         r->setData(0, RoleIsRoot, true);
         r->setData(0, RoleSide, s);
-        QVector<Dfs::File> v = m_dfs[s].files();
-        std::stable_sort(v.begin(), v.end(), [](const Dfs::File &a, const Dfs::File &b) {
+        QVector<dw::dfs::File> v = m_dfs[s].files();
+        std::stable_sort(v.begin(), v.end(), [](const dw::dfs::File &a, const dw::dfs::File &b) {
             if (a.dir.toUpper() != b.dir.toUpper()) return a.dir.toUpper() < b.dir.toUpper();
             return a.name.toUpper() < b.name.toUpper();
         });
-        for (const Dfs::File &f : v) {
+        for (const dw::dfs::File &f : v) {
             auto *it = new QTreeWidgetItem(r);
             it->setText(0, f.fullName());
             it->setText(1, f.locked ? "L" : "");
@@ -243,7 +243,7 @@ void MainWindow::dfsImportFile(int side, const QString &path, ImportCtx &c) {
     }
     QByteArray data = f.readAll();
     f.close();
-    QString name = Dfs::sanitizeName(QFileInfo(path).fileName());
+    QString name = dw::dfs::sanitizeName(QFileInfo(path).fileName());
     QChar dir = '$';
     quint32 load = 0, exec = 0;
     bool locked = false, haveInf = false;
@@ -251,8 +251,8 @@ void MainWindow::dfsImportFile(int side, const QString &path, ImportCtx &c) {
         InfData inf;
         if (readInf(path, &inf)) {
             haveInf = true;
-            if (!inf.name.isEmpty()) name = Dfs::sanitizeName(inf.name);
-            if (!inf.dir.isNull() && Dfs::validDir(inf.dir)) dir = inf.dir;
+            if (!inf.name.isEmpty()) name = dw::dfs::sanitizeName(inf.name);
+            if (!inf.dir.isNull() && dw::dfs::validDir(inf.dir)) dir = inf.dir;
             load = inf.load & 0x3FFFF;
             exec = inf.exec & 0x3FFFF;
             locked = (inf.flags & FlagL) != 0;
@@ -268,7 +268,7 @@ void MainWindow::dfsAddOne(int side, QChar dir, QString name, const QByteArray &
     int idx = m_dfs[side].indexOf(dir, name);
     bool replace = false;
     if (idx >= 0) {
-        const Dfs::File ex = m_dfs[side].files()[idx];
+        const dw::dfs::File ex = m_dfs[side].files()[idx];
         int pol = c.policy;
         if (pol == 0) {
             auto b = QMessageBox::question(
@@ -325,7 +325,7 @@ void MainWindow::dfsDelete() {
 void MainWindow::dfsProps() {
     QVector<FSel> sel = dfsSelected();
     if (sel.isEmpty()) return;
-    QVector<Dfs::File> files;
+    QVector<dw::dfs::File> files;
     for (const FSel &s : sel) {
         int i = m_dfs[s.side].indexOf(s.dir, s.name);
         if (i < 0) { QMessageBox::warning(this, "Properties", "Entry not found"); return; }
@@ -338,7 +338,7 @@ void MainWindow::dfsProps() {
     QLineEdit *nameEd = nullptr, *dirEd = nullptr, *loadEd = nullptr, *execEd = nullptr;
     if (single) {
         nameEd = new QLineEdit(files[0].name);
-        nameEd->setMaxLength(Dfs::MaxName);
+        nameEd->setMaxLength(dw::dfs::MaxName);
         dirEd = new QLineEdit(QString(files[0].dir));
         dirEd->setMaxLength(1);
         form->addRow("Name (max 7 characters):", nameEd);
@@ -352,7 +352,7 @@ void MainWindow::dfsProps() {
     }
     auto *cbL = new QCheckBox("L  - locked");
     int on = 0;
-    for (const Dfs::File &f : files) on += f.locked ? 1 : 0;
+    for (const dw::dfs::File &f : files) on += f.locked ? 1 : 0;
     if (on == 0) cbL->setCheckState(Qt::Unchecked);
     else if (on == files.size()) cbL->setCheckState(Qt::Checked);
     else { cbL->setTristate(true); cbL->setCheckState(Qt::PartiallyChecked); }
@@ -388,12 +388,12 @@ void MainWindow::dfsProps() {
     }
     QStringList errors;
     QChar letter = dirEd && !dirEd->text().isEmpty() ? dirEd->text()[0] : QChar();
-    if (!letter.isNull() && !Dfs::validDir(letter)) {
+    if (!letter.isNull() && !dw::dfs::validDir(letter)) {
         QMessageBox::warning(this, "Properties", QString("'%1' is not a valid DFS directory character.").arg(letter));
         return;
     }
     for (int i = 0; i < files.size(); ++i) {
-        const Dfs::File &f = files[i];
+        const dw::dfs::File &f = files[i];
         int side = sel[i].side;
         QString nn = nameEd ? nameEd->text().trimmed() : f.name;
         QChar nd = single && !letter.isNull() ? letter : f.dir;     // several files: moved below, all checked first
@@ -463,7 +463,7 @@ int MainWindow::dfsMoveSelected(QChar letter, bool moveOthers, QStringList *clas
         QString err = "not found";
         if (!dfsEditable(s.side)) err = "this side is read-only";
         else if (i >= 0) {
-            const Dfs::File f = m_dfs[s.side].files()[i];
+            const dw::dfs::File f = m_dfs[s.side].files()[i];
             if (m_dfs[s.side].modify(f.dir, f.name, letter, f.name, f.locked, f.load, f.exec, &err)) { ++moved; continue; }
         }
         *errors << QString("%1.%2: %3").arg(QString(s.dir), s.name, err);
@@ -497,7 +497,7 @@ void MainWindow::dfsRename() {
     if (n.size() >= 3 && n[1] == '.') { nd = n[0]; nn = n.mid(2); }
     int i = m_dfs[side].indexOf(sel[0].dir, sel[0].name);
     if (i < 0) return;
-    const Dfs::File f = m_dfs[side].files()[i];
+    const dw::dfs::File f = m_dfs[side].files()[i];
     QString err;
     if (!m_dfs[side].modify(f.dir, f.name, nd, nn, f.locked, f.load, f.exec, &err)) {
         QMessageBox::warning(this, "Rename", err);
@@ -514,15 +514,15 @@ void MainWindow::dfsExtract() {
     QString dest = QFileDialog::getExistingDirectory(this, "Extract DFS files to folder", s.value("extractDir").toString());
     if (dest.isEmpty()) return;
     s.setValue("extractDir", dest);
-    QVector<QPair<int, Dfs::File>> list;
+    QVector<QPair<int, dw::dfs::File>> list;
     QVector<FSel> sel = dfsSelected();
-    if (sel.isEmpty()) { int ds = qMax(0, dfsSide()); for (const Dfs::File &f : m_dfs[ds].files()) list.append({ds, f}); }
+    if (sel.isEmpty()) { int ds = qMax(0, dfsSide()); for (const dw::dfs::File &f : m_dfs[ds].files()) list.append({ds, f}); }
     else for (const FSel &x : sel) { int i = m_dfs[x.side].indexOf(x.dir, x.name); if (i >= 0) list.append({x.side, m_dfs[x.side].files()[i]}); }
     bool both = false;
     for (const auto &p : list) both = both || p.first != list[0].first;
     QStringList errors;
     for (const auto &p : list) {
-        const Dfs::File &f = p.second;
+        const dw::dfs::File &f = p.second;
         QString folder = dest;
         if (both) {
             folder += QString("/Drive %1").arg(p.first * 2);
@@ -586,22 +586,22 @@ bool MainWindow::exportAdfs(quint32 parent, const QString &name, XItem *x, QStri
 }
 
 bool MainWindow::exportDos(quint32 parent, const QString &name, XItem *x, QString *err, int depth) {
-    QVector<Dos::DEntry> L;
+    QVector<dw::fat::DEntry> L;
     if (!m_dos.listDir(parent, &L, err)) return false;
-    for (const Dos::DEntry &e : L) {
+    for (const dw::fat::DEntry &e : L) {
         if (e.name != name) continue;
         x->name = e.name;
         x->src = PaneDos;
         x->isDir = e.isDir();
-        x->locked = (e.attr & Dos::AttrR) != 0;
+        x->locked = (e.attr & dw::fat::AttrR) != 0;
         x->dosAttr = e.attr;
         QDateTime w = e.when();
         if (w.isValid()) x->when = QDateTime(w.date(), w.time());   // local time
         if (e.isDir()) {
             if (depth > 32) { *err = "directory nesting too deep"; return false; }
-            QVector<Dos::DEntry> C;
+            QVector<dw::fat::DEntry> C;
             if (!m_dos.listDir(e.cluster, &C, err)) return false;
-            for (const Dos::DEntry &k : C) {
+            for (const dw::fat::DEntry &k : C) {
                 if (k.name == "." || k.name == "..") continue;
                 XItem kid;
                 if (!exportDos(e.cluster, k.name, &kid, err, depth + 1)) return false;
@@ -618,7 +618,7 @@ bool MainWindow::exportDos(quint32 parent, const QString &name, XItem *x, QStrin
 bool MainWindow::exportDfs(int side, QChar dir, const QString &name, XItem *x, QString *err) {
     int i = m_dfs[side].indexOf(dir, name);
     if (i < 0) { *err = QString("'%1.%2' not found").arg(QString(dir), name); return false; }
-    const Dfs::File f = m_dfs[side].files()[i];
+    const dw::dfs::File f = m_dfs[side].files()[i];
     x->name = f.name;
     x->dfsDir = f.dir;
     x->src = side ? PaneDfs1 : PaneDfs0;
@@ -712,16 +712,16 @@ void MainWindow::importXAdfs(quint32 dir, const XItem &x, ImportCtx &c) {
 }
 
 void MainWindow::importXDos(quint32 dir, const XItem &x, ImportCtx &c) {
-    QString name = Dos::Volume::fromHost(x.name, x.isDir);
+    QString name = dw::fat::Volume::fromHost(x.name, x.isDir);
     if (x.isDir) {
         QString err;
-        QVector<Dos::DEntry> L;
+        QVector<dw::fat::DEntry> L;
         if (!m_dos.listDir(dir, &L, &err)) { c.errors << QString("%1: %2").arg(x.name, err); return; }
         QString key = QString("D%1:%2").arg(dir).arg(name.toUpper());
         if (c.created.contains(key)) { name = uniqueDosName(name, L, c, dir); key = QString("D%1:%2").arg(dir).arg(name.toUpper()); }
         quint32 cluster = 0;
         bool found = false;
-        for (const Dos::DEntry &e : L)
+        for (const dw::fat::DEntry &e : L)
             if (e.name.compare(name, Qt::CaseInsensitive) == 0) {
                 if (!e.isDir()) { c.errors << QString("%1: a file called '%2' already exists there").arg(x.name, name); return; }
                 cluster = e.cluster;
@@ -742,7 +742,7 @@ void MainWindow::importXDfs(int side, const XItem &x, ImportCtx &c, QChar keepDi
     if (x.isDir) {      // DFS has no directories: flatten
         // An ADFS directory with a one-character name (e.g. $.F) may stand for a DFS directory letter:
         // ask whether its files should go into DFS directory F (F.NAME) rather than $.
-        if (x.src == PaneAdfs && x.name.size() == 1 && x.name[0] != '$' && Dfs::validDir(x.name[0])) {
+        if (x.src == PaneAdfs && x.name.size() == 1 && x.name[0] != '$' && dw::dfs::validDir(x.name[0])) {
             bool keep = c.letterPolicy == 1;
             if (c.letterPolicy == 0) {
                 QMessageBox mb(QMessageBox::Question, "DFS directory letter",
@@ -764,7 +764,7 @@ void MainWindow::importXDfs(int side, const XItem &x, ImportCtx &c, QChar keepDi
         return;
     }
     QChar dir = (x.src == PaneDfs0 || x.src == PaneDfs1) ? x.dfsDir : keepDir.isNull() ? QChar('$') : keepDir;
-    QString name = Dfs::sanitizeName(x.name);
+    QString name = dw::dfs::sanitizeName(x.name);
     quint32 load = 0, exec = 0;
     // DFS keeps 18 bits. Narrowed the same way for every file: a RISC OS stamp can't be told from an address for
     // sure (docs/retro-files-format.md), so never zero one on a guess.

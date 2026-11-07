@@ -41,8 +41,8 @@ struct DiskInfo {
     Kind kind = Unknown;
     QString description;
     quint64 fullSize = 0;           // size the disc should have; a shorter file is padded when saved
-    Dfs::Layout dfs;
-    Dos::Format dosFormat = Dos::FmtPc720;
+    dw::dfs::Layout dfs;
+    dw::fat::Format dosFormat = dw::fat::FmtPc720;
     bool dosFromTable = false;      // PC image without a usable BPB: use the table geometry
     // Acorn double-sided floppies (ADFS L, DFS .dsd, DOS Plus 800K / 640K): geometry and the side order of the FILE
     // (open the Image with this). PC FAT floppies are always interleaved and get no layout. For DFS the Image does

@@ -63,7 +63,7 @@ static void put16(char *p, quint32 v) { p[0] = char(v & 0xFF); p[1] = char((v >>
 
 // A DOS boot sector with a full BPB for a PC floppy; not bootable (the code just asks the BIOS to try the next
 // boot device).
-static QByteArray pcBootSector(const Dos::Params &p, quint32 spt, quint32 heads) {
+static QByteArray pcBootSector(const dw::fat::Params &p, quint32 spt, quint32 heads) {
     QByteArray b(512, 0);
     char *s = b.data();
     s[0] = char(0xEB); s[1] = 0x3C; s[2] = char(0x90);              // jmp 0x3E
@@ -91,7 +91,7 @@ static QByteArray pcBootSector(const Dos::Params &p, quint32 spt, quint32 heads)
 }
 
 // Empty FAT(s): media byte, then the two reserved FAT12 entries.
-static void putFats(QByteArray &img, const Dos::Params &p, quint64 fatOff) {
+static void putFats(QByteArray &img, const dw::fat::Params &p, quint64 fatOff) {
     for (quint32 i = 0; i < p.nfats; ++i) {
         char *f = img.data() + fatOff + quint64(i) * p.spf * p.bps;
         f[0] = char(p.media); f[1] = char(0xFF); f[2] = char(0xFF);
@@ -164,7 +164,7 @@ bool create(const QString &path, Type t, const QString &titleIn, bool sequential
     QByteArray img;                 // the disc in its own sector numbering
     SideLayout sides;
     DiskInfo::Kind kind = DiskInfo::Unknown;
-    Dos::Format fmt = Dos::FmtPc720;
+    dw::fat::Format fmt = dw::fat::FmtPc720;
     bool dosLabel = false;
     switch (t) {
     case AdfsS: case AdfsM: case AdfsL:
@@ -194,11 +194,11 @@ bool create(const QString &path, Type t, const QString &titleIn, bool sequential
         break;
     }
     case Acorn800: {
-        Dos::Params p = Dos::Volume::standard(Dos::FmtAcorn800);
+        dw::fat::Params p = dw::fat::Volume::standard(dw::fat::FmtAcorn800);
         img = QByteArray(int(p.total * p.bps), 0);
         putFats(img, p, 0);
         sides.trackBytes = 5 * 1024; sides.cylinders = 80;
-        kind = DiskInfo::DosAcorn800; fmt = Dos::FmtAcorn800; dosLabel = true;
+        kind = DiskInfo::DosAcorn800; fmt = dw::fat::FmtAcorn800; dosLabel = true;
         break;
     }
     case Acorn640: {
@@ -208,15 +208,15 @@ bool create(const QString &path, Type t, const QString &titleIn, bool sequential
         if (!hybridBootTrack(bootSource, &track, err)) return false;
         img = QByteArray(655360, 0);
         memcpy(img.data(), track.constData(), 4096);
-        Dos::Params p = Dos::Volume::standard(Dos::FmtAcorn640);
+        dw::fat::Params p = dw::fat::Volume::standard(dw::fat::FmtAcorn640);
         putFats(img, p, quint64(p.res) * p.bps);
         sides.trackBytes = 4096; sides.cylinders = 80; sides.sideFirst = true;
-        kind = DiskInfo::AdfsDosHybrid; fmt = Dos::FmtAcorn640; dosLabel = true;
+        kind = DiskInfo::AdfsDosHybrid; fmt = dw::fat::FmtAcorn640; dosLabel = true;
         break;
     }
     case Pc360: case Pc720: case Pc1200: case Pc1440: {
-        fmt = t == Pc360 ? Dos::FmtPc360 : t == Pc720 ? Dos::FmtPc720 : t == Pc1200 ? Dos::FmtPc1200 : Dos::FmtPc1440;
-        Dos::Params p = Dos::Volume::standard(fmt);
+        fmt = t == Pc360 ? dw::fat::FmtPc360 : t == Pc720 ? dw::fat::FmtPc720 : t == Pc1200 ? dw::fat::FmtPc1200 : dw::fat::FmtPc1440;
+        dw::fat::Params p = dw::fat::Volume::standard(fmt);
         quint32 spt = t == Pc1200 ? 15 : t == Pc1440 ? 18 : 9;
         img = QByteArray(int(p.total * p.bps), 0);
         QByteArray boot = pcBootSector(p, spt, 2);
@@ -243,16 +243,16 @@ bool create(const QString &path, Type t, const QString &titleIn, bool sequential
         bool ok = kind == DiskInfo::AdfsDosHybrid ? im.open(path, &e, 655360, sides) : im.openRaw(path, quint64(file.size()), &e, sides);
         if (!ok) return fail(e);
         if (kind == DiskInfo::Dfs) {
-            Dfs::Layout lay;
+            dw::dfs::Layout lay;
             lay.doubleSided = sides.doubleSided();
             lay.interleaved = true;
             lay.sectorsPerSide = (t == DfsSs40 || t == DfsDs40 || t == WatSs40 || t == WatDs40) ? 400 : 800;
             for (int side = 0; side < (lay.doubleSided ? 2 : 1); ++side) {
-                Dfs::Disc d;
+                dw::dfs::Disc d;
                 if (!d.attach(&im, side, lay, &e) || !d.setTitle(title, &e)) return fail(e);
             }
         } else {
-            Dos::Volume v;
+            dw::fat::Volume v;
             bool att = kind == DiskInfo::DosPc ? v.attach(&im, 0, quint32(file.size()), &e) : v.attachFormat(&im, 0, quint32(file.size()), fmt, &e);
             if (!att || !v.setLabel(title, &e)) return fail(e);
         }
