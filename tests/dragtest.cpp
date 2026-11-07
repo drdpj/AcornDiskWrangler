@@ -299,6 +299,17 @@ int main(int argc,char**argv){
           d.tabs()->setCurrentWidget(d.tree()); pump(); sendDrop(d.tree(),m5);
           Entry x; CHECK(adfsFile(d.image(),pre,"BOOT",&x)); CHECK(!adfsDir(d.image(),RootSector,"A~1"));
           delete m5; }
+      {   // a letter ADFS can't have as a name (^): $.X_HAT in the drop directory, not a directory "_", with a warning
+          CHECK(sd.dfs(0).addFile('^',"HAT",QByteArray("hat"),0x1900,0x1900,false,false,&e)); sd.refreshDfs(); pump();
+          auto* m7=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"^.HAT")});
+          answer({QMessageBox::Ok});                              // the import summary lists the warning
+          d.tabs()->setCurrentWidget(d.tree()); pump(); sendDrop(d.tree(),m7); for(int i=0;i<10;++i) pump();
+          Entry x; CHECK(adfsFile(d.image(),RootSector,"X_HAT",&x)); CHECK(!adfsDir(d.image(),RootSector,"_"));
+          CHECK(g_answered==1);
+          { QByteArray b; CHECK(d.image().readFile(x,&b,&e)); CHECK(b=="hat"); }
+          CHECK(d.image().deleteEntry(RootSector,"X_HAT",&e)); d.refreshTree();
+          CHECK(sd.dfs(0).remove('^',"HAT",&e)); sd.refreshDfs(); pump();
+          delete m7; }
       {   // from another process (the retro-files JSON): the same, at the root
           auto* m6=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"$.BOOT"),find(sd.dfsTree(),"A.BOOT")}); QMimeData* f6=asForeign(m6);
           d2.tabs()->setCurrentWidget(d2.tree()); pump(); sendDrop(d2.tree(),f6);
@@ -413,12 +424,12 @@ int main(int argc,char**argv){
           closeAll(n);
           // Copy onto this disc: the image becomes a file on the hard disc, the plain file goes with it
           clickText({"Copy onto this disc"}); dropPaths(w.tree(),{dsd,plain});
-          CHECK(g_clickTexts.size()==1); CHECK(newWindows(before).isEmpty());
+          CHECK(g_answered==1); CHECK(newWindows(before).isEmpty());
           CHECK(w.image().readDir(RootSector,&r,&e)); CHECK(r.entries.size()==2);
           bool big=false; for(const Entry& x:r.entries) if(x.length==quint32(QFileInfo(dsd).size())) big=true; CHECK(big);
           // Cancel: nothing happens, nothing more is added
           clickText({"Cancel"}); dropPaths(w.tree(),{adl,plain});
-          CHECK(g_clickTexts.size()==1); CHECK(newWindows(before).isEmpty());
+          CHECK(g_answered==1); CHECK(newWindows(before).isEmpty());
           CHECK(w.image().readDir(RootSector,&r,&e)); CHECK(r.entries.size()==2);
           // two images: one question for both
           clickText({"Open them"}); dropPaths(w.tree(),{dsd,adl});
