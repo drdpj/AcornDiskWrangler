@@ -17,17 +17,22 @@
  */
 // Renders every kind of pane and saves PNGs, for eyeballing layout/alignment.
 //   screenshot <outdir> <dsd> [<image> ...]      (images are opened read/write: pass copies)
-// The DSD gets some host files dropped on drive 0 (dfs.png). Every tab of every further image is saved
+// The DSD gets some host files dropped on drive 0 (dfs.png), and every dialog the main window opens for it is
+// saved as dialog_<slot>.png. Every tab of every further image is saved
 // as <outdir>/<image file name>_<tab>.png, at a wide (1300px) and at the default window size, so
 // both the column stretch and the narrow-window case can be checked.
 #include "mainwindow.h"
 #include <QApplication>
+#include <QDialog>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QFileInfo>
+#include <QMetaObject>
 #include <QMimeData>
 #include <QTabWidget>
+#include <QTimer>
+#include <QTreeWidget>
 #include <cstdio>
 
 static void pump() { for (int i = 0; i < 5; ++i) QCoreApplication::processEvents(); }
@@ -48,6 +53,54 @@ static QString slug(QString t) {
     for (QChar &c : t) if (!c.isLetterOrNumber()) c = '_';
     return t.toLower();
 }
+// The first file row of a tree (not a root or a directory row), selected so that a slot acting on the
+// selection has something to act on.
+static void selectFirstFile(QTreeWidget *t) {
+    QList<QTreeWidgetItem *> q;
+    for (int i = 0; t && i < t->topLevelItemCount(); ++i) q << t->topLevelItem(i);
+    while (!q.isEmpty()) {
+        QTreeWidgetItem *it = q.takeFirst();
+        if (!it->data(0, RoleIsDir).toBool() && !it->data(0, RoleIsRoot).toBool()) { t->setCurrentItem(it); return; }
+        for (int i = 0; i < it->childCount(); ++i) q << it->child(i);
+    }
+}
+static QList<QDialog *> shownDialogs() {
+    QList<QDialog *> l;
+    for (QWidget *w : QApplication::topLevelWidgets())
+        if (QDialog *d = qobject_cast<QDialog *>(w)) if (d->isVisible()) l << d;
+    return l;
+}
+static void saveDialog(QWidget *d, const QString &file) {
+    QDialog *dlg = qobject_cast<QDialog *>(d);
+    d->resize(dlg ? 1120 : 1000, 640);
+    pump();
+    d->grab().save(file); printf("wrote %s\n", qPrintable(file));
+    if (dlg) dlg->reject(); else d->close();
+}
+// Calls the slot and saves the dialog it opens as dialog_<slot>.png, then closes it. A modal dialog is caught
+// while the slot waits for it; the viewer opens without waiting, so it is caught once the slot has returned.
+// Returns false if the slot opened no dialog.
+static bool dialogShot(MainWindow &w, const char *slot, const QString &outdir) {
+    const QString file = outdir + "/dialog_" + slot + ".png";
+    QTimer t; t.setInterval(20);
+    bool taken = false;
+    QObject::connect(&t, &QTimer::timeout, [&] {
+        QWidget *d = QApplication::activeModalWidget();
+        if (!d || taken) return;
+        taken = true;
+        saveDialog(d, file);
+    });
+    const QList<QDialog *> before = shownDialogs();
+    t.start();
+    QMetaObject::invokeMethod(&w, slot);
+    t.stop();
+    if (!taken)
+        for (QDialog *d : shownDialogs())
+            if (!taken && !before.contains(d)) { taken = true; saveDialog(d, file); }
+    if (!taken) printf("FAIL: %s opened no dialog\n", slot);
+    pump();
+    return taken;
+}
 int main(int argc, char **argv) {
     QApplication app(argc, argv);
     QApplication::setOrganizationName("acorndiskwrangler-shots"); QApplication::setApplicationName("s");
@@ -57,6 +110,12 @@ int main(int argc, char **argv) {
     a.openImage(argv[2]); pump();
     dropFiles(a, a.dfsTree(), {"/tmp/drop/proj/hello.txt", "/tmp/drop/proj/hello.txt.inf", "/tmp/drop/proj/prog.bas", "/tmp/drop/proj/prog.bas.inf", "/tmp/drop/proj/test.bas", "/tmp/drop/proj/sub"});
     shoot(a, a.dfsTree(), out + "/dfs.png");
+    // the dialogs, for the first image. A DFS disc's files are in the DFS tab, not tree() (the ADFS tab), so the
+    // first file row is selected in the visible tab
+    bool dialogsOk = true;
+    selectFirstFile(qobject_cast<QTreeWidget *>(a.tabs()->currentWidget()));
+    for (const char *slot : {"newImageDialog", "editProperties", "viewSelected", "bootOptionDialog", "checkImage", "about"})
+        dialogsOk = dialogShot(a, slot, out) && dialogsOk;
     for (int i = 3; i < argc; ++i) {
         MainWindow w; w.resize(1300, 560); w.show();
         w.openImage(argv[i]); pump();
@@ -68,5 +127,5 @@ int main(int argc, char **argv) {
         for (int t = 0; t < n.tabs()->count(); ++t)
             shoot(n, n.tabs()->widget(t), base + "_" + slug(n.tabs()->tabText(t)) + "_narrow.png");
     }
-    return 0;
+    return dialogsOk ? 0 : 1;
 }
