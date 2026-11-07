@@ -38,6 +38,10 @@ Help > About shows the version; Help > Licences shows the licences of the progra
 | Acorn 640K ADFS/DOS Plus hybrid (Master 512 boot disc) | `.adl` | The ADFS side is read-only; the DOS side can be edited. |
 | PC floppy 360K, 720K, 1.2M, 1.44M | `.img` and others | FAT12. |
 
+Any floppy above can also be in an **ImageDisk** (`.imd`), **DSK** or extended DSK (`.dsk`) or **TeleDisk**
+(`.td0`) file instead of a plain sector dump: it opens the same way and saves back in the same kind of file
+(TeleDisk files can only be read).
+
 The format is worked out from the disc's contents, then its name and size. **File > New disc image** makes a blank
 disc of any of these types. A new DOS Plus 640K disc needs Acorn's DOSBOOT boot code, which isn't included: point
 it at an existing Master 512 disc image or a DOSBOOT file.
@@ -68,7 +72,10 @@ it at an existing Master 512 disc image or a DOSBOOT file.
   other order, for emulators that expect it.
 * **Save** (Ctrl+S). Nothing is written until you save, and the whole disc is checked first: if anything doesn't
   add up, or another program changed the file meanwhile, it won't save. A disc that fails the check when opened is
-  read-only. A `.bak` copy of the previous file is kept unless you turn that off (Tools).
+  read-only. Saving writes a complete new copy of the image beside it, checks that copy, and only then puts it in
+  the old file's place, so the original is never left half-written; this needs free space for a second copy, a
+  large hard disc image takes a second or two longer, and on Windows the save is refused while another program
+  (an emulator) has the image open. A `.bak` copy of the previous file is kept unless you turn that off (Tools).
 
 ### Settings, and carrying the program with you
 Settings (the Tools options and the last folders used) live in the usual place for your system: the registry on

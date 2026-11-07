@@ -86,8 +86,8 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
   The owner's rule: **PC floppies (360K/720K/1.2M/1.44M) are always interleaved** - they get no `SideLayout`, so
   no detection, Read as, Convert or sequential creation; only the Acorn formats can be odd): *interleaved* = cylinder 0 side 0, cylinder 0
   side 1, ...; *sequential* = all of side 0, then all of side 1. Two separate things must not be mixed up,
-  and `Adfs::Image` handles both (`SideLayout`, translated in `readRaw`/`writeRaw`; everything above `Image`
-  sees the disc in its own sector numbering): (1) the file's side order (`sequential`); (2) how the disc
+  and `Adfs::Image` handles both (`SideLayout`, which is DiskWranglerCore's `dw::device::SideOrder`, translated by the
+  `Linear` it reads and writes through; everything above `Image` sees the disc in its own sector numbering): (1) the file's side order (`sequential`); (2) how the disc
   numbers its sectors (`sideFirst`). **ADFS L and DOS Plus 640K number side 0 first** - the machine reads all
   of side 0, then side 1 - so even an interleaved file is always remapped (verified on real discs: the Master
   Welcome disc, Acorn User Tau85 and ARM Evaluation disc 4, from b-em's `discs/` and oaknut's test data: only
@@ -113,8 +113,10 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
     (ADFS 1.30 `floppy.asm` in dominicbeesley/ADFS-multi-target: track = sector / 16, track >= 80 is side 1). The owner's rule: **never** fall back on an order used before for that file - no
     per-file memory. `sidetest` asserts the rule that matters: detection may say it can't tell, but it must
     **never be sure of the wrong order**.
-  - **Conversion** (`Image::setConvertOnSave`) is staged like any edit (`dirty()`); `commit()` rewrites the whole
-    file from the interleaved view (pending edits included), sectors 0-1 last. Converting and converting back
+  - **Conversion** (`Image::setConvertOnSave`) is staged like any edit (`dirty()`); `commit()` stages the whole
+    disc laid out in the other order (pending edits included) and saves it as a checked copy like any other save.
+    Only a raw file has a side order: an ImageDisk, DSK or TeleDisk file records where each track is, so it is
+    always read as interleaved and Tools > Side order does nothing for it. Converting and converting back
     must give a byte-identical file (`sidetest`, also on the real discs).
 - **A damaged ADFS map** with a valid root directory is still detected as ADFS (and opens read-only) so that it is
   read with the right geometry - an ADFS L floppy needs its side-first numbering even to be inspected

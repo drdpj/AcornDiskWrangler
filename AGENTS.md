@@ -29,9 +29,10 @@ files (see Build).
 ## Source map (program in `src/`, tests in `tests/`)
 | File | Role |
 |---|---|
-| `adfs.h/.cpp` | `Adfs::Image`: the staged sector store used by **every** format, plus the ADFS old-map filesystem (`FsMap`, `Dir`, `Entry`), validation, commit |
-| `dosfs.h/.cpp` | `Dos::Volume`: FAT12/FAT16 inside an `Image` (BPB, table-driven `Dos::Format`, Acorn layouts); browse/add/mkdir/delete/rename/label/check |
-| `dfs.h/.cpp` | `Dfs::Disc`: one side of a DFS disc (catalogue in sectors 0-1, plus sectors 2-3 on a Watford 62-file disc: `watford()`, `maxFiles()`); a .dsd = two `Disc`s |
+| `adfs.h/.cpp` | `Adfs::Image`: the opened disc used by **every** format - a DiskWranglerCore `Container` (raw, ImageDisk, DSK, TeleDisk) seen through a `Linear` with the side order - plus the ADFS old-map filesystem (`FsMap`, `Dir`, `Entry`), validation, commit |
+| `core/diskwrangler/device/` | DiskWranglerCore's device layer: `Container` (the image file, staged writes, the checked save), `Linear` (the disc in its own numbering, slices), `SideOrder` (was `Adfs::SideLayout`; the old name stays as a `using` for the tests) |
+| `dosfs.h/.cpp` | `Dos::Volume`: FAT12/FAT16 on a `Linear` - an `Image`'s, a whole floppy or the DRIVE_C file in it (BPB, table-driven `Dos::Format`, Acorn layouts); browse/add/mkdir/delete/rename/label/check |
+| `dfs.h/.cpp` | `Dfs::Disc`: one side of a DFS disc, on an `Image`'s `Linear` (catalogue in sectors 0-1, plus sectors 2-3 on a Watford 62-file disc: `watford()`, `maxFiles()`); a .dsd = two `Disc`s |
 | `diskformat.h/.cpp` | `detectDisk(path, force)` -> `DiskInfo` (kind, full size, DFS layout, side layout + whether the side order was confirmed). Decides how a file is opened |
 | `newdisc.h/.cpp` | `NewDisc::create()`: blank images of every format (File > New image); pure QtCore, checks its own output with `detectDisk`. The 640K DOS Plus disc needs a `bootSource` (an existing 640K disc to copy the boot track from, or a DOSBOOT file): DOSBOOT is Acorn's code and must never be put in the repo |
 | `mainwindow.h/.cpp` | main window, `DropTree`, open/save/refresh/updateUi, ADFS pane |
@@ -53,17 +54,21 @@ files (see Build).
 
 ## The rules that must not be broken
 1. **Nothing is written to the image except by `Image::commit()`.** All edits (ADFS, DOS, DFS)
-   are *staged* as sector extents in `Image::m_pending` via `writeSectors`/`writeFileBytes`.
-   Reads (`readSectors`/`readFileBytes`) overlay staged data on the file, so every layer sees
-   its own pending changes. Never write to the `QFile` directly from a filesystem layer.
+   are *staged* in the container (`Image::linear()`, `writeSectors`/`writeFileBytes`): a raw file in 128-byte
+   blocks, the other containers per sector. Reads overlay staged data on the file, so every layer sees its own
+   pending changes. A raw file is read as needed, never loaded whole (a hard disc is 512 MB). A staged write that
+   fails (a bad sector in an ImageDisk file) undoes the whole change.
 2. **Validate before writing.** `commit()` runs `validate()` (ADFS map + tree) and the *extra
    validator* (set by `MainWindow`: DOS volume and DFS catalogue checks, only when their area
    has pending changes). Any error vetoes the whole save. It also refuses if sectors 0-1 on
-   disk changed since the image was opened. Write order: data, then directories, then
-   sectors 0-1 last. Then it re-validates.
+   disk changed since the image was opened. Then a complete new copy is written beside the file, opened again as
+   an `Image` and checked (`validate()`, and the *reopen validator* - DOS and DFS attached to the copy and checked);
+   only then is the `.bak` made (a hard link where the system allows) and the copy renamed over the original
+   (DiskWranglerCore's `Container::SaveOptions`). There is no in-place write: a save needs room for a second copy,
+   and on Windows it is refused while an emulator holds the file ("in use by another program").
 3. **Never save a truncated image - and never grow a complete one.** `Image::fullSize()` is the true disc
-   size; a short file is padded in memory on open (`needsPadding()`), Save is enabled for pad-only, and
-   `commit()` resizes the file to `fullSize` before writing. For ADFS, padding only happens up to a
+   size; a short file reads as zeros to that size (`needsPadding()`), Save is enabled for pad-only, and
+   the saved copy is `fullSize` long. For ADFS, padding only happens up to a
    *standard floppy size* (160K/320K/640K); never trust an ADFS map's size claim to grow a file (see the
    hybrid gotcha in docs/disc-formats.md). A save with nothing changed must leave the file byte-identical.
 4. **Every mutating operation is atomic**: take `Image::snapshot()`, do the work, `restore()` on

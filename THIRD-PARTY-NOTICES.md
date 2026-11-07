@@ -13,6 +13,15 @@ Its `docs/retro-files-format.md` is the specification of the drag format; the `c
 with CP/M Disk Wrangler. The access letters in
 its `acorn` namespace are those of the Stardot `.inf` format (see below), adopted so that the two agree.
 
+The disc image containers in DiskWranglerCore (`core/diskwrangler/device/`), which let this program read Acorn discs
+in ImageDisk, DSK and TeleDisk files, came from CP/M Disk Wrangler. Its TeleDisk "advanced compression" decoder
+(`core/diskwrangler/device/lzhuf.cpp`) implements the LZHUF algorithm and follows the structure of **LZHUF.C** by
+**Haruyasu Yoshizaki** (1988, with English comments by **Haruhiko Okumura**, 1989), which builds on Okumura's
+public-domain LZSS. LZHUF.C was published without any licence statement and has been redistributed and adapted
+freely for over thirty years; no terms are known that restrict this use. The decoder was written for CP/M Disk
+Wrangler (its tables are generated, not copied) and is distributed under the GPL; the credit is given because its
+structure follows LZHUF.C.
+
 ## Not included: Acorn's DOSBOOT
 A new DOS Plus 640K disc needs Acorn's DOSBOOT boot code. It is **not** part of this program or its repository:
 File > New image copies it from a disc image or a DOSBOOT file that the user supplies.
