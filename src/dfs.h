@@ -15,7 +15,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-// dfs.h - Acorn DFS (single density, 256-byte sectors, 10 per track) discs inside an Adfs::Image.
+// dfs.h - Acorn DFS (single density, 256-byte sectors, 10 per track) discs, read and written through a
+// dw::device::Linear (the disc in its own numbering: an Adfs::Image's linear()).
 // One Disc object handles one side: a double-sided image gives two independent discs
 // (side 0 = drive 0, side 1 = drive 2), each with its own catalogue.
 // Watford DFS's 62-file discs are handled too: a second catalogue in sectors 2-3, marked by eight &AA bytes
@@ -66,9 +67,11 @@ bool watfordCatalogue(const QByteArray &track0, quint32 *sectors = nullptr);
 
 class Disc {
 public:
-    bool attach(Adfs::Image *img, int side, const Layout &lay, QString *err);
-    void detach() { m_img = nullptr; }
-    bool attached() const { return m_img != nullptr; }
+    // disc: the whole disc (both sides), size bytes long. It must outlive the Disc.
+    bool attach(dw::device::Linear *disc, quint64 size, int side, const Layout &lay, QString *err);
+    bool attach(Adfs::Image *img, int side, const Layout &lay, QString *err) { return attach(&img->linear(), img->fullSize(), side, lay, err); }
+    void detach() { m_lin = nullptr; }
+    bool attached() const { return m_lin != nullptr; }
     int side() const { return m_side; }
 
     QString title() const { return m_title; }
@@ -104,7 +107,7 @@ private:
     bool addInner(QChar dir, const QString &name, const QByteArray &data, quint32 load, quint32 exec, bool locked,
                   bool replace, QString *err);
 
-    Adfs::Image *m_img = nullptr;
+    dw::device::Linear *m_lin = nullptr;
     int m_side = 0;
     Layout m_lay;
     quint32 m_len = 0;

@@ -26,17 +26,20 @@
 //   sectors 2-6  root directory ("$"), 1280 bytes: Hugo format, 47 x 26-byte entries
 //
 // All modifications are STAGED in memory; nothing touches the image file until
-// commit(), which re-validates the whole free space map + directory tree first.
+// commit(), which re-validates the whole free space map + directory tree first, then saves a checked copy.
 #pragma once
 
 #include <QByteArray>
 #include <QDateTime>
-#include <QFile>
 #include <QList>
 #include <QString>
 #include <QStringList>
 #include <QVector>
 #include <functional>
+
+#include <diskwrangler/device/container.h>
+#include <diskwrangler/device/linear.h>
+#include <diskwrangler/device/sideorder.h>
 
 namespace Adfs {
 
@@ -119,43 +122,28 @@ struct Report {
     bool ok() const { return errors.isEmpty(); }
 };
 
-// A double-sided floppy has two independent orderings, and Image keeps them apart:
-//  * how the DISC numbers its sectors (sideFirst) - what everything above Image (ADFS, DFS, DOS) works in:
-//      sideFirst = true:  all of side 0 (cylinders 0..n-1), then all of side 1. ADFS L and DOS Plus 640K: the
-//                         machine reads side 0 to the end, then side 1 (checked against real .adl discs).
-//      sideFirst = false: sides alternate cylinder by cylinder (sector, side, track): DOS Plus 800K, PC, and a
-//                         DFS .dsd (whose two sides are separate discs, mapped by Dfs::Disc on top of this).
-//  * how the image FILE stores the tracks (sequential):
-//      false: interleaved - cylinder 0 side 0, cylinder 0 side 1, cylinder 1 side 0, ...  (the usual layout)
-//      true:  sequential  - all of side 0, then all of side 1
-// Image translates between the two track by track as it reads and writes, and can rewrite the file in the other
-// order when saving (setConvertOnSave).
-struct SideLayout {
-    quint32 trackBytes = 0;          // one track (one side of one cylinder); 0 = not a double-sided floppy
-    quint32 cylinders = 0;
-    bool sequential = false;         // file order
-    bool sideFirst = false;          // disc's own sector numbering
-    bool doubleSided() const { return trackBytes != 0 && cylinders != 0; }
-    bool remaps() const { return doubleSided() && (sequential || sideFirst); }
-    quint64 discBytes() const { return quint64(trackBytes) * cylinders * 2; }
-    // file offset of a disc offset (in the disc's own numbering), and how many bytes from there stay in the same track
-    quint64 toFile(quint64 off, quint64 *room = nullptr) const;
-};
-// The image file for a whole disc given in its own numbering, laid out as lay says. Bytes beyond discBytes() are
-// kept as they are.
-QByteArray layoutFile(const QByteArray &disc, const SideLayout &lay);
-// Rearranges an interleaved image FILE into a sequential one (toSequential) or back - a pure reordering of the
-// file's tracks, whatever the disc's numbering. Bytes beyond discBytes() are kept as they are.
-QByteArray reorderSides(const QByteArray &file, const SideLayout &lay, bool toSequential);
+// A double-sided floppy's two orderings - how the disc numbers its sectors (sideFirst) and how the image file stores
+// its tracks (sequential) - are DiskWranglerCore's dw::device::SideOrder (core/diskwrangler/device/sideorder.h).
+// Image reads and writes through a dw::device::Linear with that order, so ADFS, DFS and DOS only ever see the disc in
+// its own numbering. (These names stay for the tests.)
+using SideLayout = dw::device::SideOrder;
+using dw::device::layoutFile;
+using dw::device::reorderSides;
 
 // A blank old-map ADFS image of totalSectors sectors (640 = S, 1280 = M, 2560 = L, or any size).
 // With allFree == false the free space map lists nothing free ("disc full"), as a hybrid disc needs.
 QByteArray makeBlankImage(quint32 totalSectors, const QString &title, bool allFree = true);
 
+// The disc image: any container DiskWranglerCore reads (a raw file, ImageDisk, DSK, TeleDisk), seen through a
+// dw::device::Linear in the disc's own sector numbering. ADFS is read here; DFS (dfs.h) and DOS (dosfs.h) work on
+// the same Linear. Every change is staged in the container; commit() validates and then saves a checked copy that
+// replaces the file (see dw::device::Container::SaveOptions).
 class Image {
 public:
-    struct Extent { quint32 start; QByteArray data; };
-    struct Snapshot { FsMap map; QList<Extent> pending; };
+    Image() = default;
+    Image(const Image &) = delete;                // its Linear points at its own container
+    Image &operator=(const Image &) = delete;
+    struct Snapshot { FsMap map; dw::device::Container::Snapshot staged; };
 
     // forceFullSize (if non-zero) fixes the disc size instead of trusting the ADFS map, and tolerates a map that
     // claims more sectors than the file holds (Acorn DOS Plus hybrid discs do exactly that).
@@ -165,22 +153,26 @@ public:
     bool openRaw(const QString &path, quint64 fullSize, QString *err, const SideLayout &sides = SideLayout());
     // Side order of a double-sided floppy (see SideLayout). The file's current order is sideLayout().sequential;
     // setConvertOnSave stages a rewrite of the whole file in the given order, done by commit() (revert() drops it).
+    // Only a raw file has a side order of its own: in the other containers every track says where it is.
     const SideLayout &sideLayout() const { return m_sides; }
     bool setConvertOnSave(bool toSequential, QString *err);
     bool moveToCopy(const QString &dest, QString *err);   // copy the file to dest and work on that from now on
     bool convertPending() const { return m_convert; }
     bool isAdfs() const { return m_isAdfs; }
     quint64 fullSize() const { return m_fullSize; }
-    quint64 fileSize() const { return quint64(m_file.size()); }
+    quint64 fileSize() const;
+    // The container: raw sector file, or ImageDisk / DSK / TeleDisk.
+    dw::device::Kind containerKind() const { return m_c.kind(); }
+    bool isRawFile() const { return m_c.kind() == dw::device::Kind::Raw; }
     // True if the file on disk is shorter than the disc it describes; saving pads it out with zeros.
-    bool needsPadding() const { return m_file.isOpen() && quint64(m_file.size()) < m_fullSize; }
+    bool needsPadding() const { return isRawFile() && fileSize() < m_fullSize; }
     // Hybrid discs: make the ADFS side read-only while the DOS side stays editable.
     void setAdfsLocked(bool on) { m_adfsLocked = on; }
     bool adfsLocked() const { return m_adfsLocked; }
     void close();
-    bool isOpen() const { return m_file.isOpen(); }
+    bool isOpen() const { return m_c.isOpen(); }
     bool editable() const { return m_editable; }
-    bool dirty() const { return !m_pending.isEmpty() || m_convert; }
+    bool dirty() const { return m_c.hasPending() || m_convert; }
     QString path() const { return m_path; }
     const Report &openReport() const { return m_openReport; }
 
@@ -190,10 +182,13 @@ public:
 
     // Full check of the (staged) free space map and directory tree.
     Report validate() const;
-    // Validates, then writes. Writes data first, directories next, free space map last.
+    // Validates, then saves: a checked copy of the whole image replaces the file. The copy is opened again and
+    // checked (validate(), and the reopen check if set) before anything is replaced. postReport: that check.
     bool commit(QString *err, bool makeBackup, Report *postReport);
     void revert();
 
+    // The whole disc in its own numbering: what DFS and DOS read and write through (and the container under it).
+    dw::device::Linear &linear() { return m_lin; }
     // Byte-range access inside a file that occupies [sin, sin+ceil(fileLen/256)) (used for the DOS partition).
     // Reads see staged changes; writes are staged like everything else.
     bool readFileBytes(quint32 sin, quint32 fileLen, quint64 off, quint32 len, QByteArray *out, QString *err) const;
@@ -201,8 +196,11 @@ public:
     bool pendingTouches(quint32 startSector, quint32 count) const;
     // Extra checks run by commit() before anything is written; non-empty result vetoes the save.
     void setExtraValidator(std::function<QStringList()> f) { m_extra = f; }
-    Snapshot snapshot() const { return Snapshot{m_map, m_pending}; }
-    void restore(const Snapshot &s) { m_map = s.map; m_pending = s.pending; }
+    // Extra checks of the saved copy, opened again as an Image, before it replaces the file (DFS and DOS volumes);
+    // non-empty result vetoes the save.
+    void setReopenValidator(std::function<QStringList(Image &saved)> f) { m_reopenCheck = f; }
+    Snapshot snapshot() const { return Snapshot{m_map, m_c.snapshot()}; }
+    void restore(const Snapshot &s) { m_map = s.map; m_c.restore(s.staged); }
 
     bool readDir(quint32 sector, Dir *d, QString *err) const;
     bool readFile(const Entry &e, QByteArray *out, QString *err) const;
@@ -221,12 +219,14 @@ public:
     bool replaceEntry(quint32 parent, const QString &oldName, const Entry &updated, QString *err);
 
 private:
-    QByteArray readRaw(quint32 start, quint32 count) const;
-    bool writeRaw(quint64 off, const QByteArray &data);    // interleaved-order offset; translated for a sequential file
+    bool openContainer(const QString &path, const SideLayout &sides, QString *err);
+    void makeLinear();
+    QByteArray readOnDisk(quint32 start, quint32 count) const;   // the file as it is now, nothing staged
     QByteArray readSectors(quint32 start, quint32 count) const;
-    void writeSectors(quint32 start, QByteArray data);
-    void stageFsMap();
+    bool writeSectors(quint32 start, QByteArray data);
+    bool stageFsMap();
     bool writeDir(const Dir &d);
+    bool staged(const Snapshot &snap, QString *err);        // after a change: a write that failed undoes it
     bool freeRun(quint32 start, quint32 n, QString *err);
     bool freeTree(quint32 dirSector, int depth, QString *err);
     bool checkEditable(QString *err) const;
@@ -235,7 +235,8 @@ private:
                       quint32 exec, quint8 flags, bool replace, QString *err);
     bool deleteInner(quint32 parent, const QString &name, QString *err);
 
-    mutable QFile m_file;
+    dw::device::Container m_c;
+    dw::device::Linear m_lin;
     bool m_isAdfs = true;
     bool m_adfsLocked = false;
     bool m_mapSizeMayExceed = false;   // set for hybrid discs: the ADFS map does not describe the whole disc
@@ -244,11 +245,12 @@ private:
     bool m_editable = false;
     FsMap m_map;
     QByteArray m_orig;            // sectors 0-1 as they were on disk when opened / last saved
-    QList<Extent> m_pending;
     SideLayout m_sides;           // how the file is laid out now
     bool m_convert = false;       // rewrite the file in the other side order on the next commit
     Report m_openReport;
+    QString m_stageError;         // the first staged write that failed during the current change
     std::function<QStringList()> m_extra;
+    std::function<QStringList(Image &)> m_reopenCheck;
 };
 
 } // namespace Adfs

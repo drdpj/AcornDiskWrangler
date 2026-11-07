@@ -17,15 +17,17 @@
  */
 #include "diskformat.h"
 
-#include <QFile>
 #include <QFileInfo>
 #include <functional>
 
 using namespace Adfs;
 
-static QByteArray rdAt(QFile &f, quint64 off, int n) {
-    if (!f.seek(qint64(off))) return QByteArray();
-    QByteArray b = f.read(n);
+// The disc's bytes as stored (a raw file's bytes; for ImageDisk, DSK and TeleDisk the tracks in raw-file order),
+// zeros past the end.
+static QByteArray rdAt(const dw::device::Container &c, quint64 off, int n) {
+    QByteArray b;
+    QString e;
+    if (!c.readStored(qint64(off), n, &b, &e)) b.clear();
     if (b.size() < n) b.append(QByteArray(n - b.size(), 0));
     return b;
 }
@@ -113,11 +115,9 @@ static void describeSides(DiskInfo &info) {
     if (info.sides.doubleSided() && info.sides.sequential) info.description += ", sequential sides";
 }
 
-DiskInfo detectDisk(const QString &path, int force) {
+static DiskInfo detectIn(const dw::device::Container &f, const QString &path, int force) {
     DiskInfo info;
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly)) return info;
-    quint64 size = quint64(f.size());
+    quint64 size = quint64(f.kind() == dw::device::Kind::Raw ? f.rawFileSize() : f.storedSize());
     QString suffix = QFileInfo(path).suffix().toLower();
     if (size < 512) return info;
     info.fullSize = size;
@@ -317,4 +317,35 @@ DiskInfo detectDisk(const QString &path, int force) {
         return info;
     }
     return info;     // Unknown
+}
+
+static QString inContainer(dw::device::Kind k) {
+    switch (k) {
+    case dw::device::Kind::Imd: return "in an ImageDisk file";
+    case dw::device::Kind::Dsk: return "in a DSK file";
+    case dw::device::Kind::Edsk: return "in an extended DSK file";
+    case dw::device::Kind::Td0: return "in a TeleDisk file (read-only)";
+    default: return QString();
+    }
+}
+
+DiskInfo detectDisk(const QString &path, int force) {
+    dw::device::Container c;
+    QString e;
+    if (!c.open(path, &e)) return DiskInfo();
+    c.setRawPadding(0, 0);
+    if (c.kind() == dw::device::Kind::Raw) return detectIn(c, path, force);
+    // ImageDisk, DSK, TeleDisk: read as the raw image their tracks make. Every track says where it is, so there is
+    // no side order to detect (the stored order is interleaved).
+    DiskInfo info;
+    if (c.storedSize(&e) == 0) {
+        info.description = dw::device::kindName(c.kind());
+        info.notes << e;
+        return info;
+    }
+    info = detectIn(c, path, 0);
+    info.sidesForced = false;
+    info.sidesConfirmed = true;
+    if (info.kind != DiskInfo::Unknown) info.description += ", " + inContainer(c.kind());
+    return info;
 }

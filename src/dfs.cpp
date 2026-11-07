@@ -141,7 +141,9 @@ bool Disc::rd(quint32 n, quint32 count, QByteArray *out, QString *err) const {
         quint32 chunk = count;
         if (m_lay.doubleSided && m_lay.interleaved) chunk = qMin(count, quint32(SectorsPerTrack) - n % SectorsPerTrack);
         QByteArray t;
-        if (!m_img->readFileBytes(0, m_len, quint64(phys(n)) * SectorSize, chunk * SectorSize, &t, err)) return false;
+        const quint64 off = quint64(phys(n)) * SectorSize;
+        if (off + chunk * SectorSize > m_len) { *err = "read beyond the end of the disc"; return false; }
+        if (!m_lin->read(qint64(off), qint64(chunk) * SectorSize, &t, err)) return false;
         out->append(t);
         n += chunk; count -= chunk;
     }
@@ -154,7 +156,9 @@ bool Disc::wr(quint32 n, const QByteArray &data, QString *err) {
     while (count) {
         quint32 chunk = count;
         if (m_lay.doubleSided && m_lay.interleaved) chunk = qMin(count, quint32(SectorsPerTrack) - n % SectorsPerTrack);
-        if (!m_img->writeFileBytes(0, m_len, quint64(phys(n)) * SectorSize, data.mid(pos, int(chunk * SectorSize)), err)) return false;
+        const quint64 off = quint64(phys(n)) * SectorSize;
+        if (off + chunk * SectorSize > m_len) { *err = "write beyond the end of the disc"; return false; }
+        if (!m_lin->write(qint64(off), data.mid(pos, int(chunk * SectorSize)), err)) return false;
         n += chunk; count -= chunk; pos += int(chunk * SectorSize);
     }
     return true;
@@ -162,9 +166,9 @@ bool Disc::wr(quint32 n, const QByteArray &data, QString *err) {
 
 // ----------------------------------------------------------------- catalogue
 
-bool Disc::attach(Image *img, int side, const Layout &lay, QString *err) {
-    m_img = img; m_side = side; m_lay = lay; m_len = quint32(img->fullSize());
-    if (!load(err)) { m_img = nullptr; return false; }
+bool Disc::attach(dw::device::Linear *disc, quint64 size, int side, const Layout &lay, QString *err) {
+    m_lin = disc; m_side = side; m_lay = lay; m_len = quint32(size);
+    if (!load(err)) { m_lin = nullptr; return false; }
     return true;
 }
 
@@ -345,11 +349,11 @@ bool Disc::readFile(const File &f, QByteArray *out, QString *err) const {
 
 #define DFS_TXN(call)                                                          \
     do {                                                                       \
-        if (!m_img || !m_img->editable()) { *err = "image is read-only"; return false; } \
-        Image::Snapshot snap = m_img->snapshot();                              \
+        if (!m_lin || !m_lin->writable()) { *err = "image is read-only"; return false; } \
+        dw::device::Container::Snapshot snap = m_lin->container()->snapshot();  \
         Disc before = *this;                                                   \
         bool ok = (call);                                                      \
-        if (!ok) { m_img->restore(snap); *this = before; return false; }       \
+        if (!ok) { m_lin->container()->restore(snap); *this = before; return false; } \
         return true;                                                           \
     } while (0)
 

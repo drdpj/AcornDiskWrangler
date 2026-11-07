@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 // dosfs.h - FAT12/FAT16 volume stored inside an ADFS file (DOS Plus partition, e.g. $.DOS.DRIVE_C).
-// All access goes through Adfs::Image byte-range calls, so every change is staged and is only
+// All access goes through a dw::device::Linear (an Adfs::Image's linear()), so every change is staged and is only
 // written when the image is saved (after validation).
 #pragma once
 
@@ -59,16 +59,21 @@ enum Format { FmtPc360, FmtPc720, FmtPc1200, FmtPc1440, FmtAcorn800, FmtAcorn640
 class Volume {
 public:
     // Geometry from the boot sector BPB.
-    bool attach(Adfs::Image *img, quint32 adfsSin, quint32 fileLen, QString *err);
+    // disc: the whole disc in its own numbering (it must outlive the Volume); the volume is the fileLen bytes from
+    // sector sin (the ADFS file $.DOS.DRIVE_C, or 0 and the whole disc for a floppy).
+    bool attach(dw::device::Linear *disc, quint32 sin, quint32 fileLen, QString *err);
+    bool attachFormat(dw::device::Linear *disc, quint32 sin, quint32 fileLen, Format f, QString *err);
+    bool attachParams(dw::device::Linear *disc, quint32 sin, quint32 fileLen, const Params &p, QString *err);
+    bool attach(Adfs::Image *img, quint32 adfsSin, quint32 fileLen, QString *err) { return attach(&img->linear(), adfsSin, fileLen, err); }
     // Geometry from the table of known floppy layouts (no usable boot sector needed).
-    bool attachFormat(Adfs::Image *img, quint32 sin, quint32 fileLen, Format f, QString *err);
-    bool attachParams(Adfs::Image *img, quint32 sin, quint32 fileLen, const Params &p, QString *err);
+    bool attachFormat(Adfs::Image *img, quint32 sin, quint32 fileLen, Format f, QString *err) { return attachFormat(&img->linear(), sin, fileLen, f, err); }
+    bool attachParams(Adfs::Image *img, quint32 sin, quint32 fileLen, const Params &p, QString *err) { return attachParams(&img->linear(), sin, fileLen, p, err); }
     static Params standard(Format f);
     static bool readBpb(const QByteArray &boot, Params *out);   // field extraction only
     static bool plausible(const Params &p);                      // sanity check of a BPB'd geometry
     quint32 bytesPerSector() const { return m_bps; }
-    void detach() { m_img = nullptr; }
-    bool attached() const { return m_img != nullptr; }
+    void detach() { m_lin = nullptr; }
+    bool attached() const { return m_lin != nullptr; }
     quint32 sin() const { return m_sin; }
     quint32 length() const { return m_len; }
     QString label() const { return m_label; }
@@ -130,7 +135,7 @@ private:
     bool modifyInner(quint32 dir, const QString &oldName, const QString &newName, quint8 attr, QString *err);
     static bool toRaw(const QString &name, QByteArray *raw11, QString *why);
 
-    Adfs::Image *m_img = nullptr;
+    dw::device::Linear *m_lin = nullptr;
     quint32 m_sin = 0, m_len = 0;
     quint32 m_bps = 0, m_spc = 0, m_res = 0, m_nfats = 0, m_rootEnt = 0, m_spf = 0, m_total = 0;
     quint32 m_rootSectors = 0, m_dataStart = 0, m_clusters = 0;

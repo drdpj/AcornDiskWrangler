@@ -491,6 +491,33 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
                 for (const QString &e : m_dfs[s].check().errors) out << QString("DFS drive %1: %2").arg(s * 2).arg(e);
         return out;
     });
+    // and the copy that is about to replace the file is checked the same way, read back from the copy itself
+    m_img.setReopenValidator([this](Adfs::Image &saved) -> QStringList {
+        QStringList out;
+        QString err;
+        if (m_dos.attached() && m_img.pendingTouches(m_dos.sin(), Adfs::sectorsFor(m_dos.length()))) {
+            Dos::Volume v;
+            bool ok;
+            switch (m_info.kind) {
+            case DiskInfo::AdfsDosHybrid: ok = v.attachFormat(&saved, m_dos.sin(), m_dos.length(), Dos::FmtAcorn640, &err); break;
+            case DiskInfo::DosAcorn800: ok = v.attachFormat(&saved, m_dos.sin(), m_dos.length(), Dos::FmtAcorn800, &err); break;
+            case DiskInfo::DosPc:
+                ok = m_info.dosFromTable ? v.attachFormat(&saved, m_dos.sin(), m_dos.length(), m_info.dosFormat, &err)
+                                         : v.attach(&saved, m_dos.sin(), m_dos.length(), &err);
+                break;
+            default: ok = v.attach(&saved, m_dos.sin(), m_dos.length(), &err);
+            }
+            if (!ok) out << "DOS partition: " + err;
+            else for (const QString &e : v.check().errors) out << "DOS partition: " + e;
+        }
+        for (int s = 0; s < 2; ++s)
+            if (m_dfs[s].attached() && m_img.pendingTouches(0, quint32(m_img.fullSize() / Adfs::SectorSize))) {
+                Dfs::Disc d;
+                if (!d.attach(&saved, s, m_info.dfs, &err)) out << QString("DFS drive %1: %2").arg(s * 2).arg(err);
+                else for (const QString &e : d.check().errors) out << QString("DFS drive %1: %2").arg(s * 2).arg(e);
+            }
+        return out;
+    });
     for (QAction *a : {m_optReadInf, m_optWriteInf, m_optBackup})
         connect(a, &QAction::toggled, this, [this] {
             AppSettings s;
@@ -518,7 +545,7 @@ void MainWindow::openDialog() {
     AppSettings s;
     QString p = QFileDialog::getOpenFileName(
         this, "Open disc image", s.value("lastDir").toString(),
-        "Disc images (" + dw::anyCase("*.dat *.img *.ima *.dsk *.hdf *.adf *.adl *.adm *.ads *.ssd *.dsd *.bin") + ");;All files (*)");
+        "Disc images (" + dw::anyCase("*.dat *.img *.ima *.dsk *.hdf *.adf *.adl *.adm *.ads *.ssd *.dsd *.bin *.imd *.td0") + ");;All files (*)");
     if (p.isEmpty()) return;
     MainWindow *target = this;
     if (m_img.isOpen()) {                       // each disc lives in its own window, so they can be dragged between
@@ -596,7 +623,9 @@ bool MainWindow::openImage(const QString &path, int force) {
                    "This image's free space map / directory structure is damaged, so it has been opened "
                    "READ-ONLY. Nothing can be added or changed until it has been repaired.", r, true);
     } else if (!m_img.editable()) {
-        QMessageBox::information(this, "Read-only", "The image file is not writable, so it has been opened read-only.");
+        QMessageBox::information(this, "Read-only", m_img.containerKind() == dw::device::Kind::Td0
+                                     ? "TeleDisk images can only be read, so it has been opened read-only. Files can be copied from it."
+                                     : "The image file is not writable, so it has been opened read-only.");
     } else if (m_img.isAdfs() && !r.warnings.isEmpty() && m_info.kind != DiskInfo::AdfsDosHybrid) {
         statusBar()->showMessage("Opened with warnings - see Tools > Check." + pad, 15000);
     } else {
@@ -611,7 +640,7 @@ bool MainWindow::openImage(const QString &path, int force) {
 // ---------------------------------------------------------------- side order
 
 bool MainWindow::readWithSideOrder(bool sequential) {
-    if (!m_img.isOpen() || !m_img.sideLayout().doubleSided()) return false;
+    if (!m_img.isOpen() || !m_img.sideLayout().doubleSided() || !m_img.isRawFile()) return false;
     if (m_img.sideLayout().sequential == sequential && !m_img.convertPending()) { updateUi(); return true; }
     bool ok = openImage(m_img.path(), sequential ? 1 : 0);
     updateUi();
@@ -619,7 +648,7 @@ bool MainWindow::readWithSideOrder(bool sequential) {
 }
 
 bool MainWindow::convertSideOrder(bool toSequential, bool confirm) {
-    if (!m_img.isOpen() || !m_img.sideLayout().doubleSided()) return false;
+    if (!m_img.isOpen() || !m_img.sideLayout().doubleSided() || !m_img.isRawFile()) return false;
     if (confirm) {
         QString to = toSequential ? "sequentially (all of side 0, then all of side 1)"
                                   : "interleaved (each cylinder's side 0 track, then its side 1 track)";
@@ -1003,7 +1032,8 @@ QString MainWindow::readOnlyReason() const {
     if (!m_img.isOpen()) return "no disc";
     if (!m_img.editable())
         return m_img.isAdfs() && !m_img.openReport().ok() ? "the free space map or directories are damaged (Tools > Check disc)"
-                                                         : "the image file can't be written";
+                                                         : m_img.containerKind() == dw::device::Kind::Td0 ? "TeleDisk images can only be read"
+                                                                                                           : "the image file can't be written";
     int ds = dfsSide();
     if (dosActive()) return m_dosOk ? QString() : "the DOS volume has errors (Tools > Check disc)";
     if (ds >= 0) return m_dfsOk[ds] ? QString() : QString("drive %1's catalogue has errors (Tools > Check disc)").arg(ds * 2);
@@ -1035,7 +1065,7 @@ void MainWindow::updateUi() {
     m_actRenameVol->setEnabled(canEdit);
     m_actBootOpt->setEnabled(canEdit && !dosPane);
     const Adfs::SideLayout &sl = m_img.sideLayout();
-    bool twoSides = has && sl.doubleSided();
+    bool twoSides = has && sl.doubleSided() && m_img.isRawFile();     // ImageDisk, DSK: each track says where it is
     m_actReadIl->setEnabled(twoSides);
     m_actReadSeq->setEnabled(twoSides);
     m_actReadIl->setChecked(twoSides && !sl.sequential);

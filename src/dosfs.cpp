@@ -114,10 +114,15 @@ static DEntry parseEntry(const char *p) {
 // ------------------------------------------------------------- attach / FAT
 
 bool Volume::rd(quint64 off, quint32 len, QByteArray *out, QString *err) const {
-    return m_img->readFileBytes(m_sin, m_len, off, len, out, err);
+    if (off + len > m_len) { *err = "read beyond the end of the file"; return false; }
+    if (len == 0) { out->clear(); return true; }
+    return m_lin->read(qint64(m_sin) * 256 + qint64(off), len, out, err);
 }
 bool Volume::wr(quint64 off, const QByteArray &d, QString *err) {
-    return m_img->writeFileBytes(m_sin, m_len, off, d, err);
+    if (!m_lin->writable()) { *err = "image is read-only (file not writable, or its free space map failed validation)"; return false; }
+    if (d.isEmpty()) return true;
+    if (off + d.size() > m_len) { *err = "write beyond the end of the file"; return false; }
+    return m_lin->write(qint64(m_sin) * 256 + qint64(off), d, err);
 }
 
 Params Volume::standard(Format f) {
@@ -151,24 +156,24 @@ bool Volume::plausible(const Params &p) {
            p.nfats >= 1 && p.nfats <= 2 && p.rootEnt > 0 && p.spf > 0 && p.total > 0 && p.media >= 0xF0;
 }
 
-bool Volume::attach(Image *img, quint32 sin, quint32 length, QString *err) {
-    m_img = img; m_sin = sin; m_len = length;
-    if (length < 1024) { *err = "not a FAT12/FAT16 DOS volume: file too small"; m_img = nullptr; return false; }
+bool Volume::attach(dw::device::Linear *img, quint32 sin, quint32 length, QString *err) {
+    m_lin = img; m_sin = sin; m_len = length;
+    if (length < 1024) { *err = "not a FAT12/FAT16 DOS volume: file too small"; m_lin = nullptr; return false; }
     QByteArray b;
-    if (!rd(0, 512, &b, err)) { m_img = nullptr; return false; }
+    if (!rd(0, 512, &b, err)) { m_lin = nullptr; return false; }
     Params p;
-    if (!readBpb(b, &p)) { *err = "not a FAT12/FAT16 DOS volume: no boot sector"; m_img = nullptr; return false; }
+    if (!readBpb(b, &p)) { *err = "not a FAT12/FAT16 DOS volume: no boot sector"; m_lin = nullptr; return false; }
     return attachParams(img, sin, length, p, err);
 }
 
-bool Volume::attachFormat(Image *img, quint32 sin, quint32 length, Format f, QString *err) {
+bool Volume::attachFormat(dw::device::Linear *img, quint32 sin, quint32 length, Format f, QString *err) {
     return attachParams(img, sin, length, standard(f), err);
 }
 
-bool Volume::attachParams(Image *img, quint32 sin, quint32 length, const Params &p, QString *err) {
-    m_img = img; m_sin = sin; m_len = length;
+bool Volume::attachParams(dw::device::Linear *img, quint32 sin, quint32 length, const Params &p, QString *err) {
+    m_lin = img; m_sin = sin; m_len = length;
     m_hasBpb = p.bpb;
-    auto fail = [&](const QString &why) { *err = "not a FAT12/FAT16 DOS volume: " + why; m_img = nullptr; return false; };
+    auto fail = [&](const QString &why) { *err = "not a FAT12/FAT16 DOS volume: " + why; m_lin = nullptr; return false; };
     m_bps = p.bps; m_spc = p.spc; m_res = p.res; m_nfats = p.nfats; m_rootEnt = p.rootEnt; m_spf = p.spf;
     m_total = p.total; m_media = p.media;
     auto pow2 = [](quint32 v) { return v && !(v & (v - 1)); };
@@ -186,7 +191,7 @@ bool Volume::attachParams(Image *img, quint32 sin, quint32 length, const Params 
     m_fat16 = m_clusters >= 4085;
     quint32 need = m_fat16 ? (m_clusters + 2) * 2 : ((m_clusters + 2) * 3 + 1) / 2;
     if (m_spf * m_bps < need) return fail("FAT is too small for the volume");
-    if (!loadFat(err)) { m_img = nullptr; return false; }
+    if (!loadFat(err)) { m_lin = nullptr; return false; }
 
     m_label.clear();
     QByteArray root;
@@ -377,10 +382,10 @@ bool Volume::freeSlot(quint32 dir, QVector<Region> &rg, QByteArray &data, int *i
 
 #define DOS_TXN(call)                                                         \
     do {                                                                      \
-        if (!m_img || !m_img->editable()) { *err = "image is read-only"; return false; } \
-        Image::Snapshot snap = m_img->snapshot();                             \
+        if (!m_lin || !m_lin->writable()) { *err = "image is read-only"; return false; } \
+        dw::device::Container::Snapshot snap = m_lin->container()->snapshot(); \
         bool ok = (call);                                                     \
-        if (!ok) { m_img->restore(snap); QString e2; loadFat(&e2); return false; } \
+        if (!ok) { m_lin->container()->restore(snap); QString e2; loadFat(&e2); return false; } \
         return true;                                                          \
     } while (0)
 
