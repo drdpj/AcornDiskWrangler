@@ -6,3 +6,4 @@ TARGET = dostest
 INCLUDEPATH += ../src
 SOURCES += dostest.cpp ../src/adfs.cpp ../src/dosfs.cpp
 HEADERS += ../src/adfs.h ../src/dosfs.h
+!include(../core/diskwrangler-device.pri): error("core/ is empty: run 'git submodule update --init'")   # adfs.cpp sits on the core's device layer

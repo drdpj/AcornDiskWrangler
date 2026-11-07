@@ -6,3 +6,4 @@ TARGET = mkimg
 INCLUDEPATH += ../src
 SOURCES += mkimg.cpp ../src/adfs.cpp
 HEADERS += ../src/adfs.h
+!include(../core/diskwrangler-device.pri): error("core/ is empty: run 'git submodule update --init'")   # adfs.cpp sits on the core's device layer

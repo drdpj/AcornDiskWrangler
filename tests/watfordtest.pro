@@ -6,3 +6,4 @@ TARGET = watfordtest
 INCLUDEPATH += ../src
 SOURCES += watfordtest.cpp ../src/newdisc.cpp ../src/diskformat.cpp ../src/adfs.cpp ../src/dfs.cpp ../src/dosfs.cpp
 HEADERS += ../src/newdisc.h ../src/diskformat.h ../src/adfs.h ../src/dfs.h ../src/dosfs.h
+!include(../core/diskwrangler-device.pri): error("core/ is empty: run 'git submodule update --init'")   # adfs.cpp sits on the core's device layer

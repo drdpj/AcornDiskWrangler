@@ -6,3 +6,4 @@ TARGET = dfstest
 INCLUDEPATH += ../src
 SOURCES += dfstest.cpp ../src/adfs.cpp ../src/dfs.cpp
 HEADERS += ../src/adfs.h ../src/dfs.h
+!include(../core/diskwrangler-device.pri): error("core/ is empty: run 'git submodule update --init'")   # adfs.cpp sits on the core's device layer
