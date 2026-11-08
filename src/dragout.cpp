@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "dragout.h"
+#include "hostpolicy.h"
 
 #include <QDir>
 #include <QFile>
@@ -34,8 +35,6 @@ QString filesystemName(int srcPane) {
     return "fat";
 }
 
-static QString hex8(quint32 v) { return QString("%1").arg(v, 8, 16, QChar('0')).toUpper(); }
-
 // Access letters as in the Stardot .inf format (owner upper case; this program has no public bits to give).
 static QString adfsAccess(quint8 flags) {
     QString s;
@@ -44,13 +43,6 @@ static QString adfsAccess(quint8 flags) {
     if (flags & Adfs::FlagR) s += 'R';
     if (flags & Adfs::FlagE) s += 'E';
     return s;
-}
-
-static bool parseHex(const QJsonValue &v, quint32 *out) {
-    bool ok = false;
-    quint32 n = v.toString().toUInt(&ok, 16);
-    if (ok) *out = n;
-    return ok && v.isString();
 }
 
 // ------------------------------------------------------------------------------ XItem <-> dw::TransferItem
@@ -122,44 +114,6 @@ XItem fromTransfer(const dw::TransferItem &t) {
 }
 
 // ------------------------------------------------------------------------------ writing to the host
-
-// How Acorn items become host files: DFS files named NAME or D.NAME, FAT names keep their extension apart, and
-// (when asked) an Acorn .inf sidecar beside every ADFS and DFS file, exactly as Extract to host writes it.
-class AcornPolicy : public dw::xfer::HostPolicy {
-public:
-    explicit AcornPolicy(bool writeInf) : m_inf(writeInf) {}
-    QString hostName(const dw::TransferItem &it) const override {
-        const bool dfs = it.sourceFs == "dfs";
-        return dw::hostSafeName(dfs && it.name.startsWith("$.") ? it.name.mid(2) : it.name);
-    }
-    bool keepExtension(const dw::TransferItem &it) const override { return it.sourceFs == "fat"; }
-    void afterFile(const dw::TransferItem &it, const QString &absDir, const QString &relDir, const QString &host,
-                   dw::xfer::UsedNames &used, QStringList *topLevel, QStringList *errors) const override {
-        const bool dfs = it.sourceFs == "dfs";
-        if (!m_inf || !(dfs || it.sourceFs == "adfs")) return;
-        const QJsonObject acorn = it.attrs.value("acorn");
-        const QString access = acorn["access"].toString();
-        quint32 load = 0, exec = 0;
-        parseHex(acorn["load"], &load);
-        parseHex(acorn["exec"], &exec);
-        QString line;
-        if (dfs)
-            line = dw::dfs::infLineDfs(it.name[0], it.name.mid(2), load, exec, quint32(it.data.size()), access.contains('L'));
-        else {
-            const quint8 attr = quint8((access.contains('R') ? dw::dfs::InfR : 0) | (access.contains('W') ? dw::dfs::InfW : 0) |
-                                       (access.contains('E') ? dw::dfs::InfE : 0) | (access.contains('L') ? dw::dfs::InfL : 0));
-            line = dw::dfs::infLineAdfs(it.name, load, exec, quint32(it.data.size()), attr);
-        }
-        QString infName = used.unique(host + ".inf", false);
-        QFile inf(absDir + "/" + infName);
-        if (!inf.open(QIODevice::WriteOnly | QIODevice::Truncate) || inf.write(line.toLatin1()) < 0)
-            errors->append(QString("%1: %2").arg(infName, inf.errorString()));
-        else if (topLevel)
-            topLevel->append(relDir.isEmpty() ? infName : relDir + "/" + infName);
-    }
-private:
-    bool m_inf;
-};
 
 void writeHost(const QVector<XItem> &items, const QString &hostDir, bool writeInf, QStringList *topLevel,
                QJsonArray *jsonItems, QStringList *errors) {

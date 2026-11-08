@@ -21,6 +21,7 @@
 #include <QString>
 #include <QStringList>
 
+#include <diskwrangler/device/container.h>
 #include <diskwrangler/fs/detection.h>
 
 #include "dfs.h"
@@ -64,3 +65,10 @@ DiskInfo diskInfo(const dw::fs::Candidate &c);
 DiskInfo detectDisk(const QString &path, int forceSequential = -1);
 // Human-readable side order, e.g. "interleaved" or "sequential (all of side 0, then side 1)".
 QString sideOrderName(bool sequential);
+
+// The physical shape of a floppy of this kind, for writing it into an ImageDisk, DSK or extended DSK file (and
+// reading such a file back as a raw one): sector size, sectors per track, cylinders, heads, the first sector ID (ADFS and
+// DFS 0, PC FAT 1), the ImageDisk mode (DFS FM = 2, the rest MFM = 5) and sideBySide from the file's side order.
+// false (and why): hard discs and kinds this table doesn't cover; no geometry is invented. tests/containertest.cpp
+// keeps its own copy of the table; tests/convtest.cpp requires the two to agree.
+bool rawLayoutFor(const DiskInfo &info, dw::device::RawLayout *out, QString *why);

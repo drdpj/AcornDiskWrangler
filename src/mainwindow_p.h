@@ -38,6 +38,7 @@
 #include "adfs.h"
 #include "dfs.h"
 #include "dosfs.h"
+#include "hostpolicy.h"
 
 enum Roles { RoleParent = Qt::UserRole, RoleName, RoleIsDir, RoleSector, RoleIsRoot, RoleSide };   // RoleSide: DFS rows
 
@@ -84,16 +85,6 @@ struct XItem {
     QDateTime when;             // the date the source records, as shown in the tool (invalid if none); local, no zone
     QVector<XItem> kids;
 };
-
-// .inf sidecar: NAME LOAD EXEC [LENGTH] [ATTR|L]; NAME may be "D.NAME" (DFS directory letter). Read by
-// DiskWranglerCore's DFS module (dw::dfs::readInf); this is it with the access as Adfs::Flag bits.
-struct InfData {
-    QString name;
-    QChar dir;
-    quint32 load = 0, exec = 0;
-    quint8 flags = Adfs::FlagR | Adfs::FlagW;
-};
-bool readInf(const QString &hostPath, InfData *out);
 
 inline QString uniqueName(const QString &base, const Adfs::Dir &d, const ImportCtx &c, quint32 dir) {
     for (int i = 1; i < 1000; ++i) {

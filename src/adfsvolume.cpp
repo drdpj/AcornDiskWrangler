@@ -274,6 +274,21 @@ dw::fs::Placement AdfsVolume::placeIncoming(const dw::TransferItem &item, const 
     return p;
 }
 
+bool AdfsVolume::parsePath(const QString &text, Path *out, QString *err) const {
+    QString t = text.trimmed();
+    *out = Path();
+    if (t.isEmpty() || t == "/" || t == "$") return true;
+    if (t.startsWith("$.")) t = t.mid(2);
+    else if (t.startsWith('$')) { *err = "a path starts $. or is just the name: " + text; return false; }
+    const QStringList parts = t.split('.');
+    for (const QString &p : parts)
+        if (p.isEmpty()) { *err = "empty name in the path: " + text; return false; }
+    out->parts = parts;
+    return true;
+}
+
+QString AdfsVolume::displayPath(const Path &p) const { return p.isRoot() ? QString("$") : "$." + p.parts.join('.'); }
+
 // ------------------------------------------------------------------ OpenedDisc
 
 bool OpenedDisc::open(const QString &path, const DiskInfo &info, QString *err) {

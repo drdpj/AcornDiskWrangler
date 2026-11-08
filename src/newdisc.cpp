@@ -18,6 +18,7 @@
 #include "newdisc.h"
 
 #include <QFile>
+#include <diskwrangler/app/clock.h>
 #include <QSaveFile>
 #include <QDateTime>
 
@@ -80,7 +81,7 @@ static QByteArray pcBootSector(const dw::fat::Params &p, quint32 spt, quint32 he
     put16(s + 0x1A, heads);
     s[0x24] = 0x00;                                                  // drive 0
     s[0x26] = 0x29;                                                  // extended BPB follows
-    quint32 serial = quint32(QDateTime::currentMSecsSinceEpoch() & 0xFFFFFFFF);
+    quint32 serial = quint32(dw::now().toMSecsSinceEpoch() & 0xFFFFFFFF);   // dw::now(): repeatable under SOURCE_DATE_EPOCH
     for (int i = 0; i < 4; ++i) s[0x27 + i] = char((serial >> (8 * i)) & 0xFF);
     memcpy(s + 0x2B, "NO NAME    ", 11);
     memcpy(s + 0x36, "FAT12   ", 8);

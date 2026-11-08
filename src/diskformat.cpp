@@ -335,3 +335,42 @@ DiskInfo detectDisk(const QString &path, int force) {
     const dw::fs::Verdict v = detectAll(path, force, &unknown);
     return v.bestCandidate() ? diskInfo(*v.bestCandidate()) : unknown;
 }
+
+bool rawLayoutFor(const DiskInfo &info, dw::device::RawLayout *out, QString *why) {
+    dw::device::RawLayout l;
+    l.mode = 5;
+    const quint64 size = info.fullSize;
+    auto no = [&](const QString &w) { if (why) *why = w; return false; };
+    switch (info.kind) {
+    case DiskInfo::Adfs:
+        if (size == 163840) { l.seclen = 256; l.sectrk = 16; l.cyls = 40; l.heads = 1; }
+        else if (size == 327680) { l.seclen = 256; l.sectrk = 16; l.cyls = 80; l.heads = 1; }
+        else if (size == 655360) { l.seclen = 256; l.sectrk = 16; l.cyls = 80; l.heads = 2; }
+        else return no("a hard disc image has no track layout to convert");
+        l.firstId = 0;
+        break;
+    case DiskInfo::AdfsDosHybrid:
+        l.seclen = 256; l.sectrk = 16; l.cyls = 80; l.heads = 2; l.firstId = 0;
+        break;
+    case DiskInfo::Dfs:
+        if (info.dfs.sectorsPerSide == 0) return no("this DFS disc's size isn't known");
+        l.seclen = 256; l.sectrk = 10; l.cyls = int(info.dfs.sectorsPerSide / 10); l.heads = info.dfs.doubleSided ? 2 : 1;
+        l.firstId = 0;
+        l.mode = 2;                                             // FM
+        break;
+    case DiskInfo::DosAcorn800:
+        l.seclen = 1024; l.sectrk = 5; l.cyls = 80; l.heads = 2; l.firstId = 0;
+        break;
+    case DiskInfo::DosPc: {
+        const int spt = size == 368640 || size == 737280 ? 9 : size == 1228800 ? 15 : size == 1474560 ? 18 : 0;
+        if (!spt) return no("this PC disc isn't a 360K, 720K, 1.2M or 1.44M floppy, so its track layout isn't known");
+        l.seclen = 512; l.sectrk = spt; l.cyls = int(size / (512 * spt * 2)); l.heads = 2; l.firstId = 1;
+        break;
+    }
+    default:
+        return no("this kind of disc has no track layout to convert");
+    }
+    l.sideBySide = l.heads == 2 && info.kind != DiskInfo::DosPc && info.sides.sequential;
+    if (out) *out = l;
+    return true;
+}

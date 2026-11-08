@@ -71,6 +71,9 @@ public:
     QMap<QString, QJsonObject> toRetro(const dw::fs::Entry &e) const override;
     dw::fs::AttrValues fromRetro(const QMap<QString, QJsonObject> &families, dw::fs::NodeKind kind) const override;
     dw::fs::Placement placeIncoming(const dw::TransferItem &item, const dw::fs::Path &targetDir) const override;
+    // "$.Games.Elite" or "Games.Elite" ('.' separates; '/' is a name character); "", "/" and "$" are the root.
+    bool parsePath(const QString &text, dw::fs::Path *out, QString *err) const override;
+    QString displayPath(const dw::fs::Path &p) const override;
 
     bool dirSector(const dw::fs::Path &dir, quint32 *sector, QString *err) const;   // a directory's sector
     static dw::fs::Entry entry(const Entry &e);

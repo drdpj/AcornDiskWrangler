@@ -232,23 +232,6 @@ void DropTree::dropEvent(QDropEvent *e) {
 
 static QString hex8(quint32 v) { return QString("%1").arg(v, 8, 16, QChar('0')).toUpper(); }
 
-// --- .inf sidecar files:  NAME LOAD EXEC [LENGTH] [ATTR|L|Locked]   (InfData is declared in mainwindow_p.h)
-bool readInf(const QString &hostPath, InfData *out) {
-    dw::dfs::Inf i;
-    if (!dw::dfs::readInf(hostPath, &i)) return false;
-    InfData d;
-    d.name = i.name;
-    d.dir = i.dir;
-    d.load = i.load;
-    d.exec = i.exec;
-    if (i.hasAccess)
-        d.flags = quint8(((i.access & dw::dfs::InfR) ? FlagR : 0) | ((i.access & dw::dfs::InfW) ? FlagW : 0) |
-                         ((i.access & dw::dfs::InfE) ? FlagE : 0) | ((i.access & dw::dfs::InfL) ? FlagL : 0));
-    *out = d;
-    return true;
-}
-
-
 // ================================================================== MainWindow
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
