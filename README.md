@@ -106,6 +106,67 @@ too:
   `fat`, `cpm`): a tool for another kind of disc adds its own group and reads the ones it understands. The
   [specification](https://github.com/drdpj/DiskWranglerCore/blob/main/docs/retro-files-format.md) explains the format and why it exists.
 
+## Command line
+`acorndw` is the console version of this program: the same detection, the same checks and the same checked save,
+with no window, so it works in scripts. It has the form
+
+    acorndw [GLOBAL OPTIONS] COMMAND [OPTIONS] ARGS...
+
+Global options can come before or after the command. An image and a path are always separate arguments (`games.ssd`,
+then `$.ELITE`), never `games.ssd:$.ELITE`.
+
+**Where it's installed**
+* **Windows:** `acorndw.exe` sits beside `acorndiskwrangler.exe`, in the zip or in the installer's folder. Run it from
+  there, or add that folder to your PATH.
+* **macOS:** inside the app, at `Contents/MacOS/acorndw`. To run it from Terminal, make a link:
+  `sudo ln -s "/Applications/Acorn Disk Wrangler.app/Contents/MacOS/acorndw" /usr/local/bin/acorndw`
+* **Linux, `.deb`:** `/usr/bin/acorndw`, installed with the program.
+* **Linux, AppImage:** the AppImage runs the console program when it is started under the name `acorndw`, so make a
+  link to it: `ln -s acorndiskwrangler-<version>-linux-x86_64.AppImage acorndw`, then run `./acorndw`.
+
+**Examples.** Run in order in a folder that holds two host files, `HELLO` and `ELITE`:
+
+    acorndw new games.ssd --format=dfs-ss80              # a blank single-sided 80-track DFS disc
+    acorndw put games.ssd HELLO ELITE '$'                # add both files to the root directory, $
+    acorndw ls games.ssd                                 # list the disc
+    acorndw get games.ssd ELITE out/                     # extract ELITE and ELITE.inf into out/
+    acorndw check games.ssd                              # check every filesystem; exit 4 if one fails
+    acorndw convert games.ssd games.imd --container=imd  # write the same disc as an ImageDisk file
+
+`acorndw new --list` lists the formats that `--format` takes.
+
+`--dry-run` does everything, including every check, and writes nothing. Use it before a `put`, `rm` or `script` on a
+disc you care about:
+
+    acorndw --dry-run rm games.ssd '$.HELLO'
+
+`--json` replaces the text with one JSON document on stdout (schema 1), and nothing else is written there. It has
+`ok`, `exit`, `command`, `image`, `vol`, `changes`, `warnings` and `error`, plus a `result` that depends on the command.
+On failure, `error` gives the code and the name of the kind of failure. Scripts should read `exit` for the outcome and
+the envelope for detail. The full schema is in
+[docs/cli.md](https://github.com/drdpj/DiskWranglerCore/blob/main/docs/cli.md) in DiskWranglerCore.
+
+    acorndw --json ls games.ssd
+
+**Exit codes**
+
+| Code | Kind | Meaning |
+| --- | --- | --- |
+| 0 | ok | |
+| 1 | failed | The operation failed (disc full, bad name, unreadable file) |
+| 2 | usage | Wrong arguments |
+| 3 | not-found | The image, a path on it, or a host file isn't there |
+| 4 | check | The disc fails its check, so nothing was written |
+| 5 | conflict | A name exists and neither `--replace` nor `--skip` was given |
+| 6 | unsupported | The filesystem or container can't do that (a move between FAT directories; TeleDisk can't be written) |
+| 7 | foreign | The disc belongs to the other Wrangler (`info` names it; the program never launches it) |
+| 8 | ambiguous | Two readings are equally likely: say `--fs=ID` |
+| 9 | unrecognised | Nothing recognised the disc (`--fs=ID` tries a reading anyway) |
+| 10 | save | The checked save failed; the original is untouched |
+
+The full reference, with every command and option, is in
+[docs/cli.md](https://github.com/drdpj/DiskWranglerCore/blob/main/docs/cli.md).
+
 ## Limitations
 * ADFS new-map discs (D and E format, from the Archimedes) are recognised but not supported.
 * ADFS: names of up to 10 characters, at most 47 entries in a directory, and each file needs a contiguous run of
