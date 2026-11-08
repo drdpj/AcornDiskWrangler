@@ -1,0 +1,2 @@
+test ! -e img2.ssd
+test ! -e conv.imd

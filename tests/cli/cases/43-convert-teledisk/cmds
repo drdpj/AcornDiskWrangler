@@ -1,0 +1,7 @@
+$TOOL info img.td0 --json
+$TOOL ls img.td0 --json
+$TOOL convert img.td0 conv.adl --container=raw --json
+$TOOL convert img.td0 conv.imd --container=imd --json
+$TOOL put img.td0 host/PROG / --json
+$TOOL convert img.td0 conv2.td0 --container=td0 --json
+$TOOL check conv.adl --json

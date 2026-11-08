@@ -1,0 +1,6 @@
+# the files come back as they went in, with .inf sidecars that read back to the same discs
+for f in PROG Games/ELITE Games/ZALAGA; do cmp host/$f out/$f; done
+for f in PROG Games/ELITE Games/ZALAGA; do test -f out/$f.inf; done
+$TOOL new img2.adl --format=adfs-m --title=ADFSTEST --quiet
+$TOOL put img2.adl out/PROG out/Games / --quiet
+cmp img.adl img2.adl

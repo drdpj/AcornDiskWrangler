@@ -1,0 +1,25 @@
+{
+    "changes": [
+    ],
+    "command": "check",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_b.img",
+    "ok": true,
+    "result": {
+        "errors": [
+        ],
+        "info": [
+            "DOS volume 'M512 Disk 3': 77 files, 3 directories, 92 of 792 clusters free (FAT12, 1024-byte clusters)"
+        ],
+        "warnings": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

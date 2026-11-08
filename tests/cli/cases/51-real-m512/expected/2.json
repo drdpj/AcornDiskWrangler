@@ -1,0 +1,42 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_a.adl",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "04000000",
+                    "execute": false,
+                    "load": "04000000",
+                    "locked": false,
+                    "read": true,
+                    "write": true
+                },
+                "created": null,
+                "display": "$.dosboot",
+                "kind": "file",
+                "modified": null,
+                "name": "dosboot",
+                "path": [
+                    "dosboot"
+                ],
+                "problem": null,
+                "size": 2303,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

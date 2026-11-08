@@ -1,0 +1,3 @@
+#!/bin/bash
+# needs-real
+cp "$REAL/scsi0.dat" img.dat

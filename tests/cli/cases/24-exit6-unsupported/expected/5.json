@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "convert",
+    "dryRun": false,
+    "error": {
+        "code": 6,
+        "kind": "unsupported",
+        "message": "TeleDisk files can be read but not written",
+        "path": null
+    },
+    "exit": 6,
+    "image": "img.ssd",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

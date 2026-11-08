@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "attr",
+    "dryRun": false,
+    "error": {
+        "code": 2,
+        "kind": "usage",
+        "message": "exec: 'FF8100' is not a hexadecimal number of at most 18 bits",
+        "path": null
+    },
+    "exit": 2,
+    "image": "img.ssd",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

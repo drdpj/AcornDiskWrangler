@@ -1,0 +1,217 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.Games",
+                "kind": "dir",
+                "modified": null,
+                "name": "Games",
+                "path": [
+                    "Games"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "FFFF3000",
+                    "execute": false,
+                    "load": "FFFF3000",
+                    "locked": false,
+                    "read": true,
+                    "type": "F30",
+                    "write": true
+                },
+                "created": null,
+                "display": "$.Games.ELITE",
+                "kind": "file",
+                "modified": "1901-05-13T02:19:00",
+                "name": "ELITE",
+                "path": [
+                    "Games",
+                    "ELITE"
+                ],
+                "problem": null,
+                "size": 2605,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.Games.Games",
+                "kind": "dir",
+                "modified": null,
+                "name": "Games",
+                "path": [
+                    "Games",
+                    "Games"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "FFFF3000",
+                    "execute": false,
+                    "load": "FFFF3000",
+                    "locked": false,
+                    "read": true,
+                    "type": "F30",
+                    "write": true
+                },
+                "created": null,
+                "display": "$.Games.Games.ELITE",
+                "kind": "file",
+                "modified": "1901-05-13T02:19:00",
+                "name": "ELITE",
+                "path": [
+                    "Games",
+                    "Games",
+                    "ELITE"
+                ],
+                "problem": null,
+                "size": 2605,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "FFFF4001",
+                    "execute": false,
+                    "load": "FFFF4000",
+                    "locked": true,
+                    "read": false,
+                    "type": "F40",
+                    "write": false
+                },
+                "created": null,
+                "display": "$.Games.Games.ZALAGA",
+                "kind": "file",
+                "modified": "1901-05-13T02:19:41",
+                "name": "ZALAGA",
+                "path": [
+                    "Games",
+                    "Games",
+                    "ZALAGA"
+                ],
+                "problem": null,
+                "size": 906,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "00000000",
+                    "execute": false,
+                    "load": "00000000",
+                    "locked": false,
+                    "read": true,
+                    "write": true
+                },
+                "created": null,
+                "display": "$.Games.PLAIN",
+                "kind": "file",
+                "modified": null,
+                "name": "PLAIN",
+                "path": [
+                    "Games",
+                    "PLAIN"
+                ],
+                "problem": null,
+                "size": 18,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "FFFF4001",
+                    "execute": false,
+                    "load": "FFFF4000",
+                    "locked": true,
+                    "read": false,
+                    "type": "F40",
+                    "write": false
+                },
+                "created": null,
+                "display": "$.Games.ZALAGA",
+                "kind": "file",
+                "modified": "1901-05-13T02:19:41",
+                "name": "ZALAGA",
+                "path": [
+                    "Games",
+                    "ZALAGA"
+                ],
+                "problem": null,
+                "size": 906,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.T",
+                "kind": "dir",
+                "modified": null,
+                "name": "T",
+                "path": [
+                    "T"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "FFFF8023",
+                    "execute": false,
+                    "load": "FFFF1900",
+                    "locked": true,
+                    "read": false,
+                    "type": "F19",
+                    "write": false
+                },
+                "created": null,
+                "display": "$.T.GAME",
+                "kind": "file",
+                "modified": "1901-05-13T02:22:25",
+                "name": "GAME",
+                "path": [
+                    "T",
+                    "GAME"
+                ],
+                "problem": null,
+                "size": 1505,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

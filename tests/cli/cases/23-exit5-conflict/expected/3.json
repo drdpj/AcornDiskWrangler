@@ -1,0 +1,47 @@
+{
+    "changes": [
+        {
+            "from": "T.GAME",
+            "note": null,
+            "op": "add",
+            "path": "T.GAME",
+            "vol": "drive 0"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "T.GAME.inf",
+            "vol": "drive 0"
+        }
+    ],
+    "command": "get",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.ssd",
+    "ok": true,
+    "result": {
+        "manifest": null,
+        "written": [
+            {
+                "from": "T.GAME",
+                "host": "T.GAME",
+                "sidecar": false,
+                "size": 1505
+            },
+            {
+                "from": null,
+                "host": "T.GAME.inf",
+                "sidecar": true,
+                "size": 40
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

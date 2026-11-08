@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": {
+        "code": 9,
+        "kind": "unrecognised",
+        "message": "nothing read this disc as 'adfs'",
+        "path": null
+    },
+    "exit": 9,
+    "image": "img.bin",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

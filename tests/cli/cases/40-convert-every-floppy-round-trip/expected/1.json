@@ -1,0 +1,28 @@
+{
+    "changes": [
+        {
+            "from": "img_adfs-l.adl",
+            "note": "imd",
+            "op": "convert",
+            "path": "img_c_adfs-l.imd",
+            "vol": ""
+        }
+    ],
+    "command": "convert",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_adfs-l.adl",
+    "ok": true,
+    "result": {
+        "container": "ImageDisk (.IMD)",
+        "out": "img_c_adfs-l.imd",
+        "size": 12847
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

@@ -1,0 +1,2 @@
+$TOOL copy img_src.dsd img.adl --letters=flatten --json
+$TOOL ls img.adl -R --json

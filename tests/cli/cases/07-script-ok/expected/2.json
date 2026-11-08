@@ -1,0 +1,74 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "load",
+            "op": "boot",
+            "path": "",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "script",
+    "dryRun": false,
+    "error": {
+        "code": 3,
+        "kind": "not-found",
+        "message": "script line 2: $.Lib: not found",
+        "path": "$.Lib"
+    },
+    "exit": 3,
+    "image": "img.adl",
+    "ok": false,
+    "result": {
+        "lines": [
+            {
+                "changes": [
+                    {
+                        "from": null,
+                        "note": "load",
+                        "op": "boot",
+                        "path": "",
+                        "vol": "ADFS"
+                    }
+                ],
+                "command": "boot",
+                "error": null,
+                "exit": 0,
+                "line": 1,
+                "result": {
+                    "boot": {
+                        "index": 1,
+                        "name": "1 - *LOAD !BOOT"
+                    }
+                },
+                "text": "boot load",
+                "warnings": [
+                ]
+            },
+            {
+                "changes": [
+                ],
+                "command": "rm",
+                "error": {
+                    "code": 3,
+                    "kind": "not-found",
+                    "message": "$.Lib: not found",
+                    "path": "$.Lib"
+                },
+                "exit": 3,
+                "line": 2,
+                "result": {
+                },
+                "text": "rm Lib -r --force",
+                "warnings": [
+                ]
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

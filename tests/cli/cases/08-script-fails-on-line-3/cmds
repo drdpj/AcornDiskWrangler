@@ -1,0 +1,2 @@
+$TOOL script img.adl host/fails.txt --json
+$TOOL script img.adl host/forbidden.txt --json

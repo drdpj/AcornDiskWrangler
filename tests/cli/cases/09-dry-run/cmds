@@ -1,0 +1,6 @@
+$TOOL put img.adl host/Games / --dry-run --json
+$TOOL rm img.adl PROG --dry-run --json
+$TOOL mkdir img.adl Lib --dry-run --json
+$TOOL title img.adl OTHER --dry-run --json
+$TOOL convert img.adl conv.imd --container=imd --dry-run --json
+$TOOL new img2.ssd --format=dfs-ss40 --dry-run --json

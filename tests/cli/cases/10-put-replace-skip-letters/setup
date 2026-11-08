@@ -1,0 +1,3 @@
+#!/bin/bash
+$TOOL new img.adl --format=adfs-m --title=PUT --quiet
+$TOOL put img.adl host/GAME host/Games / --quiet

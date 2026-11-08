@@ -1,0 +1,4 @@
+#!/bin/bash
+$TOOL new img_src.adl --format=adfs-m --title=SRC --quiet
+$TOOL put img_src.adl host/PROG host/Games / --quiet
+$TOOL new img.ssd --format=dfs-ss80 --title=DEST --quiet

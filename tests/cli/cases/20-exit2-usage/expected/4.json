@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "boot",
+    "dryRun": false,
+    "error": {
+        "code": 2,
+        "kind": "usage",
+        "message": "boot: '9' is not one of 0 - off, 1 - *LOAD !BOOT, 2 - *RUN !BOOT, 3 - *EXEC !BOOT",
+        "path": null
+    },
+    "exit": 2,
+    "image": "img.ssd",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

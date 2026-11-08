@@ -1,0 +1,6 @@
+cmp img_ds80.dsd img_b1.dsd
+cmp img_ds80.dsd img_b2.dsd
+cmp img_adl.adl img_b3.adl
+cmp img_adl.adl img_r3.adl
+! cmp -s img_adl.adl img_s3.adl
+! cmp -s img_ds80.dsd img_c2.dsd

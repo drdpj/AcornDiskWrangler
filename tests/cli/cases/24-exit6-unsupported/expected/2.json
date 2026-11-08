@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "rm",
+    "dryRun": false,
+    "error": {
+        "code": 6,
+        "kind": "unsupported",
+        "message": "$.A is a directory: use -r",
+        "path": "$.A"
+    },
+    "exit": 6,
+    "image": "img2.adl",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "rm",
+    "dryRun": false,
+    "error": {
+        "code": 6,
+        "kind": "unsupported",
+        "message": "U.GAME is locked or read-only: use --force",
+        "path": "U.GAME"
+    },
+    "exit": 6,
+    "image": "img.ssd",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

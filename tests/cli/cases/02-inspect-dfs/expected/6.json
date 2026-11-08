@@ -1,0 +1,39 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.dsd",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "30E00",
+                    "load": "30E00",
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.DATA",
+                "kind": "file",
+                "modified": null,
+                "name": "$.DATA",
+                "path": [
+                    "$.DATA"
+                ],
+                "problem": null,
+                "size": 306,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

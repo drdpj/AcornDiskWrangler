@@ -1,0 +1,2 @@
+$TOOL script img.adl host/five.txt --json
+$TOOL script img.adl - --json < host/stdin.txt

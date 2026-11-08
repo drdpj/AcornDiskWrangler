@@ -1,0 +1,47 @@
+{
+    "changes": [
+        {
+            "from": "ALARM.DAT",
+            "note": null,
+            "op": "add",
+            "path": "ALARM.DAT",
+            "vol": "DOS"
+        },
+        {
+            "from": "COMMAND.COM",
+            "note": null,
+            "op": "add",
+            "path": "COMMAND.COM",
+            "vol": "DOS"
+        }
+    ],
+    "command": "get",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.dat",
+    "ok": true,
+    "result": {
+        "manifest": null,
+        "written": [
+            {
+                "from": "ALARM.DAT",
+                "host": "ALARM.DAT",
+                "sidecar": false,
+                "size": 128
+            },
+            {
+                "from": "COMMAND.COM",
+                "host": "COMMAND.COM",
+                "sidecar": false,
+                "size": 26888
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "DOS",
+    "warnings": [
+    ]
+}

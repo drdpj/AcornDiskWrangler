@@ -1,0 +1,46 @@
+{
+    "changes": [
+        {
+            "from": "$.Games/ELITE",
+            "note": null,
+            "op": "add",
+            "path": "$.ELITE",
+            "vol": "drive 0"
+        },
+        {
+            "from": "$.Games/ZALAGA",
+            "note": null,
+            "op": "add",
+            "path": "$.ZALAGA",
+            "vol": "drive 0"
+        },
+        {
+            "from": "$.PROG",
+            "note": null,
+            "op": "add",
+            "path": "$.PROG",
+            "vol": "drive 0"
+        }
+    ],
+    "command": "copy",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.ssd",
+    "ok": true,
+    "result": {
+        "added": 3,
+        "dirs": 0,
+        "renamed": [
+        ],
+        "replaced": 0,
+        "skipped": 0
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+        "DFS has no directories: the files of 'Games' were put in $"
+    ]
+}

@@ -1,0 +1,3 @@
+#!/bin/bash
+$TOOL new img.ssd --format=dfs-ss40 --quiet
+chmod a+rw img.ssd; chmod -R a+rX host; chmod a-w .

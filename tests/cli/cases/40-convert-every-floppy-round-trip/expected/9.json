@@ -1,0 +1,28 @@
+{
+    "changes": [
+        {
+            "from": "img_dfs-ds80.dsd",
+            "note": "edsk",
+            "op": "convert",
+            "path": "img_c_dfs-ds80.edsk",
+            "vol": ""
+        }
+    ],
+    "command": "convert",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_dfs-ds80.dsd",
+    "ok": true,
+    "result": {
+        "container": "extended DSK image",
+        "out": "img_c_dfs-ds80.edsk",
+        "size": 450816
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

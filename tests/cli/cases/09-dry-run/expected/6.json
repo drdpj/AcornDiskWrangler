@@ -1,0 +1,30 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "dfs-ss40",
+            "op": "new",
+            "path": "img2.ssd",
+            "vol": ""
+        }
+    ],
+    "command": "new",
+    "dryRun": true,
+    "error": null,
+    "exit": 0,
+    "image": "img2.ssd",
+    "ok": true,
+    "result": {
+        "file": "img2.ssd",
+        "format": "dfs-ss40",
+        "volumes": [
+            "drive0"
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

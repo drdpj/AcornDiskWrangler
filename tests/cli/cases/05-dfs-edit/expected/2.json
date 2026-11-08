@@ -1,0 +1,27 @@
+{
+    "changes": [
+        {
+            "from": "T.GAME",
+            "note": null,
+            "op": "rename",
+            "path": "U.GAME",
+            "vol": "drive 0"
+        }
+    ],
+    "command": "mv",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.ssd",
+    "ok": true,
+    "result": {
+        "from": "T.GAME",
+        "to": "U.GAME"
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

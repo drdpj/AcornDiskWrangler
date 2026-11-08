@@ -1,0 +1,6 @@
+$TOOL ls img.dsd '$.D*' --json
+$TOOL ls img.dsd '?.*' --json
+$TOOL get img.dsd '*.*' out --manifest=out/manifest.json --json
+$TOOL new img2.dsd --format=dfs-ds80 --title=SRC --quiet
+$TOOL put img2.dsd / --retro=out/manifest.json --json
+$TOOL ls img2.dsd --json

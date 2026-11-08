@@ -1,0 +1,6 @@
+#!/bin/bash
+$TOOL new img_ds80.dsd --format=dfs-ds80 --title=SEQ --sides=sequential --quiet
+$TOOL put img_ds80.dsd host/f1 host/f2 / --quiet
+$TOOL put img_ds80.dsd host/f1 --vol=2 / --quiet
+$TOOL new img_adl.adl --format=adfs-l --title=SEQ --quiet
+$TOOL put img_adl.adl host/f1 host/f2 / --quiet

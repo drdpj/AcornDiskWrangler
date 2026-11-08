@@ -1,0 +1,2 @@
+$AS_USER $TOOL put img.ssd host/GAME / --json
+$AS_USER $TOOL put img.ssd host/GAME / --dry-run --json

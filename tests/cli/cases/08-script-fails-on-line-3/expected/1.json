@@ -1,0 +1,104 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": null,
+            "op": "mkdir",
+            "path": "$.Lib",
+            "vol": "ADFS"
+        },
+        {
+            "from": "host/PROG",
+            "note": null,
+            "op": "add",
+            "path": "$.Lib.PROG",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "script",
+    "dryRun": false,
+    "error": {
+        "code": 3,
+        "kind": "not-found",
+        "message": "script line 3: $.NOSUCH: not found",
+        "path": "$.NOSUCH"
+    },
+    "exit": 3,
+    "image": "img.adl",
+    "ok": false,
+    "result": {
+        "lines": [
+            {
+                "changes": [
+                    {
+                        "from": null,
+                        "note": null,
+                        "op": "mkdir",
+                        "path": "$.Lib",
+                        "vol": "ADFS"
+                    }
+                ],
+                "command": "mkdir",
+                "error": null,
+                "exit": 0,
+                "line": 1,
+                "result": {
+                    "made": 1
+                },
+                "text": "mkdir Lib",
+                "warnings": [
+                ]
+            },
+            {
+                "changes": [
+                    {
+                        "from": "host/PROG",
+                        "note": null,
+                        "op": "add",
+                        "path": "$.Lib.PROG",
+                        "vol": "ADFS"
+                    }
+                ],
+                "command": "put",
+                "error": null,
+                "exit": 0,
+                "line": 2,
+                "result": {
+                    "added": 1,
+                    "dirs": 0,
+                    "renamed": [
+                    ],
+                    "replaced": 0,
+                    "skipped": 0
+                },
+                "text": "put host/PROG Lib",
+                "warnings": [
+                ]
+            },
+            {
+                "changes": [
+                ],
+                "command": "rm",
+                "error": {
+                    "code": 3,
+                    "kind": "not-found",
+                    "message": "$.NOSUCH: not found",
+                    "path": "$.NOSUCH"
+                },
+                "exit": 3,
+                "line": 3,
+                "result": {
+                },
+                "text": "rm NOSUCH",
+                "warnings": [
+                ]
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

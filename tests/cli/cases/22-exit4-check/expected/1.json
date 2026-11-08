@@ -1,0 +1,31 @@
+{
+    "changes": [
+    ],
+    "command": "check",
+    "dryRun": false,
+    "error": {
+        "code": 4,
+        "kind": "check",
+        "message": "1 error(s) found",
+        "path": null
+    },
+    "exit": 4,
+    "image": "img.adl",
+    "ok": false,
+    "result": {
+        "errors": [
+            "free space map sector 0 checksum is wrong (stored 55, calculated 0c)"
+        ],
+        "info": [
+            "1 directories, 0 files, 1273 of 1280 sectors free in 1 fragment(s)"
+        ],
+        "warnings": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

@@ -1,0 +1,156 @@
+{
+    "changes": [
+    ],
+    "command": "new",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": null,
+    "ok": true,
+    "result": {
+        "formats": [
+            {
+                "doubleSided": false,
+                "id": "adfs-s",
+                "name": "ADFS S - 160K, 40 track, single-sided",
+                "suffix": "ads",
+                "titleMax": 10,
+                "titleWhat": "Disc name"
+            },
+            {
+                "doubleSided": false,
+                "id": "adfs-m",
+                "name": "ADFS M - 320K, 80 track, single-sided",
+                "suffix": "adm",
+                "titleMax": 10,
+                "titleWhat": "Disc name"
+            },
+            {
+                "doubleSided": true,
+                "id": "adfs-l",
+                "name": "ADFS L - 640K, 80 track, double-sided",
+                "suffix": "adl",
+                "titleMax": 10,
+                "titleWhat": "Disc name"
+            },
+            {
+                "doubleSided": false,
+                "id": "dfs-ss40",
+                "name": "DFS - 100K, 40 track, single-sided (.ssd)",
+                "suffix": "ssd",
+                "titleMax": 12,
+                "titleWhat": "Disc title"
+            },
+            {
+                "doubleSided": false,
+                "id": "dfs-ss80",
+                "name": "DFS - 200K, 80 track, single-sided (.ssd)",
+                "suffix": "ssd",
+                "titleMax": 12,
+                "titleWhat": "Disc title"
+            },
+            {
+                "doubleSided": true,
+                "id": "dfs-ds40",
+                "name": "DFS - 2 x 100K, 40 track, double-sided (.dsd)",
+                "suffix": "dsd",
+                "titleMax": 12,
+                "titleWhat": "Disc title"
+            },
+            {
+                "doubleSided": true,
+                "id": "dfs-ds80",
+                "name": "DFS - 2 x 200K, 80 track, double-sided (.dsd)",
+                "suffix": "dsd",
+                "titleMax": 12,
+                "titleWhat": "Disc title"
+            },
+            {
+                "doubleSided": false,
+                "id": "wat-ss40",
+                "name": "Watford DFS 62-file - 100K, 40 track, single-sided (.ssd)",
+                "suffix": "ssd",
+                "titleMax": 12,
+                "titleWhat": "Disc title"
+            },
+            {
+                "doubleSided": false,
+                "id": "wat-ss80",
+                "name": "Watford DFS 62-file - 200K, 80 track, single-sided (.ssd)",
+                "suffix": "ssd",
+                "titleMax": 12,
+                "titleWhat": "Disc title"
+            },
+            {
+                "doubleSided": true,
+                "id": "wat-ds40",
+                "name": "Watford DFS 62-file - 2 x 100K, 40 track, double-sided (.dsd)",
+                "suffix": "dsd",
+                "titleMax": 12,
+                "titleWhat": "Disc title"
+            },
+            {
+                "doubleSided": true,
+                "id": "wat-ds80",
+                "name": "Watford DFS 62-file - 2 x 200K, 80 track, double-sided (.dsd)",
+                "suffix": "dsd",
+                "titleMax": 12,
+                "titleWhat": "Disc title"
+            },
+            {
+                "doubleSided": true,
+                "id": "dos-800",
+                "name": "Acorn DOS Plus 800K",
+                "suffix": "img",
+                "titleMax": 11,
+                "titleWhat": "Volume label"
+            },
+            {
+                "doubleSided": true,
+                "id": "dos-640",
+                "name": "Acorn DOS Plus 640K (ADFS-compatible, with DOSBOOT)",
+                "suffix": "adl",
+                "titleMax": 11,
+                "titleWhat": "Volume label"
+            },
+            {
+                "doubleSided": false,
+                "id": "pc-360",
+                "name": "PC 360K - 40 track, double-sided",
+                "suffix": "img",
+                "titleMax": 11,
+                "titleWhat": "Volume label"
+            },
+            {
+                "doubleSided": false,
+                "id": "pc-720",
+                "name": "PC 720K - 80 track, double-sided",
+                "suffix": "img",
+                "titleMax": 11,
+                "titleWhat": "Volume label"
+            },
+            {
+                "doubleSided": false,
+                "id": "pc-1200",
+                "name": "PC 1.2M - 80 track, double-sided, high density",
+                "suffix": "img",
+                "titleMax": 11,
+                "titleWhat": "Volume label"
+            },
+            {
+                "doubleSided": false,
+                "id": "pc-1440",
+                "name": "PC 1.44M - 80 track, double-sided, high density",
+                "suffix": "img",
+                "titleMax": 11,
+                "titleWhat": "Volume label"
+            }
+        ]
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

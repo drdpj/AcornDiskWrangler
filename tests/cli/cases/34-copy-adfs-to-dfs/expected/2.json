@@ -1,0 +1,77 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.ssd",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "38023",
+                    "load": "31900",
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.PROG",
+                "kind": "file",
+                "modified": null,
+                "name": "$.PROG",
+                "path": [
+                    "$.PROG"
+                ],
+                "problem": null,
+                "size": 21,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "34001",
+                    "load": "34000",
+                    "locked": true
+                },
+                "created": null,
+                "display": "$.ZALAGA",
+                "kind": "file",
+                "modified": null,
+                "name": "$.ZALAGA",
+                "path": [
+                    "$.ZALAGA"
+                ],
+                "problem": null,
+                "size": 906,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "33000",
+                    "load": "33000",
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.ELITE",
+                "kind": "file",
+                "modified": null,
+                "name": "$.ELITE",
+                "path": [
+                    "$.ELITE"
+                ],
+                "problem": null,
+                "size": 2605,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

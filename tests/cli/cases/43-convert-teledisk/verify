@@ -1,0 +1,3 @@
+cmp base.adl conv.adl
+$TOOL convert conv.imd conv_again.adl --container=raw --quiet
+cmp conv.adl conv_again.adl

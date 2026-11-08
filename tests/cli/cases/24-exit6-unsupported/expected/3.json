@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "rm",
+    "dryRun": false,
+    "error": {
+        "code": 6,
+        "kind": "unsupported",
+        "message": "$.A.PROG is locked or read-only: use --force",
+        "path": "$.A.PROG"
+    },
+    "exit": 6,
+    "image": "img2.adl",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

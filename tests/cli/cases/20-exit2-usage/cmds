@@ -1,0 +1,8 @@
+$TOOL ls img.ssd --vol=nosuch --json
+$TOOL ls img.ssd --bogus --json
+$TOOL put img.ssd --json
+$TOOL boot img.ssd 9 --json
+$TOOL attr img.ssd T.GAME --set nokey=1 --json
+$TOOL get img.ssd T.GAME - --json
+$TOOL new img2.ssd --format=nosuch --json
+$TOOL nosuchcommand img.ssd --json

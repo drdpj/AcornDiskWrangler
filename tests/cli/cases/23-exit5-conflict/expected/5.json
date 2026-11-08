@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "mkdir",
+    "dryRun": false,
+    "error": {
+        "code": 5,
+        "kind": "conflict",
+        "message": "$.PROG exists",
+        "path": "$.PROG"
+    },
+    "exit": 5,
+    "image": "img2.adl",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

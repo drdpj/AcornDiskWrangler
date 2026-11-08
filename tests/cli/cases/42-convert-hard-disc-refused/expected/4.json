@@ -1,0 +1,28 @@
+{
+    "changes": [
+        {
+            "from": "img.dat",
+            "note": "raw",
+            "op": "convert",
+            "path": "conv.dat",
+            "vol": ""
+        }
+    ],
+    "command": "convert",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.dat",
+    "ok": true,
+    "result": {
+        "container": "raw sector image",
+        "out": "conv.dat",
+        "size": 2097152
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

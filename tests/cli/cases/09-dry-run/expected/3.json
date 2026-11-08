@@ -1,0 +1,26 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": null,
+            "op": "mkdir",
+            "path": "$.Lib",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "mkdir",
+    "dryRun": true,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "made": 1
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

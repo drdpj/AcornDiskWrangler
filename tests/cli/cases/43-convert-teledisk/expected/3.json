@@ -1,0 +1,29 @@
+{
+    "changes": [
+        {
+            "from": "img.td0",
+            "note": "raw",
+            "op": "convert",
+            "path": "conv.adl",
+            "vol": ""
+        }
+    ],
+    "command": "convert",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.td0",
+    "ok": true,
+    "result": {
+        "container": "raw sector image",
+        "order": "interleaved",
+        "out": "conv.adl",
+        "size": 655360
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

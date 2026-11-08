@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "get",
+    "dryRun": false,
+    "error": {
+        "code": 3,
+        "kind": "not-found",
+        "message": "Z.*: nothing matches",
+        "path": "Z.*"
+    },
+    "exit": 3,
+    "image": "img.ssd",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

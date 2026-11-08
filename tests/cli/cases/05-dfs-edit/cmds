@@ -1,0 +1,8 @@
+$TOOL attr img.ssd T.GAME --set locked=0 --set exec=FF8100 --json
+$TOOL mv img.ssd T.GAME U.GAME --json
+$TOOL title img.ssd NEXT --json
+$TOOL boot img.ssd exec --json
+$TOOL ls img.ssd --json
+$TOOL rm img.ssd 'U.*' --json
+$TOOL rm img.ssd '$.DATA' --json
+$TOOL ls img.ssd --json

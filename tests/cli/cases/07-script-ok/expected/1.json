@@ -1,0 +1,132 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": null,
+            "op": "mkdir",
+            "path": "$.Lib",
+            "vol": "ADFS"
+        },
+        {
+            "from": "host/PROG",
+            "note": null,
+            "op": "add",
+            "path": "$.Lib.PROG",
+            "vol": "ADFS"
+        },
+        {
+            "from": null,
+            "note": "locked=1",
+            "op": "attr",
+            "path": "$.Lib.PROG",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "script",
+    "dryRun": false,
+    "error": {
+        "code": 1,
+        "kind": "failed",
+        "message": "script line 5: the disc name can be at most 10 characters",
+        "path": null
+    },
+    "exit": 1,
+    "image": "img.adl",
+    "ok": false,
+    "result": {
+        "lines": [
+            {
+                "changes": [
+                    {
+                        "from": null,
+                        "note": null,
+                        "op": "mkdir",
+                        "path": "$.Lib",
+                        "vol": "ADFS"
+                    }
+                ],
+                "command": "mkdir",
+                "error": null,
+                "exit": 0,
+                "line": 2,
+                "result": {
+                    "made": 1
+                },
+                "text": "mkdir Lib",
+                "warnings": [
+                ]
+            },
+            {
+                "changes": [
+                    {
+                        "from": "host/PROG",
+                        "note": null,
+                        "op": "add",
+                        "path": "$.Lib.PROG",
+                        "vol": "ADFS"
+                    }
+                ],
+                "command": "put",
+                "error": null,
+                "exit": 0,
+                "line": 3,
+                "result": {
+                    "added": 1,
+                    "dirs": 0,
+                    "renamed": [
+                    ],
+                    "replaced": 0,
+                    "skipped": 0
+                },
+                "text": "put host/PROG Lib",
+                "warnings": [
+                ]
+            },
+            {
+                "changes": [
+                    {
+                        "from": null,
+                        "note": "locked=1",
+                        "op": "attr",
+                        "path": "$.Lib.PROG",
+                        "vol": "ADFS"
+                    }
+                ],
+                "command": "attr",
+                "error": null,
+                "exit": 0,
+                "line": 4,
+                "result": {
+                    "changed": 1
+                },
+                "text": "attr Lib.PROG --set locked=1",
+                "warnings": [
+                ]
+            },
+            {
+                "changes": [
+                ],
+                "command": "title",
+                "error": {
+                    "code": 1,
+                    "kind": "failed",
+                    "message": "the disc name can be at most 10 characters",
+                    "path": null
+                },
+                "exit": 1,
+                "line": 5,
+                "result": {
+                },
+                "text": "title \"SCRIPTED OK\"",
+                "warnings": [
+                ]
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

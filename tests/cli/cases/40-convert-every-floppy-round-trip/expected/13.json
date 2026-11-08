@@ -1,0 +1,28 @@
+{
+    "changes": [
+        {
+            "from": "img_dos-640.adl",
+            "note": "imd",
+            "op": "convert",
+            "path": "img_c_dos-640.imd",
+            "vol": ""
+        }
+    ],
+    "command": "convert",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_dos-640.adl",
+    "ok": true,
+    "result": {
+        "container": "ImageDisk (.IMD)",
+        "out": "img_c_dos-640.imd",
+        "size": 15397
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

@@ -1,0 +1,59 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": null,
+            "op": "mkdir",
+            "path": "$.U",
+            "vol": "ADFS"
+        },
+        {
+            "from": "U.NOTE",
+            "note": null,
+            "op": "add",
+            "path": "$.U.NOTE",
+            "vol": "ADFS"
+        },
+        {
+            "from": "$.DATA",
+            "note": null,
+            "op": "add",
+            "path": "$.DATA",
+            "vol": "ADFS"
+        },
+        {
+            "from": null,
+            "note": null,
+            "op": "mkdir",
+            "path": "$.T",
+            "vol": "ADFS"
+        },
+        {
+            "from": "T.GAME",
+            "note": null,
+            "op": "add",
+            "path": "$.T.GAME",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "copy",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "added": 3,
+        "dirs": 2,
+        "renamed": [
+        ],
+        "replaced": 0,
+        "skipped": 0
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

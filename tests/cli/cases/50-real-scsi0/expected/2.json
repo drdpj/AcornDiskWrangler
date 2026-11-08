@@ -1,0 +1,247 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.dat",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "8ED4F700",
+                    "execute": false,
+                    "load": "FFFFFF3F",
+                    "locked": false,
+                    "read": true,
+                    "type": "FFF",
+                    "write": true
+                },
+                "created": null,
+                "display": "$.!Config",
+                "kind": "file",
+                "modified": "1986-07-03T19:43:31",
+                "name": "!Config",
+                "path": [
+                    "!Config"
+                ],
+                "problem": null,
+                "size": 128,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "90CBC680",
+                    "execute": false,
+                    "load": "FFFFFF3F",
+                    "locked": false,
+                    "read": true,
+                    "type": "FFF",
+                    "write": true
+                },
+                "created": null,
+                "display": "$.!Panos",
+                "kind": "file",
+                "modified": "1986-07-07T15:15:33",
+                "name": "!Panos",
+                "path": [
+                    "!Panos"
+                ],
+                "problem": null,
+                "size": 2071,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "8ED1E0C0",
+                    "execute": false,
+                    "load": "FFFFFF3F",
+                    "locked": false,
+                    "read": true,
+                    "type": "FFF",
+                    "write": true
+                },
+                "created": null,
+                "display": "$.!PError",
+                "kind": "file",
+                "modified": "1986-07-03T19:09:48",
+                "name": "!PError",
+                "path": [
+                    "!PError"
+                ],
+                "problem": null,
+                "size": 6298,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.BeebSCSI",
+                "kind": "dir",
+                "modified": null,
+                "name": "BeebSCSI",
+                "path": [
+                    "BeebSCSI"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": true
+                },
+                "created": null,
+                "display": "$.DOS",
+                "kind": "dir",
+                "modified": null,
+                "name": "DOS",
+                "path": [
+                    "DOS"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "FFFFFFFF",
+                    "execute": false,
+                    "load": "00000000",
+                    "locked": false,
+                    "read": true,
+                    "write": true
+                },
+                "created": null,
+                "display": "$.DOSBOOT",
+                "kind": "file",
+                "modified": null,
+                "name": "DOSBOOT",
+                "path": [
+                    "DOSBOOT"
+                ],
+                "problem": null,
+                "size": 3584,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": true
+                },
+                "created": null,
+                "display": "$.Format",
+                "kind": "dir",
+                "modified": null,
+                "name": "Format",
+                "path": [
+                    "Format"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": true
+                },
+                "created": null,
+                "display": "$.Library",
+                "kind": "dir",
+                "modified": null,
+                "name": "Library",
+                "path": [
+                    "Library"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": true
+                },
+                "created": null,
+                "display": "$.PanosDemos",
+                "kind": "dir",
+                "modified": null,
+                "name": "PanosDemos",
+                "path": [
+                    "PanosDemos"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": true
+                },
+                "created": null,
+                "display": "$.PanosLib",
+                "kind": "dir",
+                "modified": null,
+                "name": "PanosLib",
+                "path": [
+                    "PanosLib"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": true
+                },
+                "created": null,
+                "display": "$.panosprogs",
+                "kind": "dir",
+                "modified": null,
+                "name": "panosprogs",
+                "path": [
+                    "panosprogs"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": true
+                },
+                "created": null,
+                "display": "$.PanosTests",
+                "kind": "dir",
+                "modified": null,
+                "name": "PanosTests",
+                "path": [
+                    "PanosTests"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

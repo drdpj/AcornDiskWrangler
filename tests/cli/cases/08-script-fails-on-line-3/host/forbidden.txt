@@ -1,0 +1,2 @@
+mkdir Lib
+new other.adl --format=adfs-m

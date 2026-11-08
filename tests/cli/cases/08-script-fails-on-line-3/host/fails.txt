@@ -1,0 +1,4 @@
+mkdir Lib
+put host/PROG Lib
+rm NOSUCH
+title NEVER

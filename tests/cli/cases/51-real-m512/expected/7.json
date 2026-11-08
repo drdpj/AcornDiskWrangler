@@ -1,0 +1,28 @@
+{
+    "changes": [
+        {
+            "from": "img_a.adl",
+            "note": "imd",
+            "op": "convert",
+            "path": "conv_a.imd",
+            "vol": ""
+        }
+    ],
+    "command": "convert",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_a.adl",
+    "ok": true,
+    "result": {
+        "container": "ImageDisk (.IMD)",
+        "out": "conv_a.imd",
+        "size": 473377
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

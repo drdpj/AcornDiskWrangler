@@ -1,0 +1,4 @@
+$TOOL info img.img --json
+$TOOL ls img.img --json
+$TOOL ls img.img --fs=dfs --json
+$TOOL ls img.img --fs=fat --json

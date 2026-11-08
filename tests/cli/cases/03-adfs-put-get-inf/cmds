@@ -1,0 +1,4 @@
+$TOOL put img.adl host/PROG host/Games / --json
+$TOOL ls img.adl -R --json
+$TOOL get img.adl '$' out --json
+$TOOL check img.adl --json

@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "convert",
+    "dryRun": false,
+    "error": {
+        "code": 6,
+        "kind": "unsupported",
+        "message": "a hard disc image has no track layout to convert",
+        "path": null
+    },
+    "exit": 6,
+    "image": "img.dat",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

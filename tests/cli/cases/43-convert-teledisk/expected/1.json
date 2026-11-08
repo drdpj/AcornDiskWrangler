@@ -1,0 +1,203 @@
+{
+    "changes": [
+    ],
+    "command": "info",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.td0",
+    "ok": true,
+    "result": {
+        "app": {
+            "description": "ADFS L (640K floppy), in a TeleDisk file (read-only)",
+            "fullSize": 655360,
+            "kind": "adfs",
+            "notes": [
+            ],
+            "sides": {
+                "confirmed": true,
+                "doubleSided": true,
+                "forced": false,
+                "order": "interleaved"
+            }
+        },
+        "candidates": [
+            {
+                "description": "ADFS L (640K floppy), in a TeleDisk file (read-only)",
+                "evidence": [
+                    "the root directory is where ADFS keeps it",
+                    "a valid free space map"
+                ],
+                "fsId": "adfs",
+                "name": "ADFS",
+                "notes": [
+                ],
+                "probe": "adfs",
+                "safeToWrite": true,
+                "supported": true,
+                "tier": "certain"
+            }
+        ],
+        "chosen": {
+            "description": "ADFS L (640K floppy), in a TeleDisk file (read-only)",
+            "evidence": [
+                "the root directory is where ADFS keeps it",
+                "a valid free space map"
+            ],
+            "fsId": "adfs",
+            "name": "ADFS",
+            "notes": [
+            ],
+            "probe": "adfs",
+            "safeToWrite": true,
+            "supported": true,
+            "tier": "certain"
+        },
+        "container": {
+            "kind": "td0",
+            "name": "TeleDisk (.TD0)",
+            "readOnly": true,
+            "size": 679053
+        },
+        "owner": null,
+        "verdict": "open",
+        "volumes": [
+            {
+                "caps": {
+                    "contiguousOnly": false,
+                    "dates": true,
+                    "dirs": true,
+                    "maxEntriesPerDir": 47,
+                    "namespaces": false,
+                    "rename": true,
+                    "renameAcrossDirs": false,
+                    "settableDates": false,
+                    "title": true
+                },
+                "fileAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "read",
+                        "label": "R",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "write",
+                        "label": "W",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": true,
+                        "editable": true,
+                        "key": "locked",
+                        "label": "L",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "execute",
+                        "label": "E",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "load",
+                        "label": "Load",
+                        "type": "hex"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "exec",
+                        "label": "Exec",
+                        "type": "hex"
+                    },
+                    {
+                        "bits": 12,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": false,
+                        "key": "type",
+                        "label": "Type",
+                        "type": "hex"
+                    }
+                ],
+                "fsId": "adfs",
+                "info": {
+                    "entriesFree": -1,
+                    "free": 653312,
+                    "largestFree": 653312,
+                    "title": "TD0",
+                    "total": 655360
+                },
+                "label": "ADFS",
+                "readOnly": true,
+                "readOnlyWhy": "read-only",
+                "vol": "adfs",
+                "volumeAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "title",
+                        "label": "Title",
+                        "type": "text"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                            "0 - off",
+                            "1 - *LOAD !BOOT",
+                            "2 - *RUN !BOOT",
+                            "3 - *EXEC !BOOT"
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "boot",
+                        "label": "Boot option",
+                        "type": "choice"
+                    }
+                ],
+                "volumeAttrs": {
+                    "boot": {
+                        "index": 0,
+                        "name": "0 - off"
+                    },
+                    "title": "TD0"
+                }
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

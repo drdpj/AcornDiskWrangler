@@ -1,0 +1,2 @@
+#!/bin/bash
+python3 -I -c "import sys; sys.stdout.buffer.write(bytes((i * 31 + (i >> 8)) & 255 for i in range(100000)))" > img.bin

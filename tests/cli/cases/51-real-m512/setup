@@ -1,0 +1,4 @@
+#!/bin/bash
+# needs-real
+cp "$REAL/M512_1.ADL" img_a.adl
+cp "$REAL/M512_3.IMG" img_b.img

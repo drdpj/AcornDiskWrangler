@@ -1,0 +1,31 @@
+{
+    "changes": [
+        {
+            "from": "host/GAME",
+            "note": "exists",
+            "op": "skip",
+            "path": "$.T.GAME",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "put",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "added": 0,
+        "dirs": 0,
+        "renamed": [
+        ],
+        "replaced": 0,
+        "skipped": 1
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

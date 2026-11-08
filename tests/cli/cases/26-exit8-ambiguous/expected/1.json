@@ -1,0 +1,65 @@
+{
+    "changes": [
+    ],
+    "command": "info",
+    "dryRun": false,
+    "error": {
+        "code": 8,
+        "kind": "ambiguous",
+        "message": "this disc could equally be PC FAT or DFS: choose with --fs=fat or --fs=dfs",
+        "path": null
+    },
+    "exit": 8,
+    "image": "img.img",
+    "ok": false,
+    "result": {
+        "app": null,
+        "candidates": [
+            {
+                "description": "PC 360K FAT floppy (no BPB)",
+                "evidence": [
+                    "a PC floppy's size, and a FAT with its media byte in sector 1"
+                ],
+                "fsId": "fat",
+                "name": "PC FAT",
+                "notes": [
+                ],
+                "probe": "fat",
+                "safeToWrite": true,
+                "supported": true,
+                "tier": "likely"
+            },
+            {
+                "description": "DFS single-sided 40-track (100K per side)",
+                "evidence": [
+                    "a DFS catalogue in sectors 0-1"
+                ],
+                "fsId": "dfs",
+                "name": "DFS",
+                "notes": [
+                ],
+                "probe": "dfs",
+                "safeToWrite": true,
+                "supported": true,
+                "tier": "likely"
+            }
+        ],
+        "chosen": null,
+        "container": {
+            "kind": "raw",
+            "name": "raw sector image",
+            "readOnly": false,
+            "size": 368640
+        },
+        "owner": null,
+        "verdict": "ask",
+        "volumes": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

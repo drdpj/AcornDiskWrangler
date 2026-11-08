@@ -1,0 +1,28 @@
+{
+    "changes": [
+    ],
+    "command": "put",
+    "dryRun": false,
+    "error": {
+        "code": 7,
+        "kind": "foreign",
+        "message": "this disc belongs to CP/M Disk Wrangler (https://github.com/drdpj/CPMDiskWrangler/releases)",
+        "path": null
+    },
+    "exit": 7,
+    "image": "img.ssd",
+    "ok": false,
+    "result": {
+        "owner": {
+            "id": "cpmdiskwrangler",
+            "name": "CP/M Disk Wrangler",
+            "releases": "https://github.com/drdpj/CPMDiskWrangler/releases"
+        }
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

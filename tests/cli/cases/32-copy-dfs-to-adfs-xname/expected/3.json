@@ -1,0 +1,39 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": null,
+            "op": "mkdir",
+            "path": "$.Lib",
+            "vol": "ADFS"
+        },
+        {
+            "from": "^.HAT",
+            "note": "^.HAT: ADFS can't have a directory called '^', so it was copied as X_HAT",
+            "op": "add",
+            "path": "$.Lib.X_HAT",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "copy",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "added": 1,
+        "dirs": 1,
+        "renamed": [
+        ],
+        "replaced": 0,
+        "skipped": 0
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+        "^.HAT: ADFS can't have a directory called '^', so it was copied as X_HAT"
+    ]
+}

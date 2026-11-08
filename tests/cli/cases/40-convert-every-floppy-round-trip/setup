@@ -1,0 +1,38 @@
+#!/bin/bash
+python3 -I -c "import sys; sys.stdout.buffer.write(bytes((i * 13 + 5) & 255 for i in range(2000)))" > dosboot.bin
+echo hello > f1
+python3 -I -c "import sys; sys.stdout.buffer.write(bytes((i * 7 + 3) & 255 for i in range(3000)))" > f2
+$TOOL new img_adfs-s.ads --format=adfs-s --quiet
+$TOOL put img_adfs-s.ads f1 f2 / --quiet
+$TOOL new img_adfs-m.adm --format=adfs-m --quiet
+$TOOL put img_adfs-m.adm f1 f2 / --quiet
+$TOOL new img_adfs-l.adl --format=adfs-l --quiet
+$TOOL put img_adfs-l.adl f1 f2 / --quiet
+$TOOL new img_dfs-ss40.ssd --format=dfs-ss40 --quiet
+$TOOL put img_dfs-ss40.ssd f1 f2 / --quiet
+$TOOL new img_dfs-ss80.ssd --format=dfs-ss80 --quiet
+$TOOL put img_dfs-ss80.ssd f1 f2 / --quiet
+$TOOL new img_dfs-ds40.dsd --format=dfs-ds40 --quiet
+$TOOL put img_dfs-ds40.dsd f1 f2 / --quiet
+$TOOL new img_dfs-ds80.dsd --format=dfs-ds80 --quiet
+$TOOL put img_dfs-ds80.dsd f1 f2 / --quiet
+$TOOL new img_wat-ss40.ssd --format=wat-ss40 --quiet
+$TOOL put img_wat-ss40.ssd f1 f2 / --quiet
+$TOOL new img_wat-ss80.ssd --format=wat-ss80 --quiet
+$TOOL put img_wat-ss80.ssd f1 f2 / --quiet
+$TOOL new img_wat-ds40.dsd --format=wat-ds40 --quiet
+$TOOL put img_wat-ds40.dsd f1 f2 / --quiet
+$TOOL new img_wat-ds80.dsd --format=wat-ds80 --quiet
+$TOOL put img_wat-ds80.dsd f1 f2 / --quiet
+$TOOL new img_dos-800.img --format=dos-800 --quiet
+$TOOL put img_dos-800.img f1 f2 / --quiet
+$TOOL new img_dos-640.adl --format=dos-640 --dosboot=dosboot.bin --quiet
+$TOOL put img_dos-640.adl f1 f2 / --quiet
+$TOOL new img_pc-360.img --format=pc-360 --quiet
+$TOOL put img_pc-360.img f1 f2 / --quiet
+$TOOL new img_pc-720.img --format=pc-720 --quiet
+$TOOL put img_pc-720.img f1 f2 / --quiet
+$TOOL new img_pc-1200.img --format=pc-1200 --quiet
+$TOOL put img_pc-1200.img f1 f2 / --quiet
+$TOOL new img_pc-1440.img --format=pc-1440 --quiet
+$TOOL put img_pc-1440.img f1 f2 / --quiet

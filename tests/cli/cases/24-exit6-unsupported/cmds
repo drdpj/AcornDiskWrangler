@@ -1,0 +1,7 @@
+$TOOL mkdir img.ssd Lib --json
+$TOOL rm img2.adl A --json
+$TOOL rm img2.adl A.PROG --json
+$TOOL mv img2.adl A.PROG B.PROG --json
+$TOOL convert img.ssd out.td0 --container=td0 --json
+$TOOL convert img.ssd out.ssd --to-sides=sequential --json
+$TOOL put img.ssd host/GAME / --replace --force --vol=9 --json

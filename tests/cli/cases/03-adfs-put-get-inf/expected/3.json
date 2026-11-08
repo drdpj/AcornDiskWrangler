@@ -1,0 +1,99 @@
+{
+    "changes": [
+        {
+            "from": "ELITE",
+            "note": null,
+            "op": "add",
+            "path": "Games/ELITE",
+            "vol": "ADFS"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "Games/ELITE.inf",
+            "vol": "ADFS"
+        },
+        {
+            "from": "ZALAGA",
+            "note": null,
+            "op": "add",
+            "path": "Games/ZALAGA",
+            "vol": "ADFS"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "Games/ZALAGA.inf",
+            "vol": "ADFS"
+        },
+        {
+            "from": "PROG",
+            "note": null,
+            "op": "add",
+            "path": "PROG",
+            "vol": "ADFS"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "PROG.inf",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "get",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "manifest": null,
+        "written": [
+            {
+                "from": "ELITE",
+                "host": "Games/ELITE",
+                "sidecar": false,
+                "size": 2605
+            },
+            {
+                "from": null,
+                "host": "Games/ELITE.inf",
+                "sidecar": true,
+                "size": 41
+            },
+            {
+                "from": "ZALAGA",
+                "host": "Games/ZALAGA",
+                "sidecar": false,
+                "size": 906
+            },
+            {
+                "from": null,
+                "host": "Games/ZALAGA.inf",
+                "sidecar": true,
+                "size": 41
+            },
+            {
+                "from": "PROG",
+                "host": "PROG",
+                "sidecar": false,
+                "size": 21
+            },
+            {
+                "from": null,
+                "host": "PROG.inf",
+                "sidecar": true,
+                "size": 41
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

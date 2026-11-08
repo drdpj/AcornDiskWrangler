@@ -1,0 +1,26 @@
+{
+    "changes": [
+    ],
+    "command": "check",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.dat",
+    "ok": true,
+    "result": {
+        "errors": [
+        ],
+        "info": [
+            "ADFS: 37 directories, 106 files, 1965903 of 2096560 sectors free in 4 fragment(s)",
+            "DOS: DOS volume 'Master  512': 179 files, 9 directories, 6842 of 7500 clusters free (FAT16, 4096-byte clusters)"
+        ],
+        "warnings": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

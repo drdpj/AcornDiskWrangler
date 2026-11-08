@@ -1,0 +1,45 @@
+{
+    "changes": [
+        {
+            "from": "out/manifest.json:U.MORE",
+            "note": null,
+            "op": "add",
+            "path": "U.MORE",
+            "vol": "drive 0"
+        },
+        {
+            "from": "out/manifest.json:$.DATA",
+            "note": null,
+            "op": "add",
+            "path": "$.DATA",
+            "vol": "drive 0"
+        },
+        {
+            "from": "out/manifest.json:T.GAME",
+            "note": null,
+            "op": "add",
+            "path": "T.GAME",
+            "vol": "drive 0"
+        }
+    ],
+    "command": "put",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img2.dsd",
+    "ok": true,
+    "result": {
+        "added": 3,
+        "dirs": 0,
+        "renamed": [
+        ],
+        "replaced": 0,
+        "skipped": 0
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

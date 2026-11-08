@@ -39,6 +39,14 @@ entries, 69 DOS root entries, `BeebSCSI`, `!Config`, ...). That image is **not**
 you don't have it, those tests cannot run - say so rather than loosening them. It is 512 MB: delete the copies
 afterwards (the sandbox disk filled up once).
 
+## The console program (`acorndw`)
+| Test | What it checks |
+|---|---|
+| `clitest` (`core/tests/clitest.pro`) | DiskWranglerCore's command-line layer on a small FAT backend: usage errors, the JSON envelope, exit codes, `script`, `--dry-run`, saving |
+| `convtest` (`tests/convtest.pro`) | `acorndw convert` to and from every container (raw, ImageDisk, DSK, extended DSK; TeleDisk in only), every floppy preset, side order, and the two real discs when given; the raw file must come back byte for byte |
+| `tests/cli/run_cli.sh [--update] <acorndw> <work dir> [<real data dir>]` | the golden-image cases in `tests/cli/cases/<NN-name>/`: `setup` makes the image, `cmds` is one `$TOOL ...` per line, `host/` holds the files to put. Standard output (`N.json`), exit code (`N.exit`), a hash of the images afterwards and of the files written to the host are compared with `expected/`. Run with `SOURCE_DATE_EPOCH` fixed and `TZ=UTC`, so the output is repeatable. Exit 10 (the save fails) runs as `nobody` because root ignores `chmod`. A case marked `# needs-real` runs only when the real data folder is given; `# needs-env NAME` only when `$NAME` is set (`acorn_all.sh` sets `TD0_DIR` to the folder `containertest` filled). `--update` rewrites `expected/`: **review the diff by hand** before committing it. `tests/cli/cases` is made by a generator that is not in the repo; add a case by copying a folder and its `expected/` |
+| `ldd acorndw` | must show neither QtGui nor QtWidgets (`acorn_all.sh` checks) |
+
 ## Test data
 `tests/make_testdata.py all <dir>` makes the synthetic images (stdlib only; see its docstring): blank, truncated and
 sequential-side DFS images, the PC floppies (via `mkfs.fat`, with a few files on them), the host files `guitest2`

@@ -1,0 +1,25 @@
+{
+    "changes": [
+    ],
+    "command": "check",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "conv.adl",
+    "ok": true,
+    "result": {
+        "errors": [
+        ],
+        "info": [
+            "1 directories, 1 files, 2552 of 2560 sectors free in 1 fragment(s)"
+        ],
+        "warnings": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

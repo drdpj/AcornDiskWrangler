@@ -1,0 +1,9 @@
+$TOOL info img.dat --json
+$TOOL ls img.dat --json
+$TOOL ls img.dat -R --vol=all --json
+$TOOL check img.dat --json
+$TOOL put img.dat host/PROG '$.Library' --json
+$TOOL ls img.dat '$.Library.PROG' --json
+$TOOL rm img.dat '$.Library.PROG' --json
+$TOOL get img.dat /COMMAND.COM /ALARM.DAT out --vol=dos --json
+$TOOL convert img.dat conv.imd --container=imd --json

@@ -1,0 +1,4 @@
+$TOOL convert conv_a.imd conv_a.adl --container=raw --quiet
+$TOOL convert conv_b.edsk conv_b.img --container=raw --quiet
+cmp img_a.adl conv_a.adl
+cmp img_b.img conv_b.img

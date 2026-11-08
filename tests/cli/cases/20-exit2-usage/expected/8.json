@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "nosuchcommand",
+    "dryRun": false,
+    "error": {
+        "code": 2,
+        "kind": "usage",
+        "message": "unknown command 'nosuchcommand' (try --help)",
+        "path": null
+    },
+    "exit": 2,
+    "image": null,
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

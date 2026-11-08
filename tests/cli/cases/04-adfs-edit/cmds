@@ -1,0 +1,13 @@
+$TOOL mkdir img.adl Lib.Sub -p --json
+$TOOL mv img.adl PROG Lib.PROG --json
+$TOOL attr img.adl Lib.PROG --set load=FFFF1900 --set locked=1 --json
+$TOOL attr img.adl Lib.PROG --json
+$TOOL title img.adl AFTER --json
+$TOOL title img.adl --json
+$TOOL boot img.adl run --json
+$TOOL boot img.adl --json
+$TOOL ls img.adl -R --json
+$TOOL rm img.adl Lib.PROG --json
+$TOOL rm img.adl Lib.PROG --force --json
+$TOOL rm img.adl Lib -r --json
+$TOOL ls img.adl -R --json

@@ -1,0 +1,10 @@
+#!/bin/bash
+python3 -I - <<'PY'
+c = bytearray(512)
+c[0:8] = b"Acorn CP"; c[8:15] = b"CPMDISC"; c[15] = ord('$') | 0x80
+c[256:260] = b"/M  "; c[256 + 5] = 8; sec = 800
+c[256 + 6] = (sec >> 8) & 3; c[256 + 7] = sec & 255
+ln = (sec - 2) * 256
+c[256 + 12] = ln & 255; c[256 + 13] = (ln >> 8) & 255; c[256 + 15] = 2
+open("img.ssd", "wb").write(bytes(c) + bytes(204800 - 512))
+PY

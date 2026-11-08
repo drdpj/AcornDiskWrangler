@@ -1,0 +1,52 @@
+{
+    "changes": [
+        {
+            "from": "host/PROG",
+            "note": null,
+            "op": "add",
+            "path": "$.PROG",
+            "vol": "ADFS"
+        },
+        {
+            "from": "host/Games",
+            "note": null,
+            "op": "mkdir",
+            "path": "$.Games",
+            "vol": "ADFS"
+        },
+        {
+            "from": "host/Games/ELITE",
+            "note": null,
+            "op": "add",
+            "path": "$.Games.ELITE",
+            "vol": "ADFS"
+        },
+        {
+            "from": "host/Games/ZALAGA",
+            "note": null,
+            "op": "add",
+            "path": "$.Games.ZALAGA",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "put",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "added": 3,
+        "dirs": 1,
+        "renamed": [
+        ],
+        "replaced": 0,
+        "skipped": 0
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

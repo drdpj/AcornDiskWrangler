@@ -1,0 +1,5 @@
+$TOOL ls img.ssd 'Z.NOPE' --json
+$TOOL ls missing.ssd --json
+$TOOL put img.ssd host/none / --json
+$TOOL get img.ssd 'Z.*' out --json
+$TOOL rm img.ssd T.NOPE --json

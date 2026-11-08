@@ -1,0 +1,3 @@
+#!/bin/bash
+$TOOL new img.ssd --format=dfs-ss80 --title=START --quiet
+$TOOL put img.ssd host/GAME host/DATA / --quiet

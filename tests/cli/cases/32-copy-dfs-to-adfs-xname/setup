@@ -1,0 +1,4 @@
+#!/bin/bash
+$TOOL new img_src.dsd --format=dfs-ds80 --title=SRC --quiet
+$TOOL put img_src.dsd host/HAT host/AT host/GAME / --quiet
+$TOOL new img.adl --format=adfs-m --title=DEST --quiet

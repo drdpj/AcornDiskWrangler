@@ -1,0 +1,15 @@
+#!/bin/bash
+python3 -I - <<'PY'
+def checksum(s):
+    sm, c = 0xFF, 0
+    for i in range(254, -1, -1):
+        t = sm + s[i] + c; c = 1 if t > 255 else 0; sm = t & 255
+    return sm
+import subprocess, os
+subprocess.check_call([os.environ["TOOL"], "new", "small.adl", "--format=adfs-l", "--quiet"])
+d = bytearray(open("small.adl", "rb").read()); total = 8192
+d[0xFC:0xFF] = total.to_bytes(3, "little"); d[256:259] = (total - 7).to_bytes(3, "little")
+d[255] = checksum(d[:256]); d[511] = checksum(d[256:512]); d += bytes(total * 256 - len(d))
+open("img.dat", "wb").write(d)
+PY
+rm small.adl

@@ -1,0 +1,154 @@
+mkdir -p conv
+$TOOL convert img_adfs-s.ads conv/adfs-s.imd --container=imd --quiet
+$TOOL convert conv/adfs-s.imd conv/adfs-s.imd.ads --container=raw --quiet
+cmp img_adfs-s.ads conv/adfs-s.imd.ads
+$TOOL convert img_adfs-s.ads conv/adfs-s.edsk --container=edsk --quiet
+$TOOL convert conv/adfs-s.edsk conv/adfs-s.edsk.ads --container=raw --quiet
+cmp img_adfs-s.ads conv/adfs-s.edsk.ads
+$TOOL convert img_adfs-s.ads conv/adfs-s.dsk --container=dsk --quiet
+$TOOL convert conv/adfs-s.dsk conv/adfs-s.dsk.ads --container=raw --quiet
+cmp img_adfs-s.ads conv/adfs-s.dsk.ads
+$TOOL convert img_adfs-m.adm conv/adfs-m.imd --container=imd --quiet
+$TOOL convert conv/adfs-m.imd conv/adfs-m.imd.adm --container=raw --quiet
+cmp img_adfs-m.adm conv/adfs-m.imd.adm
+$TOOL convert img_adfs-m.adm conv/adfs-m.edsk --container=edsk --quiet
+$TOOL convert conv/adfs-m.edsk conv/adfs-m.edsk.adm --container=raw --quiet
+cmp img_adfs-m.adm conv/adfs-m.edsk.adm
+$TOOL convert img_adfs-m.adm conv/adfs-m.dsk --container=dsk --quiet
+$TOOL convert conv/adfs-m.dsk conv/adfs-m.dsk.adm --container=raw --quiet
+cmp img_adfs-m.adm conv/adfs-m.dsk.adm
+$TOOL convert img_adfs-l.adl conv/adfs-l.imd --container=imd --quiet
+$TOOL convert conv/adfs-l.imd conv/adfs-l.imd.adl --container=raw --quiet
+cmp img_adfs-l.adl conv/adfs-l.imd.adl
+$TOOL convert img_adfs-l.adl conv/adfs-l.edsk --container=edsk --quiet
+$TOOL convert conv/adfs-l.edsk conv/adfs-l.edsk.adl --container=raw --quiet
+cmp img_adfs-l.adl conv/adfs-l.edsk.adl
+$TOOL convert img_adfs-l.adl conv/adfs-l.dsk --container=dsk --quiet
+$TOOL convert conv/adfs-l.dsk conv/adfs-l.dsk.adl --container=raw --quiet
+cmp img_adfs-l.adl conv/adfs-l.dsk.adl
+$TOOL convert img_dfs-ss40.ssd conv/dfs-ss40.imd --container=imd --quiet
+$TOOL convert conv/dfs-ss40.imd conv/dfs-ss40.imd.ssd --container=raw --quiet
+cmp img_dfs-ss40.ssd conv/dfs-ss40.imd.ssd
+$TOOL convert img_dfs-ss40.ssd conv/dfs-ss40.edsk --container=edsk --quiet
+$TOOL convert conv/dfs-ss40.edsk conv/dfs-ss40.edsk.ssd --container=raw --quiet
+cmp img_dfs-ss40.ssd conv/dfs-ss40.edsk.ssd
+$TOOL convert img_dfs-ss40.ssd conv/dfs-ss40.dsk --container=dsk --quiet
+$TOOL convert conv/dfs-ss40.dsk conv/dfs-ss40.dsk.ssd --container=raw --quiet
+cmp img_dfs-ss40.ssd conv/dfs-ss40.dsk.ssd
+$TOOL convert img_dfs-ss80.ssd conv/dfs-ss80.imd --container=imd --quiet
+$TOOL convert conv/dfs-ss80.imd conv/dfs-ss80.imd.ssd --container=raw --quiet
+cmp img_dfs-ss80.ssd conv/dfs-ss80.imd.ssd
+$TOOL convert img_dfs-ss80.ssd conv/dfs-ss80.edsk --container=edsk --quiet
+$TOOL convert conv/dfs-ss80.edsk conv/dfs-ss80.edsk.ssd --container=raw --quiet
+cmp img_dfs-ss80.ssd conv/dfs-ss80.edsk.ssd
+$TOOL convert img_dfs-ss80.ssd conv/dfs-ss80.dsk --container=dsk --quiet
+$TOOL convert conv/dfs-ss80.dsk conv/dfs-ss80.dsk.ssd --container=raw --quiet
+cmp img_dfs-ss80.ssd conv/dfs-ss80.dsk.ssd
+$TOOL convert img_dfs-ds40.dsd conv/dfs-ds40.imd --container=imd --quiet
+$TOOL convert conv/dfs-ds40.imd conv/dfs-ds40.imd.dsd --container=raw --quiet
+cmp img_dfs-ds40.dsd conv/dfs-ds40.imd.dsd
+$TOOL convert img_dfs-ds40.dsd conv/dfs-ds40.edsk --container=edsk --quiet
+$TOOL convert conv/dfs-ds40.edsk conv/dfs-ds40.edsk.dsd --container=raw --quiet
+cmp img_dfs-ds40.dsd conv/dfs-ds40.edsk.dsd
+$TOOL convert img_dfs-ds40.dsd conv/dfs-ds40.dsk --container=dsk --quiet
+$TOOL convert conv/dfs-ds40.dsk conv/dfs-ds40.dsk.dsd --container=raw --quiet
+cmp img_dfs-ds40.dsd conv/dfs-ds40.dsk.dsd
+$TOOL convert img_dfs-ds80.dsd conv/dfs-ds80.imd --container=imd --quiet
+$TOOL convert conv/dfs-ds80.imd conv/dfs-ds80.imd.dsd --container=raw --quiet
+cmp img_dfs-ds80.dsd conv/dfs-ds80.imd.dsd
+$TOOL convert img_dfs-ds80.dsd conv/dfs-ds80.edsk --container=edsk --quiet
+$TOOL convert conv/dfs-ds80.edsk conv/dfs-ds80.edsk.dsd --container=raw --quiet
+cmp img_dfs-ds80.dsd conv/dfs-ds80.edsk.dsd
+$TOOL convert img_dfs-ds80.dsd conv/dfs-ds80.dsk --container=dsk --quiet
+$TOOL convert conv/dfs-ds80.dsk conv/dfs-ds80.dsk.dsd --container=raw --quiet
+cmp img_dfs-ds80.dsd conv/dfs-ds80.dsk.dsd
+$TOOL convert img_wat-ss40.ssd conv/wat-ss40.imd --container=imd --quiet
+$TOOL convert conv/wat-ss40.imd conv/wat-ss40.imd.ssd --container=raw --quiet
+cmp img_wat-ss40.ssd conv/wat-ss40.imd.ssd
+$TOOL convert img_wat-ss40.ssd conv/wat-ss40.edsk --container=edsk --quiet
+$TOOL convert conv/wat-ss40.edsk conv/wat-ss40.edsk.ssd --container=raw --quiet
+cmp img_wat-ss40.ssd conv/wat-ss40.edsk.ssd
+$TOOL convert img_wat-ss40.ssd conv/wat-ss40.dsk --container=dsk --quiet
+$TOOL convert conv/wat-ss40.dsk conv/wat-ss40.dsk.ssd --container=raw --quiet
+cmp img_wat-ss40.ssd conv/wat-ss40.dsk.ssd
+$TOOL convert img_wat-ss80.ssd conv/wat-ss80.imd --container=imd --quiet
+$TOOL convert conv/wat-ss80.imd conv/wat-ss80.imd.ssd --container=raw --quiet
+cmp img_wat-ss80.ssd conv/wat-ss80.imd.ssd
+$TOOL convert img_wat-ss80.ssd conv/wat-ss80.edsk --container=edsk --quiet
+$TOOL convert conv/wat-ss80.edsk conv/wat-ss80.edsk.ssd --container=raw --quiet
+cmp img_wat-ss80.ssd conv/wat-ss80.edsk.ssd
+$TOOL convert img_wat-ss80.ssd conv/wat-ss80.dsk --container=dsk --quiet
+$TOOL convert conv/wat-ss80.dsk conv/wat-ss80.dsk.ssd --container=raw --quiet
+cmp img_wat-ss80.ssd conv/wat-ss80.dsk.ssd
+$TOOL convert img_wat-ds40.dsd conv/wat-ds40.imd --container=imd --quiet
+$TOOL convert conv/wat-ds40.imd conv/wat-ds40.imd.dsd --container=raw --quiet
+cmp img_wat-ds40.dsd conv/wat-ds40.imd.dsd
+$TOOL convert img_wat-ds40.dsd conv/wat-ds40.edsk --container=edsk --quiet
+$TOOL convert conv/wat-ds40.edsk conv/wat-ds40.edsk.dsd --container=raw --quiet
+cmp img_wat-ds40.dsd conv/wat-ds40.edsk.dsd
+$TOOL convert img_wat-ds40.dsd conv/wat-ds40.dsk --container=dsk --quiet
+$TOOL convert conv/wat-ds40.dsk conv/wat-ds40.dsk.dsd --container=raw --quiet
+cmp img_wat-ds40.dsd conv/wat-ds40.dsk.dsd
+$TOOL convert img_wat-ds80.dsd conv/wat-ds80.imd --container=imd --quiet
+$TOOL convert conv/wat-ds80.imd conv/wat-ds80.imd.dsd --container=raw --quiet
+cmp img_wat-ds80.dsd conv/wat-ds80.imd.dsd
+$TOOL convert img_wat-ds80.dsd conv/wat-ds80.edsk --container=edsk --quiet
+$TOOL convert conv/wat-ds80.edsk conv/wat-ds80.edsk.dsd --container=raw --quiet
+cmp img_wat-ds80.dsd conv/wat-ds80.edsk.dsd
+$TOOL convert img_wat-ds80.dsd conv/wat-ds80.dsk --container=dsk --quiet
+$TOOL convert conv/wat-ds80.dsk conv/wat-ds80.dsk.dsd --container=raw --quiet
+cmp img_wat-ds80.dsd conv/wat-ds80.dsk.dsd
+$TOOL convert img_dos-800.img conv/dos-800.imd --container=imd --quiet
+$TOOL convert conv/dos-800.imd conv/dos-800.imd.img --container=raw --quiet
+cmp img_dos-800.img conv/dos-800.imd.img
+$TOOL convert img_dos-800.img conv/dos-800.edsk --container=edsk --quiet
+$TOOL convert conv/dos-800.edsk conv/dos-800.edsk.img --container=raw --quiet
+cmp img_dos-800.img conv/dos-800.edsk.img
+$TOOL convert img_dos-800.img conv/dos-800.dsk --container=dsk --quiet
+$TOOL convert conv/dos-800.dsk conv/dos-800.dsk.img --container=raw --quiet
+cmp img_dos-800.img conv/dos-800.dsk.img
+$TOOL convert img_dos-640.adl conv/dos-640.imd --container=imd --quiet
+$TOOL convert conv/dos-640.imd conv/dos-640.imd.adl --container=raw --quiet
+cmp img_dos-640.adl conv/dos-640.imd.adl
+$TOOL convert img_dos-640.adl conv/dos-640.edsk --container=edsk --quiet
+$TOOL convert conv/dos-640.edsk conv/dos-640.edsk.adl --container=raw --quiet
+cmp img_dos-640.adl conv/dos-640.edsk.adl
+$TOOL convert img_dos-640.adl conv/dos-640.dsk --container=dsk --quiet
+$TOOL convert conv/dos-640.dsk conv/dos-640.dsk.adl --container=raw --quiet
+cmp img_dos-640.adl conv/dos-640.dsk.adl
+$TOOL convert img_pc-360.img conv/pc-360.imd --container=imd --quiet
+$TOOL convert conv/pc-360.imd conv/pc-360.imd.img --container=raw --quiet
+cmp img_pc-360.img conv/pc-360.imd.img
+$TOOL convert img_pc-360.img conv/pc-360.edsk --container=edsk --quiet
+$TOOL convert conv/pc-360.edsk conv/pc-360.edsk.img --container=raw --quiet
+cmp img_pc-360.img conv/pc-360.edsk.img
+$TOOL convert img_pc-360.img conv/pc-360.dsk --container=dsk --quiet
+$TOOL convert conv/pc-360.dsk conv/pc-360.dsk.img --container=raw --quiet
+cmp img_pc-360.img conv/pc-360.dsk.img
+$TOOL convert img_pc-720.img conv/pc-720.imd --container=imd --quiet
+$TOOL convert conv/pc-720.imd conv/pc-720.imd.img --container=raw --quiet
+cmp img_pc-720.img conv/pc-720.imd.img
+$TOOL convert img_pc-720.img conv/pc-720.edsk --container=edsk --quiet
+$TOOL convert conv/pc-720.edsk conv/pc-720.edsk.img --container=raw --quiet
+cmp img_pc-720.img conv/pc-720.edsk.img
+$TOOL convert img_pc-720.img conv/pc-720.dsk --container=dsk --quiet
+$TOOL convert conv/pc-720.dsk conv/pc-720.dsk.img --container=raw --quiet
+cmp img_pc-720.img conv/pc-720.dsk.img
+$TOOL convert img_pc-1200.img conv/pc-1200.imd --container=imd --quiet
+$TOOL convert conv/pc-1200.imd conv/pc-1200.imd.img --container=raw --quiet
+cmp img_pc-1200.img conv/pc-1200.imd.img
+$TOOL convert img_pc-1200.img conv/pc-1200.edsk --container=edsk --quiet
+$TOOL convert conv/pc-1200.edsk conv/pc-1200.edsk.img --container=raw --quiet
+cmp img_pc-1200.img conv/pc-1200.edsk.img
+$TOOL convert img_pc-1200.img conv/pc-1200.dsk --container=dsk --quiet
+$TOOL convert conv/pc-1200.dsk conv/pc-1200.dsk.img --container=raw --quiet
+cmp img_pc-1200.img conv/pc-1200.dsk.img
+$TOOL convert img_pc-1440.img conv/pc-1440.imd --container=imd --quiet
+$TOOL convert conv/pc-1440.imd conv/pc-1440.imd.img --container=raw --quiet
+cmp img_pc-1440.img conv/pc-1440.imd.img
+$TOOL convert img_pc-1440.img conv/pc-1440.edsk --container=edsk --quiet
+$TOOL convert conv/pc-1440.edsk conv/pc-1440.edsk.img --container=raw --quiet
+cmp img_pc-1440.img conv/pc-1440.edsk.img
+$TOOL convert img_pc-1440.img conv/pc-1440.dsk --container=dsk --quiet
+$TOOL convert conv/pc-1440.dsk conv/pc-1440.dsk.img --container=raw --quiet
+cmp img_pc-1440.img conv/pc-1440.dsk.img

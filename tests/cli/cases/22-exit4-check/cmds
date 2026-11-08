@@ -1,0 +1,3 @@
+$TOOL check img.adl --json
+$TOOL put img.adl host/PROG / --json
+$TOOL mkdir img.adl Lib --json

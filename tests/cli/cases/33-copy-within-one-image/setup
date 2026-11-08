@@ -1,0 +1,3 @@
+#!/bin/bash
+$TOOL new img.dsd --format=dfs-ds80 --title=TWO --quiet
+$TOOL put img.dsd host/GAME host/DATA / --quiet

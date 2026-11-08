@@ -1,0 +1,8 @@
+$TOOL info img.dsd --json
+$TOOL check img.dsd --json
+$TOOL ls img.dsd --json
+$TOOL ls img.dsd -R --vol=all --json
+$TOOL ls img.dsd --vol=2 --json
+$TOOL ls img.dsd -d '$.DATA' --json
+$TOOL attr img.dsd T.GAME --json
+$TOOL get img.dsd T.GAME -

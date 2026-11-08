@@ -1,0 +1,2 @@
+$TOOL copy img.dsd img.dsd '$.DATA' --to-vol=2 --json
+$TOOL ls img.dsd --vol=all --json

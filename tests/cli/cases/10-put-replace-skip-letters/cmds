@@ -1,0 +1,8 @@
+$TOOL put img.adl host/GAME / --json
+$TOOL put img.adl host/GAME / --skip --json
+$TOOL put img.adl host/GAME / --replace --json
+$TOOL put img.adl host/PLAIN Games --json
+$TOOL put img.adl host/PLAIN Games --replace --json
+$TOOL attr img.adl Games.PLAIN --json
+$TOOL put img.adl host/Games Games --replace --json
+$TOOL ls img.adl -R --json

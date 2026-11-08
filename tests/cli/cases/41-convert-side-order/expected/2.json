@@ -1,0 +1,28 @@
+{
+    "changes": [
+        {
+            "from": "img_ds80.dsd",
+            "note": "imd",
+            "op": "convert",
+            "path": "img_c1.imd",
+            "vol": ""
+        }
+    ],
+    "command": "convert",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_ds80.dsd",
+    "ok": true,
+    "result": {
+        "container": "ImageDisk (.IMD)",
+        "out": "img_c1.imd",
+        "size": 10222
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

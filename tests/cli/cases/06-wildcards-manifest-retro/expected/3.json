@@ -1,0 +1,99 @@
+{
+    "changes": [
+        {
+            "from": "$.DATA",
+            "note": null,
+            "op": "add",
+            "path": "DATA",
+            "vol": "drive 0"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "DATA.inf",
+            "vol": "drive 0"
+        },
+        {
+            "from": "T.GAME",
+            "note": null,
+            "op": "add",
+            "path": "T.GAME",
+            "vol": "drive 0"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "T.GAME.inf",
+            "vol": "drive 0"
+        },
+        {
+            "from": "U.MORE",
+            "note": null,
+            "op": "add",
+            "path": "U.MORE",
+            "vol": "drive 0"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "U.MORE.inf",
+            "vol": "drive 0"
+        }
+    ],
+    "command": "get",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.dsd",
+    "ok": true,
+    "result": {
+        "manifest": "out/manifest.json",
+        "written": [
+            {
+                "from": "$.DATA",
+                "host": "DATA",
+                "sidecar": false,
+                "size": 306
+            },
+            {
+                "from": null,
+                "host": "DATA.inf",
+                "sidecar": true,
+                "size": 40
+            },
+            {
+                "from": "T.GAME",
+                "host": "T.GAME",
+                "sidecar": false,
+                "size": 1505
+            },
+            {
+                "from": null,
+                "host": "T.GAME.inf",
+                "sidecar": true,
+                "size": 40
+            },
+            {
+                "from": "U.MORE",
+                "host": "U.MORE",
+                "sidecar": false,
+                "size": 5
+            },
+            {
+                "from": null,
+                "host": "U.MORE.inf",
+                "sidecar": true,
+                "size": 40
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

@@ -1,0 +1,1665 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_b.img",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DIBHSS07.FNT",
+                "kind": "file",
+                "modified": "1986-02-27T12:52:00",
+                "name": "DIBHSS07.FNT",
+                "path": [
+                    "DIBHSS07.FNT"
+                ],
+                "problem": null,
+                "size": 2560,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DIBHSS10.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "DIBHSS10.FNT",
+                "path": [
+                    "DIBHSS10.FNT"
+                ],
+                "problem": null,
+                "size": 3706,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DIBHSS14.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "DIBHSS14.FNT",
+                "path": [
+                    "DIBHSS14.FNT"
+                ],
+                "problem": null,
+                "size": 7070,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DIBHSS20.FNT",
+                "kind": "file",
+                "modified": "1986-02-27T12:52:00",
+                "name": "DIBHSS20.FNT",
+                "path": [
+                    "DIBHSS20.FNT"
+                ],
+                "problem": null,
+                "size": 15360,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DIBHSS36.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "DIBHSS36.FNT",
+                "path": [
+                    "DIBHSS36.FNT"
+                ],
+                "problem": null,
+                "size": 43858,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": false,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DOCUMENT",
+                "kind": "dir",
+                "modified": "2003-03-01T15:56:00",
+                "name": "DOCUMENT",
+                "path": [
+                    "DOCUMENT"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DOCUMENT/README.DOC",
+                "kind": "file",
+                "modified": "1986-09-18T14:31:00",
+                "name": "README.DOC",
+                "path": [
+                    "DOCUMENT",
+                    "README.DOC"
+                ],
+                "problem": null,
+                "size": 9984,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DOCUMENT/README.FMT",
+                "kind": "file",
+                "modified": "1986-09-18T14:31:00",
+                "name": "README.FMT",
+                "path": [
+                    "DOCUMENT",
+                    "README.FMT"
+                ],
+                "problem": null,
+                "size": 384,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": false,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DOCUMENT/TUTORIAL",
+                "kind": "dir",
+                "modified": "2003-03-01T15:56:06",
+                "name": "TUTORIAL",
+                "path": [
+                    "DOCUMENT",
+                    "TUTORIAL"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DOCUMENT/TUTORIAL/GEMLOGO.GEM",
+                "kind": "file",
+                "modified": "1986-03-07T21:15:00",
+                "name": "GEMLOGO.GEM",
+                "path": [
+                    "DOCUMENT",
+                    "TUTORIAL",
+                    "GEMLOGO.GEM"
+                ],
+                "problem": null,
+                "size": 906,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DOCUMENT/TUTORIAL/TUTOR1.DOC",
+                "kind": "file",
+                "modified": "1986-05-13T13:32:00",
+                "name": "TUTOR1.DOC",
+                "path": [
+                    "DOCUMENT",
+                    "TUTORIAL",
+                    "TUTOR1.DOC"
+                ],
+                "problem": null,
+                "size": 16256,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DOCUMENT/TUTORIAL/TUTOR1.FMT",
+                "kind": "file",
+                "modified": "1986-05-13T13:32:00",
+                "name": "TUTOR1.FMT",
+                "path": [
+                    "DOCUMENT",
+                    "TUTORIAL",
+                    "TUTOR1.FMT"
+                ],
+                "problem": null,
+                "size": 384,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DOCUMENT/TUTORIAL/TUTOR2.DOC",
+                "kind": "file",
+                "modified": "1986-05-13T13:50:00",
+                "name": "TUTOR2.DOC",
+                "path": [
+                    "DOCUMENT",
+                    "TUTORIAL",
+                    "TUTOR2.DOC"
+                ],
+                "problem": null,
+                "size": 13440,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DOCUMENT/TUTORIAL/TUTOR2.FMT",
+                "kind": "file",
+                "modified": "1986-05-13T13:50:00",
+                "name": "TUTOR2.FMT",
+                "path": [
+                    "DOCUMENT",
+                    "TUTORIAL",
+                    "TUTOR2.FMT"
+                ],
+                "problem": null,
+                "size": 384,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DOCUMENT/TUTORIAL/TUTOR3.DOC",
+                "kind": "file",
+                "modified": "1986-05-13T13:55:00",
+                "name": "TUTOR3.DOC",
+                "path": [
+                    "DOCUMENT",
+                    "TUTORIAL",
+                    "TUTOR3.DOC"
+                ],
+                "problem": null,
+                "size": 9216,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DOCUMENT/TUTORIAL/TUTOR3.FMT",
+                "kind": "file",
+                "modified": "1986-05-13T13:55:00",
+                "name": "TUTOR3.FMT",
+                "path": [
+                    "DOCUMENT",
+                    "TUTORIAL",
+                    "TUTOR3.FMT"
+                ],
+                "problem": null,
+                "size": 384,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/EPSLSS10.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "EPSLSS10.FNT",
+                "path": [
+                    "EPSLSS10.FNT"
+                ],
+                "problem": null,
+                "size": 1638,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/EPSLSS14.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "EPSLSS14.FNT",
+                "path": [
+                    "EPSLSS14.FNT"
+                ],
+                "problem": null,
+                "size": 2582,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/EPSLSS20.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "EPSLSS20.FNT",
+                "path": [
+                    "EPSLSS20.FNT"
+                ],
+                "problem": null,
+                "size": 4698,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/EPSLSS28.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "EPSLSS28.FNT",
+                "path": [
+                    "EPSLSS28.FNT"
+                ],
+                "problem": null,
+                "size": 8546,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/EPSLSS36.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "EPSLSS36.FNT",
+                "path": [
+                    "EPSLSS36.FNT"
+                ],
+                "problem": null,
+                "size": 13642,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/EPSLTR10.FNT",
+                "kind": "file",
+                "modified": "1986-04-03T08:44:00",
+                "name": "EPSLTR10.FNT",
+                "path": [
+                    "EPSLTR10.FNT"
+                ],
+                "problem": null,
+                "size": 1792,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/EPSLTR14.FNT",
+                "kind": "file",
+                "modified": "1986-04-03T10:00:00",
+                "name": "EPSLTR14.FNT",
+                "path": [
+                    "EPSLTR14.FNT"
+                ],
+                "problem": null,
+                "size": 2816,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/EPSLTR20.FNT",
+                "kind": "file",
+                "modified": "1986-05-06T11:55:00",
+                "name": "EPSLTR20.FNT",
+                "path": [
+                    "EPSLTR20.FNT"
+                ],
+                "problem": null,
+                "size": 4736,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/EPSLTR28.FNT",
+                "kind": "file",
+                "modified": "1986-05-06T11:55:00",
+                "name": "EPSLTR28.FNT",
+                "path": [
+                    "EPSLTR28.FNT"
+                ],
+                "problem": null,
+                "size": 8448,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/EPSLTR36.FNT",
+                "kind": "file",
+                "modified": "1986-05-06T11:53:00",
+                "name": "EPSLTR36.FNT",
+                "path": [
+                    "EPSLTR36.FNT"
+                ],
+                "problem": null,
+                "size": 14848,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLHSS07.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "HPLHSS07.FNT",
+                "path": [
+                    "HPLHSS07.FNT"
+                ],
+                "problem": null,
+                "size": 3002,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLHSS10.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "HPLHSS10.FNT",
+                "path": [
+                    "HPLHSS10.FNT"
+                ],
+                "problem": null,
+                "size": 5498,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLHSS14.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "HPLHSS14.FNT",
+                "path": [
+                    "HPLHSS14.FNT"
+                ],
+                "problem": null,
+                "size": 10804,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLHSS20.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "HPLHSS20.FNT",
+                "path": [
+                    "HPLHSS20.FNT"
+                ],
+                "problem": null,
+                "size": 20956,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLHSS36.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "HPLHSS36.FNT",
+                "path": [
+                    "HPLHSS36.FNT"
+                ],
+                "problem": null,
+                "size": 58288,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLHTR07.FNT",
+                "kind": "file",
+                "modified": "1986-04-03T08:21:00",
+                "name": "HPLHTR07.FNT",
+                "path": [
+                    "HPLHTR07.FNT"
+                ],
+                "problem": null,
+                "size": 3328,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLHTR10.FNT",
+                "kind": "file",
+                "modified": "1986-04-03T08:25:00",
+                "name": "HPLHTR10.FNT",
+                "path": [
+                    "HPLHTR10.FNT"
+                ],
+                "problem": null,
+                "size": 5760,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLHTR14.FNT",
+                "kind": "file",
+                "modified": "1986-05-06T11:43:00",
+                "name": "HPLHTR14.FNT",
+                "path": [
+                    "HPLHTR14.FNT"
+                ],
+                "problem": null,
+                "size": 10752,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLHTR20.FNT",
+                "kind": "file",
+                "modified": "1986-05-06T11:43:00",
+                "name": "HPLHTR20.FNT",
+                "path": [
+                    "HPLHTR20.FNT"
+                ],
+                "problem": null,
+                "size": 21120,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLHTR28.FNT",
+                "kind": "file",
+                "modified": "1986-05-06T11:44:00",
+                "name": "HPLHTR28.FNT",
+                "path": [
+                    "HPLHTR28.FNT"
+                ],
+                "problem": null,
+                "size": 46336,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLHTR36.FNT",
+                "kind": "file",
+                "modified": "1986-05-06T11:45:00",
+                "name": "HPLHTR36.FNT",
+                "path": [
+                    "HPLHTR36.FNT"
+                ],
+                "problem": null,
+                "size": 58880,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLLSS07.FNT",
+                "kind": "file",
+                "modified": "1986-02-27T12:50:00",
+                "name": "HPLLSS07.FNT",
+                "path": [
+                    "HPLLSS07.FNT"
+                ],
+                "problem": null,
+                "size": 1536,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLLSS10.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "HPLLSS10.FNT",
+                "path": [
+                    "HPLLSS10.FNT"
+                ],
+                "problem": null,
+                "size": 1838,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLLSS14.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "HPLLSS14.FNT",
+                "path": [
+                    "HPLLSS14.FNT"
+                ],
+                "problem": null,
+                "size": 3002,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLLSS20.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "HPLLSS20.FNT",
+                "path": [
+                    "HPLLSS20.FNT"
+                ],
+                "problem": null,
+                "size": 5498,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLLSS28.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "HPLLSS28.FNT",
+                "path": [
+                    "HPLLSS28.FNT"
+                ],
+                "problem": null,
+                "size": 10804,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLLSS36.FNT",
+                "kind": "file",
+                "modified": "1986-02-07T12:03:00",
+                "name": "HPLLSS36.FNT",
+                "path": [
+                    "HPLLSS36.FNT"
+                ],
+                "problem": null,
+                "size": 17114,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLLTR07.FNT",
+                "kind": "file",
+                "modified": "1986-05-06T11:31:00",
+                "name": "HPLLTR07.FNT",
+                "path": [
+                    "HPLLTR07.FNT"
+                ],
+                "problem": null,
+                "size": 1536,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLLTR10.FNT",
+                "kind": "file",
+                "modified": "1986-04-03T08:56:00",
+                "name": "HPLLTR10.FNT",
+                "path": [
+                    "HPLLTR10.FNT"
+                ],
+                "problem": null,
+                "size": 1920,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLLTR14.FNT",
+                "kind": "file",
+                "modified": "1986-04-03T10:01:00",
+                "name": "HPLLTR14.FNT",
+                "path": [
+                    "HPLLTR14.FNT"
+                ],
+                "problem": null,
+                "size": 3328,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLLTR20.FNT",
+                "kind": "file",
+                "modified": "1986-04-03T10:02:00",
+                "name": "HPLLTR20.FNT",
+                "path": [
+                    "HPLLTR20.FNT"
+                ],
+                "problem": null,
+                "size": 5760,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HPLLTR36.FNT",
+                "kind": "file",
+                "modified": "1986-05-06T11:26:00",
+                "name": "HPLLTR36.FNT",
+                "path": [
+                    "HPLLTR36.FNT"
+                ],
+                "problem": null,
+                "size": 17536,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": false,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES",
+                "kind": "dir",
+                "modified": "2003-03-01T15:59:00",
+                "name": "IMAGES",
+                "path": [
+                    "IMAGES"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/DANCER.GEM",
+                "kind": "file",
+                "modified": "1980-01-01T01:41:00",
+                "name": "DANCER.GEM",
+                "path": [
+                    "IMAGES",
+                    "DANCER.GEM"
+                ],
+                "problem": null,
+                "size": 96,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/DANCER.IMG",
+                "kind": "file",
+                "modified": "1980-01-01T01:41:00",
+                "name": "DANCER.IMG",
+                "path": [
+                    "IMAGES",
+                    "DANCER.IMG"
+                ],
+                "problem": null,
+                "size": 7789,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/DUCK.GEM",
+                "kind": "file",
+                "modified": "1980-01-01T00:31:00",
+                "name": "DUCK.GEM",
+                "path": [
+                    "IMAGES",
+                    "DUCK.GEM"
+                ],
+                "problem": null,
+                "size": 92,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/DUCK.IMG",
+                "kind": "file",
+                "modified": "1980-01-01T00:31:00",
+                "name": "DUCK.IMG",
+                "path": [
+                    "IMAGES",
+                    "DUCK.IMG"
+                ],
+                "problem": null,
+                "size": 13251,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/FLORPLAN.GEM",
+                "kind": "file",
+                "modified": "1985-06-16T00:43:00",
+                "name": "FLORPLAN.GEM",
+                "path": [
+                    "IMAGES",
+                    "FLORPLAN.GEM"
+                ],
+                "problem": null,
+                "size": 100,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/FLORPLAN.IMG",
+                "kind": "file",
+                "modified": "1985-06-16T00:43:00",
+                "name": "FLORPLAN.IMG",
+                "path": [
+                    "IMAGES",
+                    "FLORPLAN.IMG"
+                ],
+                "problem": null,
+                "size": 5724,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/HOUSE.GEM",
+                "kind": "file",
+                "modified": "1985-07-17T15:35:00",
+                "name": "HOUSE.GEM",
+                "path": [
+                    "IMAGES",
+                    "HOUSE.GEM"
+                ],
+                "problem": null,
+                "size": 94,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/HOUSE.IMG",
+                "kind": "file",
+                "modified": "1985-07-17T15:35:00",
+                "name": "HOUSE.IMG",
+                "path": [
+                    "IMAGES",
+                    "HOUSE.IMG"
+                ],
+                "problem": null,
+                "size": 32640,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/MAP.GEM",
+                "kind": "file",
+                "modified": "1985-06-16T00:43:00",
+                "name": "MAP.GEM",
+                "path": [
+                    "IMAGES",
+                    "MAP.GEM"
+                ],
+                "problem": null,
+                "size": 90,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/MAP.IMG",
+                "kind": "file",
+                "modified": "1985-06-16T00:43:00",
+                "name": "MAP.IMG",
+                "path": [
+                    "IMAGES",
+                    "MAP.IMG"
+                ],
+                "problem": null,
+                "size": 4921,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/OWL.GEM",
+                "kind": "file",
+                "modified": "1980-01-01T02:45:00",
+                "name": "OWL.GEM",
+                "path": [
+                    "IMAGES",
+                    "OWL.GEM"
+                ],
+                "problem": null,
+                "size": 90,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/OWL.IMG",
+                "kind": "file",
+                "modified": "1980-01-01T02:45:00",
+                "name": "OWL.IMG",
+                "path": [
+                    "IMAGES",
+                    "OWL.IMG"
+                ],
+                "problem": null,
+                "size": 14154,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/POREQ.GEM",
+                "kind": "file",
+                "modified": "1985-06-16T00:44:00",
+                "name": "POREQ.GEM",
+                "path": [
+                    "IMAGES",
+                    "POREQ.GEM"
+                ],
+                "problem": null,
+                "size": 94,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/POREQ.IMG",
+                "kind": "file",
+                "modified": "1985-06-16T00:44:00",
+                "name": "POREQ.IMG",
+                "path": [
+                    "IMAGES",
+                    "POREQ.IMG"
+                ],
+                "problem": null,
+                "size": 4426,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/QUAIL.GEM",
+                "kind": "file",
+                "modified": "1980-01-01T02:39:00",
+                "name": "QUAIL.GEM",
+                "path": [
+                    "IMAGES",
+                    "QUAIL.GEM"
+                ],
+                "problem": null,
+                "size": 94,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/QUAIL.IMG",
+                "kind": "file",
+                "modified": "1980-01-01T02:39:00",
+                "name": "QUAIL.IMG",
+                "path": [
+                    "IMAGES",
+                    "QUAIL.IMG"
+                ],
+                "problem": null,
+                "size": 11298,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/RPTCOVER.GEM",
+                "kind": "file",
+                "modified": "1985-06-16T00:45:00",
+                "name": "RPTCOVER.GEM",
+                "path": [
+                    "IMAGES",
+                    "RPTCOVER.GEM"
+                ],
+                "problem": null,
+                "size": 100,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/RPTCOVER.IMG",
+                "kind": "file",
+                "modified": "1985-06-16T00:45:00",
+                "name": "RPTCOVER.IMG",
+                "path": [
+                    "IMAGES",
+                    "RPTCOVER.IMG"
+                ],
+                "problem": null,
+                "size": 6540,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/SHIP.GEM",
+                "kind": "file",
+                "modified": "1985-07-17T15:45:00",
+                "name": "SHIP.GEM",
+                "path": [
+                    "IMAGES",
+                    "SHIP.GEM"
+                ],
+                "problem": null,
+                "size": 92,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/SHIP.IMG",
+                "kind": "file",
+                "modified": "1985-07-17T15:45:00",
+                "name": "SHIP.IMG",
+                "path": [
+                    "IMAGES",
+                    "SHIP.IMG"
+                ],
+                "problem": null,
+                "size": 22704,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/SHORTCUT.GEM",
+                "kind": "file",
+                "modified": "1985-11-01T09:45:00",
+                "name": "SHORTCUT.GEM",
+                "path": [
+                    "IMAGES",
+                    "SHORTCUT.GEM"
+                ],
+                "problem": null,
+                "size": 100,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/SHORTCUT.IMG",
+                "kind": "file",
+                "modified": "1985-11-01T09:45:00",
+                "name": "SHORTCUT.IMG",
+                "path": [
+                    "IMAGES",
+                    "SHORTCUT.IMG"
+                ],
+                "problem": null,
+                "size": 5377,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/SHORTHI.GEM",
+                "kind": "file",
+                "modified": "1985-07-25T17:41:00",
+                "name": "SHORTHI.GEM",
+                "path": [
+                    "IMAGES",
+                    "SHORTHI.GEM"
+                ],
+                "problem": null,
+                "size": 98,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/SHORTHI.IMG",
+                "kind": "file",
+                "modified": "1985-07-25T17:41:00",
+                "name": "SHORTHI.IMG",
+                "path": [
+                    "IMAGES",
+                    "SHORTHI.IMG"
+                ],
+                "problem": null,
+                "size": 8456,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/TED.GEM",
+                "kind": "file",
+                "modified": "1980-01-01T00:07:00",
+                "name": "TED.GEM",
+                "path": [
+                    "IMAGES",
+                    "TED.GEM"
+                ],
+                "problem": null,
+                "size": 90,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/TED.IMG",
+                "kind": "file",
+                "modified": "1980-01-01T00:07:00",
+                "name": "TED.IMG",
+                "path": [
+                    "IMAGES",
+                    "TED.IMG"
+                ],
+                "problem": null,
+                "size": 8896,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/TIGER.GEM",
+                "kind": "file",
+                "modified": "1985-06-12T16:22:00",
+                "name": "TIGER.GEM",
+                "path": [
+                    "IMAGES",
+                    "TIGER.GEM"
+                ],
+                "problem": null,
+                "size": 94,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/IMAGES/TIGER.IMG",
+                "kind": "file",
+                "modified": "1985-06-12T16:22:00",
+                "name": "TIGER.IMG",
+                "path": [
+                    "IMAGES",
+                    "TIGER.IMG"
+                ],
+                "problem": null,
+                "size": 6671,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/ISSUE.BAT",
+                "kind": "file",
+                "modified": "1987-02-11T09:41:00",
+                "name": "ISSUE.BAT",
+                "path": [
+                    "ISSUE.BAT"
+                ],
+                "problem": null,
+                "size": 2048,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/SNAPSHOT.ACC",
+                "kind": "file",
+                "modified": "1985-12-09T15:55:00",
+                "name": "SNAPSHOT.ACC",
+                "path": [
+                    "SNAPSHOT.ACC"
+                ],
+                "problem": null,
+                "size": 12450,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/SNAPSHOT.RSC",
+                "kind": "file",
+                "modified": "1985-11-14T09:12:00",
+                "name": "SNAPSHOT.RSC",
+                "path": [
+                    "SNAPSHOT.RSC"
+                ],
+                "problem": null,
+                "size": 1584,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "DOS",
+    "warnings": [
+    ]
+}

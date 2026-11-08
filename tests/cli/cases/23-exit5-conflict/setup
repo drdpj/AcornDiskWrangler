@@ -1,0 +1,6 @@
+#!/bin/bash
+$TOOL new img.ssd --format=dfs-ss40 --quiet
+$TOOL put img.ssd host/GAME / --quiet
+$TOOL new img2.adl --format=adfs-m --quiet
+$TOOL put img2.adl host/PROG / --quiet
+mkdir -p out; echo existing > out/GAME

@@ -1,0 +1,28 @@
+{
+    "changes": [
+        {
+            "from": "img_dos-640.adl",
+            "note": "dsk",
+            "op": "convert",
+            "path": "img_c_dos-640.dsk",
+            "vol": ""
+        }
+    ],
+    "command": "convert",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_dos-640.adl",
+    "ok": true,
+    "result": {
+        "container": "standard DSK image",
+        "out": "img_c_dos-640.dsk",
+        "size": 696576
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

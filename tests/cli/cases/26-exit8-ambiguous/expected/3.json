@@ -1,0 +1,39 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.img",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "00000",
+                    "load": "00000",
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.FILE",
+                "kind": "file",
+                "modified": null,
+                "name": "$.FILE",
+                "path": [
+                    "$.FILE"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

@@ -1,0 +1,4 @@
+boot load
+rm Lib -r --force
+
+ls

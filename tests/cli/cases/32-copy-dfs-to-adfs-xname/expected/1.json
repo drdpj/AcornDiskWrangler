@@ -1,0 +1,54 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": null,
+            "op": "mkdir",
+            "path": "$.T",
+            "vol": "ADFS"
+        },
+        {
+            "from": "T.GAME",
+            "note": null,
+            "op": "add",
+            "path": "$.T.GAME",
+            "vol": "ADFS"
+        },
+        {
+            "from": "@.AT",
+            "note": "@.AT: ADFS can't have a directory called '@', so it was copied as X_AT",
+            "op": "add",
+            "path": "$.X_AT",
+            "vol": "ADFS"
+        },
+        {
+            "from": "^.HAT",
+            "note": "^.HAT: ADFS can't have a directory called '^', so it was copied as X_HAT",
+            "op": "add",
+            "path": "$.X_HAT",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "copy",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "added": 3,
+        "dirs": 1,
+        "renamed": [
+        ],
+        "replaced": 0,
+        "skipped": 0
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+        "@.AT: ADFS can't have a directory called '@', so it was copied as X_AT",
+        "^.HAT: ADFS can't have a directory called '^', so it was copied as X_HAT"
+    ]
+}

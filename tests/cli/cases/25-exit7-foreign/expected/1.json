@@ -1,0 +1,68 @@
+{
+    "changes": [
+    ],
+    "command": "info",
+    "dryRun": false,
+    "error": {
+        "code": 7,
+        "kind": "foreign",
+        "message": "this disc belongs to CP/M Disk Wrangler (https://github.com/drdpj/CPMDiskWrangler/releases)",
+        "path": null
+    },
+    "exit": 7,
+    "image": "img.ssd",
+    "ok": false,
+    "result": {
+        "app": null,
+        "candidates": [
+            {
+                "description": "Acorn Z80 CP/M disc",
+                "evidence": [
+                    "its DFS catalogue holds only $.CPMDISC, a locked file that keeps DFS off the CP/M files"
+                ],
+                "fsId": "acorn-cpm",
+                "name": "Acorn Z80 CP/M",
+                "notes": [
+                ],
+                "probe": "dfs",
+                "safeToWrite": true,
+                "supported": true,
+                "tier": "certain"
+            }
+        ],
+        "chosen": {
+            "description": "Acorn Z80 CP/M disc",
+            "evidence": [
+                "its DFS catalogue holds only $.CPMDISC, a locked file that keeps DFS off the CP/M files"
+            ],
+            "fsId": "acorn-cpm",
+            "name": "Acorn Z80 CP/M",
+            "notes": [
+            ],
+            "probe": "dfs",
+            "safeToWrite": true,
+            "supported": true,
+            "tier": "certain"
+        },
+        "container": {
+            "kind": "raw",
+            "name": "raw sector image",
+            "readOnly": false,
+            "size": 204800
+        },
+        "owner": {
+            "id": "cpmdiskwrangler",
+            "name": "CP/M Disk Wrangler",
+            "releases": "https://github.com/drdpj/CPMDiskWrangler/releases"
+        },
+        "verdict": "handoff",
+        "volumes": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

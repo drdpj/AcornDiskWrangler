@@ -1,0 +1,10 @@
+#!/bin/bash
+$TOOL new img.img --format=pc-360 --quiet
+python3 -I - <<'PY'
+d = bytearray(open("img.img", "rb").read())
+for i in range(11, 62): d[i] = 0                  # no BPB: FAT is read from its table, so only Likely
+d[510] = d[511] = 0
+d[256 + 5] = 8; d[256 + 6] = 1; d[256 + 7] = 0x90   # and a DFS catalogue with one file, in the same sectors
+d[8:15] = b"FILE   "; d[15] = ord('$'); d[256 + 15] = 2
+open("img.img", "wb").write(d)
+PY

@@ -1,0 +1,5 @@
+$TOOL put img.ssd host/GAME / --json
+$TOOL new img.ssd --format=dfs-ss40 --json
+$TOOL get img.ssd T.GAME out --json
+$TOOL mv img2.adl PROG PROG --json
+$TOOL mkdir img2.adl '$.PROG' --json

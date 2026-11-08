@@ -1,0 +1,31 @@
+{
+    "changes": [
+        {
+            "from": "host/PLAIN",
+            "note": null,
+            "op": "add",
+            "path": "$.Games.PLAIN",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "put",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "added": 1,
+        "dirs": 0,
+        "renamed": [
+        ],
+        "replaced": 0,
+        "skipped": 0
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

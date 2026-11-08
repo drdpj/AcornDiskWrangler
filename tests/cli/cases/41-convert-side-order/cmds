@@ -1,0 +1,9 @@
+$TOOL info img_ds80.dsd --json
+$TOOL convert img_ds80.dsd img_c1.imd --container=imd --json
+$TOOL convert img_c1.imd img_b1.dsd --container=raw --to-sides=sequential --json
+$TOOL convert img_ds80.dsd img_c2.dsd --to-sides=interleaved --json
+$TOOL convert img_c2.dsd img_b2.dsd --to-sides=sequential --json
+$TOOL convert img_adl.adl img_c3.edsk --container=edsk --json
+$TOOL convert img_c3.edsk img_b3.adl --container=raw --to-sides=interleaved --json
+$TOOL convert img_c3.edsk img_s3.adl --container=raw --to-sides=sequential --json
+$TOOL convert img_s3.adl img_r3.adl --container=raw --sides=sequential --to-sides=interleaved --json

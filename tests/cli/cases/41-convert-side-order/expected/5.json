@@ -1,0 +1,29 @@
+{
+    "changes": [
+        {
+            "from": "img_c2.dsd",
+            "note": null,
+            "op": "convert",
+            "path": "img_b2.dsd",
+            "vol": ""
+        }
+    ],
+    "command": "convert",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_c2.dsd",
+    "ok": true,
+    "result": {
+        "container": "raw sector image",
+        "order": "sequential",
+        "out": "img_b2.dsd",
+        "size": 409600
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

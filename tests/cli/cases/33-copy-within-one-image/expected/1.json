@@ -1,0 +1,31 @@
+{
+    "changes": [
+        {
+            "from": "$.DATA",
+            "note": null,
+            "op": "add",
+            "path": "$.DATA",
+            "vol": "drive 2"
+        }
+    ],
+    "command": "copy",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.dsd",
+    "ok": true,
+    "result": {
+        "added": 1,
+        "dirs": 0,
+        "renamed": [
+        ],
+        "replaced": 0,
+        "skipped": 0
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 2",
+    "warnings": [
+    ]
+}

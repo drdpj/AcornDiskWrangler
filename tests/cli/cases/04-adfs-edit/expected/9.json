@@ -1,0 +1,78 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.Lib",
+                "kind": "dir",
+                "modified": null,
+                "name": "Lib",
+                "path": [
+                    "Lib"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.Lib.Sub",
+                "kind": "dir",
+                "modified": null,
+                "name": "Sub",
+                "path": [
+                    "Lib",
+                    "Sub"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "FFFF8023",
+                    "execute": false,
+                    "load": "FFFF1900",
+                    "locked": false,
+                    "read": true,
+                    "type": "F19",
+                    "write": true
+                },
+                "created": null,
+                "display": "$.PROG",
+                "kind": "file",
+                "modified": "1901-05-13T02:22:25",
+                "name": "PROG",
+                "path": [
+                    "PROG"
+                ],
+                "problem": null,
+                "size": 21,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

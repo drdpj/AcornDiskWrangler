@@ -1,0 +1,20 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.dsd",
+    "ok": true,
+    "result": {
+        "entries": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 2",
+    "warnings": [
+    ]
+}

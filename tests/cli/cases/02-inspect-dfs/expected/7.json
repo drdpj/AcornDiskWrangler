@@ -1,0 +1,39 @@
+{
+    "changes": [
+    ],
+    "command": "attr",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.dsd",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "38023",
+                    "load": "31900",
+                    "locked": true
+                },
+                "created": null,
+                "display": "T.GAME",
+                "kind": "file",
+                "modified": null,
+                "name": "T.GAME",
+                "path": [
+                    "T.GAME"
+                ],
+                "problem": null,
+                "size": 1505,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

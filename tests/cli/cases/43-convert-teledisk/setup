@@ -1,0 +1,16 @@
+#!/bin/bash
+$TOOL new base.adl --format=adfs-l --title=TD0 --quiet
+$TOOL put base.adl host/PROG / --quiet
+python3 -I - <<'PY'
+raw = open("base.adl", "rb").read()              # ADFS L, 80 tracks x 2 sides x 16 x 256, side order interleaved
+o = bytearray(b"TD\0\0\x15\x02\x03\x00\x00" + bytes([2, 0, 0]))
+off = 0
+for c in range(80):
+    for h in range(2):
+        o += bytes([16, c, h, 0])
+        for s in range(16):
+            o += bytes([c, h, s, 1, 0, 0]) + (257).to_bytes(2, "little") + b"\0" + raw[off:off + 256]
+            off += 256
+o += b"\xff"
+open("img.td0", "wb").write(o)
+PY

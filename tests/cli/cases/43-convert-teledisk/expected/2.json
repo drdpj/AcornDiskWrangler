@@ -1,0 +1,42 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.td0",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "00000000",
+                    "execute": false,
+                    "load": "00000000",
+                    "locked": false,
+                    "read": true,
+                    "write": true
+                },
+                "created": null,
+                "display": "$.PROG",
+                "kind": "file",
+                "modified": null,
+                "name": "PROG",
+                "path": [
+                    "PROG"
+                ],
+                "problem": null,
+                "size": 21,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}
