@@ -1,0 +1,3 @@
+#!/bin/bash
+$TOOL new img.img --format=pc-720 --title=FATTEST --quiet
+$TOOL put img.img host/README.TXT host/GAME.COM / --quiet

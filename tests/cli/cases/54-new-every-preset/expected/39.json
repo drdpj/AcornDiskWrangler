@@ -1,0 +1,285 @@
+{
+    "changes": [
+    ],
+    "command": "info",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_dos-640.img",
+    "ok": true,
+    "result": {
+        "app": {
+            "description": "Acorn 640K hybrid (ADFS catalogue + DOS Plus FAT)",
+            "fullSize": 655360,
+            "kind": "adfs-dos-hybrid",
+            "notes": [
+            ],
+            "sides": {
+                "confirmed": true,
+                "doubleSided": true,
+                "forced": false,
+                "order": "interleaved"
+            }
+        },
+        "candidates": [
+            {
+                "description": "Acorn 640K hybrid (ADFS catalogue + DOS Plus FAT)",
+                "evidence": [
+                    "the root directory is where ADFS keeps it",
+                    "a valid free space map"
+                ],
+                "fsId": "adfs",
+                "name": "ADFS + DOS Plus",
+                "notes": [
+                ],
+                "probe": "adfs",
+                "safeToWrite": true,
+                "supported": true,
+                "tier": "certain"
+            }
+        ],
+        "chosen": {
+            "description": "Acorn 640K hybrid (ADFS catalogue + DOS Plus FAT)",
+            "evidence": [
+                "the root directory is where ADFS keeps it",
+                "a valid free space map"
+            ],
+            "fsId": "adfs",
+            "name": "ADFS + DOS Plus",
+            "notes": [
+            ],
+            "probe": "adfs",
+            "safeToWrite": true,
+            "supported": true,
+            "tier": "certain"
+        },
+        "container": {
+            "kind": "raw",
+            "name": "raw sector image",
+            "readOnly": false,
+            "size": 655360
+        },
+        "owner": null,
+        "verdict": "open",
+        "volumes": [
+            {
+                "caps": {
+                    "contiguousOnly": false,
+                    "dates": true,
+                    "dirs": true,
+                    "maxEntriesPerDir": 47,
+                    "namespaces": false,
+                    "rename": true,
+                    "renameAcrossDirs": false,
+                    "settableDates": false,
+                    "title": true
+                },
+                "fileAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "read",
+                        "label": "R",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "write",
+                        "label": "W",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": true,
+                        "editable": true,
+                        "key": "locked",
+                        "label": "L",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "execute",
+                        "label": "E",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "load",
+                        "label": "Load",
+                        "type": "hex"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "exec",
+                        "label": "Exec",
+                        "type": "hex"
+                    },
+                    {
+                        "bits": 12,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": false,
+                        "key": "type",
+                        "label": "Type",
+                        "type": "hex"
+                    }
+                ],
+                "fsId": "adfs",
+                "info": {
+                    "entriesFree": -1,
+                    "free": 0,
+                    "largestFree": 0,
+                    "title": "Acorn DOS Boot Disc",
+                    "total": 696320
+                },
+                "label": "ADFS",
+                "readOnly": true,
+                "readOnlyWhy": "the ADFS side of a hybrid disc",
+                "vol": "adfs",
+                "volumeAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "title",
+                        "label": "Title",
+                        "type": "text"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                            "0 - off",
+                            "1 - *LOAD !BOOT",
+                            "2 - *RUN !BOOT",
+                            "3 - *EXEC !BOOT"
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "boot",
+                        "label": "Boot option",
+                        "type": "choice"
+                    }
+                ],
+                "volumeAttrs": {
+                    "boot": {
+                        "index": 0,
+                        "name": "0 - off"
+                    },
+                    "title": "Acorn DOS Boot Disc"
+                }
+            },
+            {
+                "caps": {
+                    "contiguousOnly": false,
+                    "dates": true,
+                    "dirs": true,
+                    "maxEntriesPerDir": -1,
+                    "namespaces": false,
+                    "rename": true,
+                    "renameAcrossDirs": false,
+                    "settableDates": false,
+                    "title": true
+                },
+                "fileAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": true,
+                        "editable": true,
+                        "key": "readonly",
+                        "label": "Read-only",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": true,
+                        "editable": true,
+                        "key": "hidden",
+                        "label": "Hidden",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": true,
+                        "editable": true,
+                        "key": "system",
+                        "label": "System",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": true,
+                        "editable": true,
+                        "key": "archive",
+                        "label": "Archive",
+                        "type": "bool"
+                    }
+                ],
+                "fsId": "fat",
+                "info": {
+                    "entriesFree": -1,
+                    "free": 647168,
+                    "largestFree": -1,
+                    "title": "TDOS-640",
+                    "total": 647168
+                },
+                "label": "DOS",
+                "readOnly": false,
+                "readOnlyWhy": null,
+                "vol": "dos",
+                "volumeAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "label",
+                        "label": "Label",
+                        "type": "text"
+                    }
+                ],
+                "volumeAttrs": {
+                    "label": "TDOS-640"
+                }
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

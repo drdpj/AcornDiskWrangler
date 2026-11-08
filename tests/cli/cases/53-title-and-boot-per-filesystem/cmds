@@ -1,0 +1,15 @@
+$TOOL title img_a.adl --json
+$TOOL title img_a.adl NEWNAME --json
+$TOOL title img_a.adl "" --json
+$TOOL title img_a.adl THIS-TITLE-IS-FAR-TOO-LONG --json
+$TOOL boot img_a.adl --json
+$TOOL boot img_a.adl exec --json
+$TOOL boot img_a.adl 9 --json
+$TOOL title img_d.ssd NEWNAME --json
+$TOOL title img_d.ssd 12345678901234 --json
+$TOOL boot img_d.ssd 2 --json
+$TOOL boot img_d.ssd --json
+$TOOL title img_f.img --json
+$TOOL title img_f.img NEWLABEL --json
+$TOOL boot img_f.img --json
+$TOOL boot img_f.img exec --json

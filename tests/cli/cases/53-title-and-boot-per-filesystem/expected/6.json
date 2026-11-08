@@ -1,0 +1,29 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "exec",
+            "op": "boot",
+            "path": "",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "boot",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_a.adl",
+    "ok": true,
+    "result": {
+        "boot": {
+            "index": 3,
+            "name": "3 - *EXEC !BOOT"
+        }
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

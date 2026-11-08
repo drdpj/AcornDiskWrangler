@@ -1,0 +1,27 @@
+{
+    "changes": [
+    ],
+    "command": "check",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_dos-640.img",
+    "ok": true,
+    "result": {
+        "errors": [
+        ],
+        "info": [
+            "ADFS: 1 directories, 1 files, 0 of 2720 sectors free in 0 fragment(s)",
+            "DOS: DOS volume 'TDOS-640': 0 files, 0 directories, 316 of 316 clusters free (FAT12, 2048-byte clusters)"
+        ],
+        "warnings": [
+            "ADFS: the ADFS map claims 2720 sectors but the disc holds 2560 (normal for an Acorn DOS Plus hybrid disc: the DOS area is not described by the ADFS map)"
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

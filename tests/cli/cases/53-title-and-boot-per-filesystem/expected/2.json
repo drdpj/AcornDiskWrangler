@@ -1,0 +1,27 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "NEWNAME",
+            "op": "title",
+            "path": "",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "title",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_a.adl",
+    "ok": true,
+    "result": {
+        "key": "title",
+        "title": "NEWNAME"
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

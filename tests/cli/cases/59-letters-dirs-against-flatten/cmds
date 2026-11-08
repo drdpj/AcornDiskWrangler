@@ -1,0 +1,5 @@
+$TOOL copy img_src.dsd img_d1.adl '*.*' --letters=dirs --json
+$TOOL ls img_d1.adl -R --json
+$TOOL copy img_src.dsd img_d2.adl '*.*' --letters=flatten --json
+$TOOL ls img_d2.adl -R --json
+$TOOL check img_d2.adl --json

@@ -1,0 +1,22 @@
+{
+    "changes": [
+    ],
+    "command": "boot",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_a.adl",
+    "ok": true,
+    "result": {
+        "boot": {
+            "index": 0,
+            "name": "0 - off"
+        }
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

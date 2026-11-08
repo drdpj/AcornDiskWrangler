@@ -1,0 +1,26 @@
+{
+    "changes": [
+    ],
+    "command": "check",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_dfs-ds80.img",
+    "ok": true,
+    "result": {
+        "errors": [
+        ],
+        "info": [
+            "drive 0: DFS drive 0 'Tdfs-ds80': 0 files, 798 of 800 sectors free",
+            "drive 2: DFS drive 2 'Tdfs-ds80': 0 files, 798 of 800 sectors free"
+        ],
+        "warnings": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

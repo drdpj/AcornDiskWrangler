@@ -1,0 +1,20 @@
+{
+    "changes": [
+    ],
+    "command": "title",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_a.adl",
+    "ok": true,
+    "result": {
+        "key": "title",
+        "title": "ADFSTEST"
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

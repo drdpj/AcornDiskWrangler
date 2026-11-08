@@ -1,0 +1,26 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": null,
+            "op": "remove",
+            "path": "$.PROG",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "rm",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "removed": 1
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

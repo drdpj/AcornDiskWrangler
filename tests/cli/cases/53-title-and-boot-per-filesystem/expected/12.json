@@ -1,0 +1,20 @@
+{
+    "changes": [
+    ],
+    "command": "title",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_f.img",
+    "ok": true,
+    "result": {
+        "key": "label",
+        "title": "FATTEST"
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "DOS",
+    "warnings": [
+    ]
+}

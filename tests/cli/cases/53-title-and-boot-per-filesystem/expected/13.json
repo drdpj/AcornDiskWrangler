@@ -1,0 +1,27 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "NEWLABEL",
+            "op": "title",
+            "path": "",
+            "vol": "DOS"
+        }
+    ],
+    "command": "title",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_f.img",
+    "ok": true,
+    "result": {
+        "key": "label",
+        "title": "NEWLABEL"
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "DOS",
+    "warnings": [
+    ]
+}

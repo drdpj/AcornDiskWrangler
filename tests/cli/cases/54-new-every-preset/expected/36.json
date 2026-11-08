@@ -1,0 +1,153 @@
+{
+    "changes": [
+    ],
+    "command": "info",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_dos-800.img",
+    "ok": true,
+    "result": {
+        "app": {
+            "description": "Acorn DOS Plus 800K floppy",
+            "fullSize": 819200,
+            "kind": "dos-acorn800",
+            "notes": [
+            ],
+            "sides": {
+                "confirmed": false,
+                "doubleSided": true,
+                "forced": false,
+                "order": "interleaved"
+            }
+        },
+        "candidates": [
+            {
+                "description": "Acorn DOS Plus 800K floppy",
+                "evidence": [
+                    "a FAT with media byte FD at the start of an 800K disc"
+                ],
+                "fsId": "fat",
+                "name": "DOS Plus",
+                "notes": [
+                ],
+                "probe": "fat",
+                "safeToWrite": true,
+                "supported": true,
+                "tier": "likely"
+            }
+        ],
+        "chosen": {
+            "description": "Acorn DOS Plus 800K floppy",
+            "evidence": [
+                "a FAT with media byte FD at the start of an 800K disc"
+            ],
+            "fsId": "fat",
+            "name": "DOS Plus",
+            "notes": [
+            ],
+            "probe": "fat",
+            "safeToWrite": true,
+            "supported": true,
+            "tier": "likely"
+        },
+        "container": {
+            "kind": "raw",
+            "name": "raw sector image",
+            "readOnly": false,
+            "size": 819200
+        },
+        "owner": null,
+        "verdict": "open",
+        "volumes": [
+            {
+                "caps": {
+                    "contiguousOnly": false,
+                    "dates": true,
+                    "dirs": true,
+                    "maxEntriesPerDir": -1,
+                    "namespaces": false,
+                    "rename": true,
+                    "renameAcrossDirs": false,
+                    "settableDates": false,
+                    "title": true
+                },
+                "fileAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": true,
+                        "editable": true,
+                        "key": "readonly",
+                        "label": "Read-only",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": true,
+                        "editable": true,
+                        "key": "hidden",
+                        "label": "Hidden",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": true,
+                        "editable": true,
+                        "key": "system",
+                        "label": "System",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": true,
+                        "editable": true,
+                        "key": "archive",
+                        "label": "Archive",
+                        "type": "bool"
+                    }
+                ],
+                "fsId": "fat",
+                "info": {
+                    "entriesFree": -1,
+                    "free": 811008,
+                    "largestFree": -1,
+                    "title": "TDOS-800",
+                    "total": 811008
+                },
+                "label": "DOS",
+                "readOnly": false,
+                "readOnlyWhy": null,
+                "vol": "dos",
+                "volumeAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "label",
+                        "label": "Label",
+                        "type": "text"
+                    }
+                ],
+                "volumeAttrs": {
+                    "label": "TDOS-800"
+                }
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

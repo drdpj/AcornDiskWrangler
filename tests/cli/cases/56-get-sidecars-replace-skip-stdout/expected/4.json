@@ -1,0 +1,47 @@
+{
+    "changes": [
+        {
+            "from": "GAME",
+            "note": null,
+            "op": "add",
+            "path": "GAME",
+            "vol": "ADFS"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "GAME.inf",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "get",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "manifest": null,
+        "written": [
+            {
+                "from": "GAME",
+                "host": "GAME",
+                "sidecar": false,
+                "size": 8
+            },
+            {
+                "from": null,
+                "host": "GAME.inf",
+                "sidecar": true,
+                "size": 41
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

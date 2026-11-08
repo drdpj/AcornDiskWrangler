@@ -1,0 +1,840 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": true,
+                    "system": true
+                },
+                "created": null,
+                "display": "/6502.SYS",
+                "kind": "file",
+                "modified": "1987-03-27T17:13:00",
+                "name": "6502.SYS",
+                "path": [
+                    "6502.SYS"
+                ],
+                "problem": null,
+                "size": 1152,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": true,
+                    "system": true
+                },
+                "created": null,
+                "display": "/LOGO.SYS",
+                "kind": "file",
+                "modified": "1987-03-27T17:13:00",
+                "name": "LOGO.SYS",
+                "path": [
+                    "LOGO.SYS"
+                ],
+                "problem": null,
+                "size": 1408,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": true,
+                    "system": true
+                },
+                "created": null,
+                "display": "/DOSPLUS.SYS",
+                "kind": "file",
+                "modified": "1987-07-15T13:59:00",
+                "name": "DOSPLUS.SYS",
+                "path": [
+                    "DOSPLUS.SYS"
+                ],
+                "problem": null,
+                "size": 83840,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": true,
+                    "system": true
+                },
+                "created": null,
+                "display": "/COMMAND.COM",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "COMMAND.COM",
+                "path": [
+                    "COMMAND.COM"
+                ],
+                "problem": null,
+                "size": 26888,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/ALARM.CMD",
+                "kind": "file",
+                "modified": "1986-08-28T12:36:00",
+                "name": "ALARM.CMD",
+                "path": [
+                    "ALARM.CMD"
+                ],
+                "problem": null,
+                "size": 11264,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/ALARM.DAT",
+                "kind": "file",
+                "modified": "1988-03-01T10:30:00",
+                "name": "ALARM.DAT",
+                "path": [
+                    "ALARM.DAT"
+                ],
+                "problem": null,
+                "size": 128,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/BACKG.CMD",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "BACKG.CMD",
+                "path": [
+                    "BACKG.CMD"
+                ],
+                "problem": null,
+                "size": 14720,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/BACKUP.CMD",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "BACKUP.CMD",
+                "path": [
+                    "BACKUP.CMD"
+                ],
+                "problem": null,
+                "size": 12416,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/BYE.CMD",
+                "kind": "file",
+                "modified": "1986-08-28T12:26:00",
+                "name": "BYE.CMD",
+                "path": [
+                    "BYE.CMD"
+                ],
+                "problem": null,
+                "size": 2560,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/CHKDSK.CMD",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "CHKDSK.CMD",
+                "path": [
+                    "CHKDSK.CMD"
+                ],
+                "problem": null,
+                "size": 11776,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/COLOUR.EXE",
+                "kind": "file",
+                "modified": "1986-08-28T12:36:00",
+                "name": "COLOUR.EXE",
+                "path": [
+                    "COLOUR.EXE"
+                ],
+                "problem": null,
+                "size": 3584,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DEVICE.CMD",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "DEVICE.CMD",
+                "path": [
+                    "DEVICE.CMD"
+                ],
+                "problem": null,
+                "size": 11392,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/DISK.CMD",
+                "kind": "file",
+                "modified": "1987-07-27T17:21:00",
+                "name": "DISK.CMD",
+                "path": [
+                    "DISK.CMD"
+                ],
+                "problem": null,
+                "size": 16768,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/ED.CMD",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "ED.CMD",
+                "path": [
+                    "ED.CMD"
+                ],
+                "problem": null,
+                "size": 9728,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/EDBIN.EXE",
+                "kind": "file",
+                "modified": "1987-01-16T16:08:00",
+                "name": "EDBIN.EXE",
+                "path": [
+                    "EDBIN.EXE"
+                ],
+                "problem": null,
+                "size": 7168,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/FIDDLOAD.COM",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "FIDDLOAD.COM",
+                "path": [
+                    "FIDDLOAD.COM"
+                ],
+                "problem": null,
+                "size": 3968,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/FSET.CMD",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "FSET.CMD",
+                "path": [
+                    "FSET.CMD"
+                ],
+                "problem": null,
+                "size": 8960,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/GETFILE.CMD",
+                "kind": "file",
+                "modified": "1987-01-15T14:51:00",
+                "name": "GETFILE.CMD",
+                "path": [
+                    "GETFILE.CMD"
+                ],
+                "problem": null,
+                "size": 12672,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HDBOOT.SYS",
+                "kind": "file",
+                "modified": "1986-08-28T13:21:00",
+                "name": "HDBOOT.SYS",
+                "path": [
+                    "HDBOOT.SYS"
+                ],
+                "problem": null,
+                "size": 3584,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HDINSTAL.BAT",
+                "kind": "file",
+                "modified": "1986-05-26T16:12:00",
+                "name": "HDINSTAL.BAT",
+                "path": [
+                    "HDINSTAL.BAT"
+                ],
+                "problem": null,
+                "size": 512,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HDINSTL1.BAT",
+                "kind": "file",
+                "modified": "1986-05-26T16:12:00",
+                "name": "HDINSTL1.BAT",
+                "path": [
+                    "HDINSTL1.BAT"
+                ],
+                "problem": null,
+                "size": 896,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HDISK.CMD",
+                "kind": "file",
+                "modified": "1986-08-28T13:21:00",
+                "name": "HDISK.CMD",
+                "path": [
+                    "HDISK.CMD"
+                ],
+                "problem": null,
+                "size": 18688,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HELP.CMD",
+                "kind": "file",
+                "modified": "1986-05-26T15:42:00",
+                "name": "HELP.CMD",
+                "path": [
+                    "HELP.CMD"
+                ],
+                "problem": null,
+                "size": 7424,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/HELP.HLP",
+                "kind": "file",
+                "modified": "1986-08-28T14:43:00",
+                "name": "HELP.HLP",
+                "path": [
+                    "HELP.HLP"
+                ],
+                "problem": null,
+                "size": 50560,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/INITDIR.CMD",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "INITDIR.CMD",
+                "path": [
+                    "INITDIR.CMD"
+                ],
+                "problem": null,
+                "size": 35840,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/ISSUE.BAT",
+                "kind": "file",
+                "modified": "1987-07-15T14:27:00",
+                "name": "ISSUE.BAT",
+                "path": [
+                    "ISSUE.BAT"
+                ],
+                "problem": null,
+                "size": 2048,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/LABEL.CMD",
+                "kind": "file",
+                "modified": "1987-07-28T01:56:00",
+                "name": "LABEL.CMD",
+                "path": [
+                    "LABEL.CMD"
+                ],
+                "problem": null,
+                "size": 6272,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/MEMDISK.COM",
+                "kind": "file",
+                "modified": "1987-05-05T20:22:00",
+                "name": "MEMDISK.COM",
+                "path": [
+                    "MEMDISK.COM"
+                ],
+                "problem": null,
+                "size": 2732,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/MODE.COM",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "MODE.COM",
+                "path": [
+                    "MODE.COM"
+                ],
+                "problem": null,
+                "size": 8064,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/MOVE.EXE",
+                "kind": "file",
+                "modified": "1987-01-25T19:14:00",
+                "name": "MOVE.EXE",
+                "path": [
+                    "MOVE.EXE"
+                ],
+                "problem": null,
+                "size": 21510,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/NETPRINT.CMD",
+                "kind": "file",
+                "modified": "1986-08-28T12:37:00",
+                "name": "NETPRINT.CMD",
+                "path": [
+                    "NETPRINT.CMD"
+                ],
+                "problem": null,
+                "size": 10112,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/NOTUBE.CMD",
+                "kind": "file",
+                "modified": "1986-08-28T12:29:00",
+                "name": "NOTUBE.CMD",
+                "path": [
+                    "NOTUBE.CMD"
+                ],
+                "problem": null,
+                "size": 4224,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/PCSCREEN.EXE",
+                "kind": "file",
+                "modified": "1986-08-28T12:33:00",
+                "name": "PCSCREEN.EXE",
+                "path": [
+                    "PCSCREEN.EXE"
+                ],
+                "problem": null,
+                "size": 3072,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/PIP.CMD",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "PIP.CMD",
+                "path": [
+                    "PIP.CMD"
+                ],
+                "problem": null,
+                "size": 9600,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/PRINT.CMD",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "PRINT.CMD",
+                "path": [
+                    "PRINT.CMD"
+                ],
+                "problem": null,
+                "size": 15104,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/PUTFILE.CMD",
+                "kind": "file",
+                "modified": "1987-01-15T14:51:00",
+                "name": "PUTFILE.CMD",
+                "path": [
+                    "PUTFILE.CMD"
+                ],
+                "problem": null,
+                "size": 12672,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/SDIR.CMD",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "SDIR.CMD",
+                "path": [
+                    "SDIR.CMD"
+                ],
+                "problem": null,
+                "size": 11904,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/SHOW.CMD",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "SHOW.CMD",
+                "path": [
+                    "SHOW.CMD"
+                ],
+                "problem": null,
+                "size": 8064,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/SKS.CMD",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "SKS.CMD",
+                "path": [
+                    "SKS.CMD"
+                ],
+                "problem": null,
+                "size": 1664,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/STAR.CMD",
+                "kind": "file",
+                "modified": "1986-08-28T12:25:00",
+                "name": "STAR.CMD",
+                "path": [
+                    "STAR.CMD"
+                ],
+                "problem": null,
+                "size": 12800,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/TREE.CMD",
+                "kind": "file",
+                "modified": "1987-01-06T14:28:00",
+                "name": "TREE.CMD",
+                "path": [
+                    "TREE.CMD"
+                ],
+                "problem": null,
+                "size": 6784,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "DOS",
+    "warnings": [
+    ]
+}

@@ -1,0 +1,3 @@
+#!/bin/bash
+# needs-real
+cp "$REAL/M512_1.ADL" img.adl

@@ -1,0 +1,6 @@
+$TOOL ls img.adl --json
+$TOOL ls img.adl --vol=adfs --json
+$TOOL ls img.adl --vol=dos --json
+$TOOL ls img.adl --vol=drive0 --json
+$TOOL put img.adl host/HELLO.TXT / --json
+$TOOL put img.adl host/HELLO.TXT / --vol=adfs --json

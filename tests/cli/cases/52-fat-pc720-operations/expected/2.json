@@ -1,0 +1,27 @@
+{
+    "changes": [
+        {
+            "from": "/GAME.COM",
+            "note": null,
+            "op": "rename",
+            "path": "/GAME2.COM",
+            "vol": "DOS"
+        }
+    ],
+    "command": "mv",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.img",
+    "ok": true,
+    "result": {
+        "from": "/GAME.COM",
+        "to": "/GAME2.COM"
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "DOS",
+    "warnings": [
+    ]
+}

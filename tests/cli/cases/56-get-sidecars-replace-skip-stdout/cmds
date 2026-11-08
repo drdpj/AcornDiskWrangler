@@ -1,0 +1,7 @@
+$TOOL get img.adl GAME out --sidecars=none --json
+$TOOL get img.adl GAME out --json
+$TOOL get img.adl GAME out --skip --json
+$TOOL get img.adl GAME out --replace --json
+$TOOL get img.adl GAME -
+$TOOL get img.adl GAME - --json
+$TOOL get img.adl GAME out2 --sidecars=none --json

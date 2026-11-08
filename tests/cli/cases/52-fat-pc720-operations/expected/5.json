@@ -1,0 +1,40 @@
+{
+    "changes": [
+    ],
+    "command": "attr",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.img",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": true,
+                    "readonly": true,
+                    "system": false
+                },
+                "created": null,
+                "display": "/GAME2.COM",
+                "kind": "file",
+                "modified": "2000-01-01T00:00:00",
+                "name": "GAME2.COM",
+                "path": [
+                    "GAME2.COM"
+                ],
+                "problem": null,
+                "size": 4,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "DOS",
+    "warnings": [
+    ]
+}

@@ -1,0 +1,4 @@
+#!/bin/bash
+$TOOL new img.adl --format=adfs-m --title=GETTEST --quiet
+$TOOL put img.adl host/GAME / --quiet
+$TOOL attr img.adl GAME --set load=FFFF1900 --set exec=FFFF8023 --quiet

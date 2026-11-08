@@ -1,0 +1,31 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "dos-640",
+            "op": "new",
+            "path": "img_dos-640.img",
+            "vol": ""
+        }
+    ],
+    "command": "new",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_dos-640.img",
+    "ok": true,
+    "result": {
+        "file": "img_dos-640.img",
+        "format": "dos-640",
+        "volumes": [
+            "adfs",
+            "dos"
+        ]
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

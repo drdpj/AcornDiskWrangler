@@ -1,0 +1,26 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "locked=0",
+            "op": "attr",
+            "path": "$.PROG",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "attr",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "changed": 1
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

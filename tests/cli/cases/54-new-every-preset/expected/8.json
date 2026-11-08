@@ -1,0 +1,30 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "adfs-l",
+            "op": "new",
+            "path": "img_adfs-l.img",
+            "vol": ""
+        }
+    ],
+    "command": "new",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_adfs-l.img",
+    "ok": true,
+    "result": {
+        "file": "img_adfs-l.img",
+        "format": "adfs-l",
+        "volumes": [
+            "adfs"
+        ]
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": {
+        "code": 2,
+        "kind": "usage",
+        "message": "no volume called 'drive0' on this disc; it has: adfs, dos",
+        "path": null
+    },
+    "exit": 2,
+    "image": "img.adl",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

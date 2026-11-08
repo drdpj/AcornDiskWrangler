@@ -1,0 +1,52 @@
+$TOOL new --list --json
+$TOOL new img_adfs-s.img --format=adfs-s --title=Tadfs-s --json
+$TOOL info img_adfs-s.img --json
+$TOOL check img_adfs-s.img --json
+$TOOL new img_adfs-m.img --format=adfs-m --title=Tadfs-m --json
+$TOOL info img_adfs-m.img --json
+$TOOL check img_adfs-m.img --json
+$TOOL new img_adfs-l.img --format=adfs-l --title=Tadfs-l --json
+$TOOL info img_adfs-l.img --json
+$TOOL check img_adfs-l.img --json
+$TOOL new img_dfs-ss40.img --format=dfs-ss40 --title=Tdfs-ss40 --json
+$TOOL info img_dfs-ss40.img --json
+$TOOL check img_dfs-ss40.img --json
+$TOOL new img_dfs-ss80.img --format=dfs-ss80 --title=Tdfs-ss80 --json
+$TOOL info img_dfs-ss80.img --json
+$TOOL check img_dfs-ss80.img --json
+$TOOL new img_dfs-ds40.img --format=dfs-ds40 --title=Tdfs-ds40 --json
+$TOOL info img_dfs-ds40.img --json
+$TOOL check img_dfs-ds40.img --json
+$TOOL new img_dfs-ds80.img --format=dfs-ds80 --title=Tdfs-ds80 --json
+$TOOL info img_dfs-ds80.img --json
+$TOOL check img_dfs-ds80.img --json
+$TOOL new img_wat-ss40.img --format=wat-ss40 --title=Twat-ss40 --json
+$TOOL info img_wat-ss40.img --json
+$TOOL check img_wat-ss40.img --json
+$TOOL new img_wat-ss80.img --format=wat-ss80 --title=Twat-ss80 --json
+$TOOL info img_wat-ss80.img --json
+$TOOL check img_wat-ss80.img --json
+$TOOL new img_wat-ds40.img --format=wat-ds40 --title=Twat-ds40 --json
+$TOOL info img_wat-ds40.img --json
+$TOOL check img_wat-ds40.img --json
+$TOOL new img_wat-ds80.img --format=wat-ds80 --title=Twat-ds80 --json
+$TOOL info img_wat-ds80.img --json
+$TOOL check img_wat-ds80.img --json
+$TOOL new img_dos-800.img --format=dos-800 --title=Tdos-800 --json
+$TOOL info img_dos-800.img --json
+$TOOL check img_dos-800.img --json
+$TOOL new img_dos-640.img --format=dos-640 --title=Tdos-640 --dosboot=dosboot.bin --json
+$TOOL info img_dos-640.img --json
+$TOOL check img_dos-640.img --json
+$TOOL new img_pc-360.img --format=pc-360 --title=Tpc-360 --json
+$TOOL info img_pc-360.img --json
+$TOOL check img_pc-360.img --json
+$TOOL new img_pc-720.img --format=pc-720 --title=Tpc-720 --json
+$TOOL info img_pc-720.img --json
+$TOOL check img_pc-720.img --json
+$TOOL new img_pc-1200.img --format=pc-1200 --title=Tpc-1200 --json
+$TOOL info img_pc-1200.img --json
+$TOOL check img_pc-1200.img --json
+$TOOL new img_pc-1440.img --format=pc-1440 --title=Tpc-1440 --json
+$TOOL info img_pc-1440.img --json
+$TOOL check img_pc-1440.img --json

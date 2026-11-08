@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "mv",
+    "dryRun": false,
+    "error": {
+        "code": 6,
+        "kind": "unsupported",
+        "message": "FAT can't move a file to another directory",
+        "path": null
+    },
+    "exit": 6,
+    "image": "img.img",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "DOS",
+    "warnings": [
+    ]
+}

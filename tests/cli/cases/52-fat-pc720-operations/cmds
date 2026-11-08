@@ -1,0 +1,12 @@
+$TOOL mkdir img.img GAMES --json
+$TOOL mv img.img GAME.COM GAME2.COM --json
+$TOOL mv img.img GAME2.COM GAMES --json
+$TOOL attr img.img GAME2.COM --set readonly=1 --set hidden=1 --json
+$TOOL attr img.img GAME2.COM --json
+$TOOL put img.img host/GAME.COM GAMES --json
+$TOOL ls img.img -R --json
+$TOOL rm img.img GAME2.COM --json
+$TOOL rm img.img GAME2.COM --force --json
+$TOOL rm img.img GAMES --json
+$TOOL rm img.img GAMES -r --json
+$TOOL ls img.img -R --json

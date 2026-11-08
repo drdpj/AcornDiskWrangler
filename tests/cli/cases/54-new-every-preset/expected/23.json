@@ -1,0 +1,30 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "wat-ss40",
+            "op": "new",
+            "path": "img_wat-ss40.img",
+            "vol": ""
+        }
+    ],
+    "command": "new",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_wat-ss40.img",
+    "ok": true,
+    "result": {
+        "file": "img_wat-ss40.img",
+        "format": "wat-ss40",
+        "volumes": [
+            "drive0"
+        ]
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

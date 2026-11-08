@@ -1,0 +1,30 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "pc-1440",
+            "op": "new",
+            "path": "img_pc-1440.img",
+            "vol": ""
+        }
+    ],
+    "command": "new",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_pc-1440.img",
+    "ok": true,
+    "result": {
+        "file": "img_pc-1440.img",
+        "format": "pc-1440",
+        "volumes": [
+            "dos"
+        ]
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

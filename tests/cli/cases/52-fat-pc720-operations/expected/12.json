@@ -1,0 +1,40 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.img",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "archive": true,
+                    "hidden": false,
+                    "readonly": false,
+                    "system": false
+                },
+                "created": null,
+                "display": "/README.TXT",
+                "kind": "file",
+                "modified": "2000-01-01T00:00:00",
+                "name": "README.TXT",
+                "path": [
+                    "README.TXT"
+                ],
+                "problem": null,
+                "size": 11,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "DOS",
+    "warnings": [
+    ]
+}

@@ -1,0 +1,3 @@
+#!/bin/bash
+$TOOL new img.adl --format=adfs-m --title=LOCK --quiet
+$TOOL put img.adl host/PROG / --quiet

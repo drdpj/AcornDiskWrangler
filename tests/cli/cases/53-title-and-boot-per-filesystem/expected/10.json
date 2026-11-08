@@ -1,0 +1,29 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "2",
+            "op": "boot",
+            "path": "",
+            "vol": "drive 0"
+        }
+    ],
+    "command": "boot",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_d.ssd",
+    "ok": true,
+    "result": {
+        "boot": {
+            "index": 2,
+            "name": "2 - *RUN !BOOT"
+        }
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

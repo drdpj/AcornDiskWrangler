@@ -1,0 +1,30 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "pc-360",
+            "op": "new",
+            "path": "img_pc-360.img",
+            "vol": ""
+        }
+    ],
+    "command": "new",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_pc-360.img",
+    "ok": true,
+    "result": {
+        "file": "img_pc-360.img",
+        "format": "pc-360",
+        "volumes": [
+            "dos"
+        ]
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

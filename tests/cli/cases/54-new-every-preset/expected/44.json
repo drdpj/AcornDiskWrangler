@@ -1,0 +1,30 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "pc-720",
+            "op": "new",
+            "path": "img_pc-720.img",
+            "vol": ""
+        }
+    ],
+    "command": "new",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_pc-720.img",
+    "ok": true,
+    "result": {
+        "file": "img_pc-720.img",
+        "format": "pc-720",
+        "volumes": [
+            "dos"
+        ]
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

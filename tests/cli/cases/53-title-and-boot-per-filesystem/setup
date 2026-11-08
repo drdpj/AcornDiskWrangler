@@ -1,0 +1,4 @@
+#!/bin/bash
+$TOOL new img_a.adl --format=adfs-m --title=ADFSTEST --quiet
+$TOOL new img_d.ssd --format=dfs-ss80 --title=DFSTEST --quiet
+$TOOL new img_f.img --format=pc-720 --title=FATTEST --quiet

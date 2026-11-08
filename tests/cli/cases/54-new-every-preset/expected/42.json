@@ -1,0 +1,153 @@
+{
+    "changes": [
+    ],
+    "command": "info",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_pc-360.img",
+    "ok": true,
+    "result": {
+        "app": {
+            "description": "PC 360K FAT floppy",
+            "fullSize": 368640,
+            "kind": "dos-pc",
+            "notes": [
+            ],
+            "sides": {
+                "confirmed": true,
+                "doubleSided": false,
+                "forced": false,
+                "order": null
+            }
+        },
+        "candidates": [
+            {
+                "description": "PC 360K FAT floppy",
+                "evidence": [
+                    "a boot sector with a BPB"
+                ],
+                "fsId": "fat",
+                "name": "PC FAT",
+                "notes": [
+                ],
+                "probe": "fat",
+                "safeToWrite": true,
+                "supported": true,
+                "tier": "certain"
+            }
+        ],
+        "chosen": {
+            "description": "PC 360K FAT floppy",
+            "evidence": [
+                "a boot sector with a BPB"
+            ],
+            "fsId": "fat",
+            "name": "PC FAT",
+            "notes": [
+            ],
+            "probe": "fat",
+            "safeToWrite": true,
+            "supported": true,
+            "tier": "certain"
+        },
+        "container": {
+            "kind": "raw",
+            "name": "raw sector image",
+            "readOnly": false,
+            "size": 368640
+        },
+        "owner": null,
+        "verdict": "open",
+        "volumes": [
+            {
+                "caps": {
+                    "contiguousOnly": false,
+                    "dates": true,
+                    "dirs": true,
+                    "maxEntriesPerDir": -1,
+                    "namespaces": false,
+                    "rename": true,
+                    "renameAcrossDirs": false,
+                    "settableDates": false,
+                    "title": true
+                },
+                "fileAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": true,
+                        "editable": true,
+                        "key": "readonly",
+                        "label": "Read-only",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": true,
+                        "editable": true,
+                        "key": "hidden",
+                        "label": "Hidden",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": true,
+                        "editable": true,
+                        "key": "system",
+                        "label": "System",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": true,
+                        "editable": true,
+                        "key": "archive",
+                        "label": "Archive",
+                        "type": "bool"
+                    }
+                ],
+                "fsId": "fat",
+                "info": {
+                    "entriesFree": -1,
+                    "free": 362496,
+                    "largestFree": -1,
+                    "title": "TPC-360",
+                    "total": 362496
+                },
+                "label": "DOS",
+                "readOnly": false,
+                "readOnlyWhy": null,
+                "vol": "dos",
+                "volumeAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "label",
+                        "label": "Label",
+                        "type": "text"
+                    }
+                ],
+                "volumeAttrs": {
+                    "label": "TPC-360"
+                }
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

@@ -1,0 +1,5 @@
+#!/bin/bash
+$TOOL new img_src.dsd --format=dfs-ds80 --title=SRC --quiet
+$TOOL put img_src.dsd host/GAME host/DATA host/NOTE / --quiet
+$TOOL new img_d1.adl --format=adfs-m --title=DIRS --quiet
+$TOOL new img_d2.adl --format=adfs-m --title=FLAT --quiet

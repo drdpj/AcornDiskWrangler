@@ -1,0 +1,6 @@
+$TOOL info img_s.dsd --sides=sequential --json
+$TOOL ls img_s.dsd -R --vol=all --sides=sequential --json
+$TOOL ls img_i.dsd -R --vol=all --sides=interleaved --json
+$TOOL ls img_i.dsd -R --vol=all --sides=sequential --json
+$TOOL ls img_s.dsd -R --vol=all --sides=interleaved --json
+$TOOL info img_i.dsd --sides=auto --json

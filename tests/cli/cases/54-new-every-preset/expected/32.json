@@ -1,0 +1,31 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "wat-ds80",
+            "op": "new",
+            "path": "img_wat-ds80.img",
+            "vol": ""
+        }
+    ],
+    "command": "new",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_wat-ds80.img",
+    "ok": true,
+    "result": {
+        "file": "img_wat-ds80.img",
+        "format": "wat-ds80",
+        "volumes": [
+            "drive0",
+            "drive2"
+        ]
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

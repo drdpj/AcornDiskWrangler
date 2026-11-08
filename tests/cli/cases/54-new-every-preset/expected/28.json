@@ -1,0 +1,25 @@
+{
+    "changes": [
+    ],
+    "command": "check",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_wat-ss80.img",
+    "ok": true,
+    "result": {
+        "errors": [
+        ],
+        "info": [
+            "DFS drive 0 'Twat-ss80' (Watford 62-file catalogue): 0 files, 796 of 800 sectors free"
+        ],
+        "warnings": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

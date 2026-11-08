@@ -1,0 +1,26 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": null,
+            "op": "mkdir",
+            "path": "/GAMES",
+            "vol": "DOS"
+        }
+    ],
+    "command": "mkdir",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.img",
+    "ok": true,
+    "result": {
+        "made": 1
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "DOS",
+    "warnings": [
+    ]
+}

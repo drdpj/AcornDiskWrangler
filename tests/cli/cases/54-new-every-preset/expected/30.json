@@ -1,0 +1,251 @@
+{
+    "changes": [
+    ],
+    "command": "info",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_wat-ds40.img",
+    "ok": true,
+    "result": {
+        "app": {
+            "description": "DFS double-sided 40-track (100K per side), Watford 62-file catalogue",
+            "fullSize": 204800,
+            "kind": "dfs",
+            "notes": [
+            ],
+            "sides": {
+                "confirmed": true,
+                "doubleSided": true,
+                "forced": false,
+                "order": "interleaved"
+            }
+        },
+        "candidates": [
+            {
+                "description": "DFS double-sided 40-track (100K per side), Watford 62-file catalogue",
+                "evidence": [
+                    "a Watford 62-file catalogue in sectors 0-3"
+                ],
+                "fsId": "dfs",
+                "name": "DFS",
+                "notes": [
+                ],
+                "probe": "dfs",
+                "safeToWrite": true,
+                "supported": true,
+                "tier": "likely"
+            }
+        ],
+        "chosen": {
+            "description": "DFS double-sided 40-track (100K per side), Watford 62-file catalogue",
+            "evidence": [
+                "a Watford 62-file catalogue in sectors 0-3"
+            ],
+            "fsId": "dfs",
+            "name": "DFS",
+            "notes": [
+            ],
+            "probe": "dfs",
+            "safeToWrite": true,
+            "supported": true,
+            "tier": "likely"
+        },
+        "container": {
+            "kind": "raw",
+            "name": "raw sector image",
+            "readOnly": false,
+            "size": 204800
+        },
+        "owner": null,
+        "verdict": "open",
+        "volumes": [
+            {
+                "caps": {
+                    "contiguousOnly": true,
+                    "dates": false,
+                    "dirs": false,
+                    "maxEntriesPerDir": 62,
+                    "namespaces": false,
+                    "rename": true,
+                    "renameAcrossDirs": false,
+                    "settableDates": false,
+                    "title": true
+                },
+                "fileAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "locked",
+                        "label": "Locked",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 18,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "load",
+                        "label": "Load",
+                        "type": "hex"
+                    },
+                    {
+                        "bits": 18,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "exec",
+                        "label": "Exec",
+                        "type": "hex"
+                    }
+                ],
+                "fsId": "dfs",
+                "info": {
+                    "entriesFree": 62,
+                    "free": 101376,
+                    "largestFree": 101376,
+                    "title": "Twat-ds40",
+                    "total": 102400
+                },
+                "label": "drive 0",
+                "readOnly": false,
+                "readOnlyWhy": null,
+                "vol": "drive0",
+                "volumeAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "title",
+                        "label": "Title",
+                        "type": "text"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                            "0 - off",
+                            "1 - *LOAD !BOOT",
+                            "2 - *RUN !BOOT",
+                            "3 - *EXEC !BOOT"
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "boot",
+                        "label": "Boot option",
+                        "type": "choice"
+                    }
+                ],
+                "volumeAttrs": {
+                    "boot": {
+                        "index": 0,
+                        "name": "0 - off"
+                    },
+                    "title": "Twat-ds40"
+                }
+            },
+            {
+                "caps": {
+                    "contiguousOnly": true,
+                    "dates": false,
+                    "dirs": false,
+                    "maxEntriesPerDir": 62,
+                    "namespaces": false,
+                    "rename": true,
+                    "renameAcrossDirs": false,
+                    "settableDates": false,
+                    "title": true
+                },
+                "fileAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "locked",
+                        "label": "Locked",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 18,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "load",
+                        "label": "Load",
+                        "type": "hex"
+                    },
+                    {
+                        "bits": 18,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "exec",
+                        "label": "Exec",
+                        "type": "hex"
+                    }
+                ],
+                "fsId": "dfs",
+                "info": {
+                    "entriesFree": 62,
+                    "free": 101376,
+                    "largestFree": 101376,
+                    "title": "Twat-ds40",
+                    "total": 102400
+                },
+                "label": "drive 2",
+                "readOnly": false,
+                "readOnlyWhy": null,
+                "vol": "drive2",
+                "volumeAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "title",
+                        "label": "Title",
+                        "type": "text"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                            "0 - off",
+                            "1 - *LOAD !BOOT",
+                            "2 - *RUN !BOOT",
+                            "3 - *EXEC !BOOT"
+                        ],
+                        "dirs": false,
+                        "editable": true,
+                        "key": "boot",
+                        "label": "Boot option",
+                        "type": "choice"
+                    }
+                ],
+                "volumeAttrs": {
+                    "boot": {
+                        "index": 0,
+                        "name": "0 - off"
+                    },
+                    "title": "Twat-ds40"
+                }
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

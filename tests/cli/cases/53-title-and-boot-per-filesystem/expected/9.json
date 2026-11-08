@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "title",
+    "dryRun": false,
+    "error": {
+        "code": 1,
+        "kind": "failed",
+        "message": "the DFS disc title can be at most 12 characters",
+        "path": null
+    },
+    "exit": 1,
+    "image": "img_d.ssd",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

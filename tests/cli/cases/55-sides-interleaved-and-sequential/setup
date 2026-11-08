@@ -1,0 +1,5 @@
+#!/bin/bash
+$TOOL new img_i.dsd --format=dfs-ds80 --title=INTER --quiet
+$TOOL put img_i.dsd host/GAME host/DATA / --quiet
+$TOOL new img_s.dsd --format=dfs-ds80 --title=SEQ --sides=sequential --quiet
+$TOOL put img_s.dsd host/GAME host/DATA / --quiet

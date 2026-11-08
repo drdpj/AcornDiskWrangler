@@ -1,0 +1,25 @@
+{
+    "changes": [
+    ],
+    "command": "check",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_pc-1200.img",
+    "ok": true,
+    "result": {
+        "errors": [
+        ],
+        "info": [
+            "DOS volume 'TPC-1200': 0 files, 0 directories, 2371 of 2371 clusters free (FAT12, 512-byte clusters)"
+        ],
+        "warnings": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

@@ -1,0 +1,124 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_d1.adl",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "FFFF0E00",
+                    "execute": false,
+                    "load": "FFFF0E00",
+                    "locked": false,
+                    "read": true,
+                    "type": "F0E",
+                    "write": true
+                },
+                "created": null,
+                "display": "$.DATA",
+                "kind": "file",
+                "modified": "1901-05-13T02:17:33",
+                "name": "DATA",
+                "path": [
+                    "DATA"
+                ],
+                "problem": null,
+                "size": 306,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.T",
+                "kind": "dir",
+                "modified": null,
+                "name": "T",
+                "path": [
+                    "T"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "FFFF8023",
+                    "execute": false,
+                    "load": "FFFF1900",
+                    "locked": true,
+                    "read": false,
+                    "type": "F19",
+                    "write": false
+                },
+                "created": null,
+                "display": "$.T.GAME",
+                "kind": "file",
+                "modified": "1901-05-13T02:22:25",
+                "name": "GAME",
+                "path": [
+                    "T",
+                    "GAME"
+                ],
+                "problem": null,
+                "size": 1505,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.U",
+                "kind": "dir",
+                "modified": null,
+                "name": "U",
+                "path": [
+                    "U"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "00001900",
+                    "execute": false,
+                    "load": "00001900",
+                    "locked": false,
+                    "read": true,
+                    "write": true
+                },
+                "created": null,
+                "display": "$.U.NOTE",
+                "kind": "file",
+                "modified": null,
+                "name": "NOTE",
+                "path": [
+                    "U",
+                    "NOTE"
+                ],
+                "problem": null,
+                "size": 5,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

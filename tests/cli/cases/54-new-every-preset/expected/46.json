@@ -1,0 +1,25 @@
+{
+    "changes": [
+    ],
+    "command": "check",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_pc-720.img",
+    "ok": true,
+    "result": {
+        "errors": [
+        ],
+        "info": [
+            "DOS volume 'TPC-720': 0 files, 0 directories, 713 of 713 clusters free (FAT12, 1024-byte clusters)"
+        ],
+        "warnings": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

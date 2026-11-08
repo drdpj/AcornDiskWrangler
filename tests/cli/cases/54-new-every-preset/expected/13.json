@@ -1,0 +1,25 @@
+{
+    "changes": [
+    ],
+    "command": "check",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_dfs-ss40.img",
+    "ok": true,
+    "result": {
+        "errors": [
+        ],
+        "info": [
+            "DFS drive 0 'Tdfs-ss40': 0 files, 398 of 400 sectors free"
+        ],
+        "warnings": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

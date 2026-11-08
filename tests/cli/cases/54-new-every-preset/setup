@@ -1,0 +1,2 @@
+#!/bin/bash
+python3 -I -c "import sys; sys.stdout.buffer.write(bytes((i * 13 + 5) & 255 for i in range(2000)))" > dosboot.bin

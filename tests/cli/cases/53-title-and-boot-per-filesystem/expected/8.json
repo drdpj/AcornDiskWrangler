@@ -1,0 +1,27 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "NEWNAME",
+            "op": "title",
+            "path": "",
+            "vol": "drive 0"
+        }
+    ],
+    "command": "title",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img_d.ssd",
+    "ok": true,
+    "result": {
+        "key": "title",
+        "title": "NEWNAME"
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}
