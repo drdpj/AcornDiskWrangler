@@ -208,6 +208,10 @@ private:
     bool exportDfs(int side, QChar dir, const QString &name, XItem *x, QString *err);
     void importX(int pane, quint32 dir, const QVector<XItem> &items, ImportCtx &c);
     void importXAdfs(quint32 dir, const XItem &x, ImportCtx &c);
+    // A DFS file letter.NAME added under ADFS directory *dir: moves *dir into the letter's subdirectory (made if need
+    // be) or changes *name, by the "DFS directories become ADFS directories" setting. False (an error in c) if it
+    // can't go in. src names the file in messages.
+    bool placeDfsLetter(QChar letter, const QString &src, quint32 *dir, QString *name, ImportCtx &c);
     void importXDos(quint32 dir, const XItem &x, ImportCtx &c);
     void importXDfs(int side, const XItem &x, ImportCtx &c, QChar keepDir = QChar());
     void ensureTab(QWidget *w, const QString &text, bool want);
@@ -238,7 +242,7 @@ private:
     QLabel *m_status;
     QAction *m_actOpen, *m_actSave, *m_actSaveAs, *m_actRevert, *m_actClose, *m_actQuit, *m_actCopy, *m_actPaste;
     QAction *m_actAddFiles, *m_actAddFolder, *m_actNewDir, *m_actDelete, *m_actProps, *m_actExtract;
-    QAction *m_actCheck, *m_optReadInf, *m_optWriteInf, *m_optBackup, *m_actView, *m_actRename, *m_actRenameVol;
+    QAction *m_actCheck, *m_optReadInf, *m_optWriteInf, *m_optBackup, *m_optLetterDirs, *m_actView, *m_actRename, *m_actRenameVol;
     QTabWidget *m_tabs;
     DropTree *m_dosTree;
     dw::fat::Volume m_dos;

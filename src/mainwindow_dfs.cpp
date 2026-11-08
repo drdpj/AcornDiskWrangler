@@ -666,40 +666,9 @@ void MainWindow::importXAdfs(quint32 dir, const XItem &x, ImportCtx &c) {
         for (const XItem &k : x.kids) { if (c.cancelled) return; importXAdfs(sector, k, c); }
         return;
     }
-    // A DFS file in a directory other than $ goes into a subdirectory named after the letter, so $.P.FILE
-    // dropped on $.Library becomes $.Library.P.FILE. The subdirectory is reused if it is already there. A letter
-    // ADFS can't have as a name (^ @ & * # " and the like) gives X_NAME in the target directory instead, with a
-    // warning (DiskWranglerCore's dw::dfs::placeLetter).
-    const dw::dfs::LetterPlace place = (x.src == PaneDfs0 || x.src == PaneDfs1)
-        ? dw::dfs::placeLetter(x.dfsDir, name, false, [](QChar ch) { return isValidNameChar(ch); })
-        : dw::dfs::LetterPlace();
-    if (place.how == dw::dfs::LetterPlace::Flat) {
-        name = sanitizeName(place.name);
-        c.errors << place.warning;
-    }
-    if (place.how == dw::dfs::LetterPlace::Subdir) {
-        QString err, letter = place.subdir;
-        Dir d;
-        if (!m_img.readDir(dir, &d, &err)) { c.errors << QString("%1: %2").arg(x.name, err); return; }
-        int idx = d.indexOf(letter);
-        quint32 sector = 0;
-        if (idx >= 0) {
-            if (!d.entries[idx].isDir()) {
-                c.errors << QString("%1.%2: a file called '%3' is in the way of directory %3")
-                                .arg(QString(x.dfsDir), x.name, letter);
-                return;
-            }
-            sector = d.entries[idx].sin;
-        } else {
-            if (!m_img.makeDir(dir, letter, &err, &sector)) {
-                c.errors << QString("%1.%2: %3").arg(QString(x.dfsDir), x.name, err);
-                return;
-            }
-            c.dirs++;
-        }
-        c.created.insert(keyFor(dir, letter));
-        dir = sector;
-    }
+    if ((x.src == PaneDfs0 || x.src == PaneDfs1) &&
+        !placeDfsLetter(x.dfsDir, QString("%1.%2").arg(QString(x.dfsDir), x.name), &dir, &name, c))
+        return;
     quint32 load = 0, exec = 0;
     quint8 flags = FlagR | FlagW;
     if (x.src == PaneAdfs) {
@@ -709,6 +678,40 @@ void MainWindow::importXAdfs(quint32 dir, const XItem &x, ImportCtx &c) {
         if (x.src == PaneDfs0 || x.src == PaneDfs1) { load = dw::dfs::extendAddr(x.load); exec = dw::dfs::extendAddr(x.exec); }
     }
     addOne(dir, name, x.data, load, exec, flags, true, x.name, c);
+}
+
+// A DFS file in a directory other than $ goes into a subdirectory named after the letter, in the letter's case, so
+// $.P.FILE dropped on $.Library becomes $.Library.P.FILE. The subdirectory is reused if it is already there (in either
+// case). A letter ADFS can't have as a name (^ @ & * # " and the like) gives X_NAME in the target directory instead,
+// with a warning (DiskWranglerCore's dw::dfs::placeLetter). With Tools > "DFS directories become ADFS directories"
+// off, every file goes in the target directory as NAME.
+bool MainWindow::placeDfsLetter(QChar letter, const QString &src, quint32 *dir, QString *name, ImportCtx &c) {
+    const dw::dfs::LetterPlace place = dw::dfs::placeLetter(letter, *name, !m_optLetterDirs->isChecked(),
+                                                            [](QChar ch) { return isValidNameChar(ch); });
+    if (place.how == dw::dfs::LetterPlace::Flat) {
+        *name = sanitizeName(place.name);
+        c.errors << place.warning;
+    }
+    if (place.how != dw::dfs::LetterPlace::Subdir) return true;
+    QString err;
+    const QString sub = place.subdir;
+    Dir d;
+    if (!m_img.readDir(*dir, &d, &err)) { c.errors << QString("%1: %2").arg(src, err); return false; }
+    int idx = d.indexOf(sub);
+    quint32 sector = 0;
+    if (idx >= 0) {
+        if (!d.entries[idx].isDir()) {
+            c.errors << QString("%1: a file called '%2' is in the way of directory %2").arg(src, sub);
+            return false;
+        }
+        sector = d.entries[idx].sin;
+    } else {
+        if (!m_img.makeDir(*dir, sub, &err, &sector)) { c.errors << QString("%1: %2").arg(src, err); return false; }
+        c.dirs++;
+    }
+    c.created.insert(keyFor(*dir, sub));
+    *dir = sector;
+    return true;
 }
 
 void MainWindow::importXDos(quint32 dir, const XItem &x, ImportCtx &c) {

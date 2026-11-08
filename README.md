@@ -52,8 +52,10 @@ it at an existing Master 512 disc image or a DOSBOOT file.
 * **Copy files** by dragging them between windows, between the tabs of one window, or between the two sides of a
   DFS disc (drop them on the other drive's row), or with Copy and Paste (Ctrl+C / Ctrl+V, Cmd+C / Cmd+V on a Mac).
   Names, load/exec addresses and attributes are converted to suit the destination: a DFS file `P.GAME` dropped into
-  `$` on an ADFS disc becomes `$.P.GAME`, and an ADFS directory with a one-letter name can become a DFS directory
-  letter.
+  `$` on an ADFS disc becomes `$.P.GAME` (the letter keeps its case), and an ADFS directory with a one-letter name
+  can become a DFS directory letter. With Tools > *DFS directories become ADFS directories* off, DFS files are
+  flattened instead (`P.GAME` becomes `$.GAME`). DFS files extracted to the host and added back to ADFS land the
+  same way, as their `.inf` keeps the letter.
 * **Add files** by dropping files or folders from your file manager onto the tree (onto a directory row to put
   them there), or by pasting files copied there. On ADFS and DFS discs `.inf` sidecar files are read, so load/exec
   addresses and attributes come through (Tools > *Read .inf sidecar files when adding*, on by default).

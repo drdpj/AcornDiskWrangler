@@ -318,6 +318,51 @@ int main(int argc,char**argv){
           QString err; CHECK(d2.image().commit(&err,false,nullptr)); if(!err.isEmpty()) printf("  commit: %s\n",qPrintable(err));
           delete f6; delete m6; }
 
+      // DFS -> host -> ADFS: the .inf carries the letter, so the files land as a direct copy puts them
+      printf("== DFS -> host (.inf) -> ADFS, letter case, flatten setting\n");
+      {   QString h3=out+"/host3.adl"; CHECK(NewDisc::create(h3,NewDisc::AdfsL,"H3",false,&e));
+          MainWindow d3; d3.show(); CHECK(d3.openImage(h3)); pump();
+          auto* mh=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"$.BOOT"),find(sd.dfsTree(),"A.BOOT")});
+          QStringList hp; for(auto&u:mh->urls()) hp<<u.toLocalFile();             // BOOT, BOOT.inf, A.BOOT, A.BOOT.inf
+          CHECK(hp.size()==4);
+          d3.tabs()->setCurrentWidget(d3.tree()); pump(); dropPaths(d3.tree(),hp);
+          Entry x; CHECK(adfsFile(d3.image(),RootSector,"BOOT",&x)); CHECK(x.load==0xFFFF1900u && x.exec==0xFFFF8023u);
+          quint32 a=adfsDir(d3.image(),RootSector,"A"); CHECK(a);
+          CHECK(adfsFile(d3.image(),a,"BOOT",&x) && x.load==0x1100 && x.exec==0x1200 && x.flag(Entry::L));
+          { QByteArray b; CHECK(d3.image().readFile(x,&b,&e)); CHECK(b==aboot); }
+          CHECK(!adfsFile(d3.image(),RootSector,"A_BOOT",&x));                       // not flattened into the name either
+          delete mh;
+          // a lower-case letter keeps its case, directly and through the host
+          CHECK(sd.dfs(0).addFile('b',"LOW",QByteArray("low"),0x1900,0x1900,false,false,&e)); sd.refreshDfs(); pump();
+          auto* ml=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"b.LOW")});
+          d3.tabs()->setCurrentWidget(d3.tree()); pump(); sendDrop(d3.tree(),ml);
+          { Dir r; QString er; CHECK(d3.image().readDir(RootSector,&r,&er)); int i=r.indexOf("b");
+            CHECK(i>=0 && r.entries[i].isDir() && r.entries[i].name()=="b"); }
+          quint32 lb=adfsDir(d3.image(),RootSector,"b"); CHECK(lb && adfsFile(d3.image(),lb,"LOW",&x));
+          QString h4=out+"/host4.adl"; CHECK(NewDisc::create(h4,NewDisc::AdfsL,"H4",false,&e));
+          { MainWindow d4; d4.show(); CHECK(d4.openImage(h4)); pump();
+            QStringList lp; for(auto&u:ml->urls()) lp<<u.toLocalFile();
+            d4.tabs()->setCurrentWidget(d4.tree()); pump(); dropPaths(d4.tree(),lp);
+            Dir r; QString er; CHECK(d4.image().readDir(RootSector,&r,&er)); int i=r.indexOf("b");
+            CHECK(i>=0 && r.entries[i].isDir() && r.entries[i].name()=="b");
+            quint32 l4=adfsDir(d4.image(),RootSector,"b"); CHECK(l4 && adfsFile(d4.image(),l4,"LOW",&x)); }
+          delete ml;
+          // Tools > "DFS directories become ADFS directories" off: flattened, from DFS and from the host
+          QSettings().setValue("dfsLetterDirs",false);
+          QString h5=out+"/host5.adl"; CHECK(NewDisc::create(h5,NewDisc::AdfsL,"H5",false,&e));
+          { MainWindow d5; d5.show(); CHECK(d5.openImage(h5)); pump();
+            auto* mf=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"A.BOOT")});
+            QStringList fp; for(auto&u:mf->urls()) fp<<u.toLocalFile();
+            d5.tabs()->setCurrentWidget(d5.tree()); pump(); dropPaths(d5.tree(),fp);
+            auto* mg=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"b.LOW")});
+            d5.tabs()->setCurrentWidget(d5.tree()); pump(); sendDrop(d5.tree(),mg);
+            CHECK(adfsFile(d5.image(),RootSector,"BOOT",&x) && x.load==0x1100 && x.flag(Entry::L));
+            CHECK(adfsFile(d5.image(),RootSector,"LOW",&x));
+            CHECK(!adfsDir(d5.image(),RootSector,"A") && !adfsDir(d5.image(),RootSector,"b"));
+            delete mg; delete mf; }
+          QSettings().setValue("dfsLetterDirs",true);
+          CHECK(sd.dfs(0).remove('b',"LOW",&e)); sd.refreshDfs(); pump(); }
+
       // ADFS -> DFS: a single-letter directory may keep its letter (asked); other directories flatten into $
       printf("== ADFS single-letter directories -> DFS directory letters\n");
       QString ladl=out+"/letters.adl"; CHECK(NewDisc::create(ladl,NewDisc::AdfsL,"LET",false,&e));

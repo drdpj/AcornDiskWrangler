@@ -303,11 +303,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     m_optReadInf = mk("Read .inf sidecar files when adding");
     m_optWriteInf = mk("Write .inf sidecar files when extracting");
     m_optBackup = mk("Keep a .bak copy when saving");
-    for (QAction *a : {m_optReadInf, m_optWriteInf, m_optBackup}) a->setCheckable(true);
+    m_optLetterDirs = mk("DFS directories become ADFS directories");
+    m_optLetterDirs->setStatusTip("On: a DFS file A.NAME copied to ADFS goes into subdirectory A; off: flattened to NAME");
+    for (QAction *a : {m_optReadInf, m_optWriteInf, m_optBackup, m_optLetterDirs}) a->setCheckable(true);
     AppSettings st;
     m_optReadInf->setChecked(st.value("readInf", true).toBool());
     m_optWriteInf->setChecked(st.value("writeInf", true).toBool());
     m_optBackup->setChecked(st.value("backup", true).toBool());
+    m_optLetterDirs->setChecked(st.value("dfsLetterDirs", true).toBool());
     // where it works, said wherever the action shows (button, menu, status bar): DFS discs have no directories
     const QString dirTip = "New directory - on ADFS and DOS (FAT) discs; DFS discs have no directories";
     m_actNewDir->setToolTip(dirTip);
@@ -338,7 +341,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     ms->addSeparator();
     ms->addAction(m_actConvertSides);
     mt->addSeparator();
-    mt->addActions({m_optReadInf, m_optWriteInf, m_optBackup});
+    mt->addActions({m_optReadInf, m_optWriteInf, m_optBackup, m_optLetterDirs});
     QMenu *mh = menuBar()->addMenu("&Help");
     mh->addAction("&About Acorn Disk Wrangler...", this, &MainWindow::about);
     mh->addAction("About &Qt...", qApp, &QApplication::aboutQt);
@@ -465,12 +468,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
             }
         return out;
     });
-    for (QAction *a : {m_optReadInf, m_optWriteInf, m_optBackup})
+    for (QAction *a : {m_optReadInf, m_optWriteInf, m_optBackup, m_optLetterDirs})
         connect(a, &QAction::toggled, this, [this] {
             AppSettings s;
             s.setValue("readInf", m_optReadInf->isChecked());
             s.setValue("writeInf", m_optWriteInf->isChecked());
             s.setValue("backup", m_optBackup->isChecked());
+            s.setValue("dfsLetterDirs", m_optLetterDirs->isChecked());
         });
     updateUi();
 }
@@ -1226,6 +1230,8 @@ void MainWindow::importFile(const QString &path, quint32 dir, ImportCtx &c) {
             haveInf = true;
             if (!inf.name.isEmpty()) name = sanitizeName(inf.name);
             load = inf.load; exec = inf.exec; flags = inf.flags;
+            // "D.NAME": a file extracted from DFS. Its letter is placed as on a copy straight from the DFS disc.
+            if (!inf.dir.isNull() && dw::dfs::validDir(inf.dir) && !placeDfsLetter(inf.dir, path, &dir, &name, c)) return;
         }
     }
     addOne(dir, name, data, load, exec, flags, haveInf, path, c);
