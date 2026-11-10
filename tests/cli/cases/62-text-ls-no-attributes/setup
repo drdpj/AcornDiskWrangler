@@ -1,0 +1,4 @@
+#!/bin/bash
+# a listing where no file has an attribute set keeps its ATTRIBUTES column (here DFS's L), as a plain-text table
+$TOOL new img_s.ssd --format=dfs-ss80 --title=PLAIN --quiet
+$TOOL put img_s.ssd host/GAME host/DATA / --quiet
