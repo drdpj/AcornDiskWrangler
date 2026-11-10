@@ -1,0 +1,7 @@
+$TOOL ls img_a.adl
+$TOOL ls img_a.adl -R
+$TOOL ls img_a.adl -d PROG
+$TOOL ls img_s.dsd --vol=all --sides=sequential
+$TOOL info img_a.adl
+$TOOL info img_s.dsd --sides=sequential
+$TOOL info img_s.dsd

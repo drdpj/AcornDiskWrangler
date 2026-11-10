@@ -6,7 +6,7 @@
     "error": {
         "code": 6,
         "kind": "unsupported",
-        "message": "ADFS is read-only: the ADFS side of a hybrid disc",
+        "message": "read-only: adfs: the ADFS side of a hybrid disc",
         "path": null
     },
     "exit": 6,

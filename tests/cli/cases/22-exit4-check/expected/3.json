@@ -4,12 +4,12 @@
     "command": "mkdir",
     "dryRun": false,
     "error": {
-        "code": 6,
-        "kind": "unsupported",
-        "message": "ADFS is read-only: read-only",
+        "code": 4,
+        "kind": "check",
+        "message": "adfs has errors (see check), so nothing was changed",
         "path": null
     },
-    "exit": 6,
+    "exit": 4,
     "image": "img.adl",
     "ok": false,
     "result": {

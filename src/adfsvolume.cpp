@@ -53,6 +53,7 @@ QVector<AttrSpec> AdfsVolume::fileAttrs() const {
         a.type = AttrSpec::Bool;
         a.dirs = a.key == "locked";
         a.sample = "L";
+        a.letter = f.second;                     // the command line's attribute letters, in attrLetterOrder()
         a.retroFamily = "acorn";
         a.retroKey = "access";
         v << a;
@@ -66,6 +67,9 @@ QVector<AttrSpec> AdfsVolume::fileAttrs() const {
     type.key = "type"; type.label = "Type"; type.type = AttrSpec::Hex; type.bits = 12; type.editable = false; type.sample = "FFF";
     return v << load << exec << type;
 }
+
+// Acorn's access string reads L W R E (the order of the letters in a catalogue listing); the specs keep their own order.
+QStringList AdfsVolume::attrLetterOrder() const { return {"locked", "write", "read", "execute"}; }
 
 QVector<AttrSpec> AdfsVolume::volumeAttrs() const {
     AttrSpec title;

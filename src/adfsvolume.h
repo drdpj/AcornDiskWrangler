@@ -50,6 +50,7 @@ public:
     QString fsId() const override { return "adfs"; }
     dw::fs::Caps caps() const override;
     QVector<dw::fs::AttrSpec> fileAttrs() const override;
+    QStringList attrLetterOrder() const override;
     QVector<dw::fs::AttrSpec> volumeAttrs() const override;
     dw::fs::AttrValues volumeValues() const override;
     const dw::fs::NameRules &names() const override { return m_names; }

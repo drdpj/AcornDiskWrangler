@@ -1,0 +1,10 @@
+#!/bin/bash
+# the plain-text output: attribute letters and their order, the ls table, and the info sections (--json is the other cases')
+$TOOL new img_a.adl --format=adfs-m --title=TEXTDISC --quiet
+$TOOL put img_a.adl host/PROG host/DATA host/GAME / --quiet
+$TOOL mkdir img_a.adl Lib --quiet
+$TOOL attr img_a.adl PROG --set locked=1 --set execute=1 --quiet
+$TOOL attr img_a.adl DATA --set write=0 --quiet
+$TOOL new img_s.dsd --format=dfs-ds80 --title=SEQ --sides=sequential --quiet
+$TOOL put img_s.dsd host/GAME host/DATA / --quiet
+$TOOL attr img_s.dsd GAME --set locked=1 --quiet

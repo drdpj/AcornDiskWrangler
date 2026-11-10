@@ -6,7 +6,7 @@
     "error": {
         "code": 6,
         "kind": "unsupported",
-        "message": "ADFS is read-only: read-only",
+        "message": "read-only: TeleDisk files can't be written; use convert to make a writable copy",
         "path": null
     },
     "exit": 6,

@@ -1,0 +1,10 @@
+container: raw, 409600 bytes
+detection: open: DFS double-sided 80-track (200K per side), sequential sides (likely)
+sides: sequential, forced
+reading: likely, safe to write
+volume drive0: drive 0 (dfs)
+  title: "SEQ"
+  1024 used, 203776 free, 204800 bytes
+volume drive2: drive 2 (dfs)
+  title: "SEQ"
+  512 used, 204288 free, 204800 bytes
