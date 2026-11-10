@@ -1,0 +1,29 @@
+{
+    "changes": [
+    ],
+    "command": "put",
+    "dryRun": false,
+    "error": {
+        "code": 5,
+        "kind": "conflict",
+        "message": "$.PROG exists: use --replace or --skip",
+        "path": "$.PROG"
+    },
+    "exit": 5,
+    "image": "img.ssd",
+    "ok": false,
+    "result": {
+        "added": 0,
+        "dirs": 0,
+        "renamed": [
+        ],
+        "replaced": 0,
+        "skipped": 0
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

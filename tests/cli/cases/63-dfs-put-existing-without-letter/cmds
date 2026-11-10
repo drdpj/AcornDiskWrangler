@@ -1,0 +1,11 @@
+# a host file with no .inf is $.PROG: the one already there is found (it used to be missed, and the put failed with
+# "already exists", exit 1, whatever the flags)
+$TOOL put img.ssd host/v2/PROG / --json
+$TOOL put img.ssd host/v2/PROG / --skip --json
+$TOOL put img.ssd host/v2/PROG / --replace --json
+# replaced by a plain file: the load and exec addresses stay
+$TOOL attr img.ssd PROG --json
+$TOOL attr img.ssd PROG --set locked=1 --json
+$TOOL put img.ssd host/PROG / --replace --json
+$TOOL put img.ssd host/PROG / --replace --force --json
+$TOOL attr img.ssd '$.PROG' --json

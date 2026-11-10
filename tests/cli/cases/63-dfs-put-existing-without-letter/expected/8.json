@@ -1,0 +1,39 @@
+{
+    "changes": [
+    ],
+    "command": "attr",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.ssd",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "08023",
+                    "load": "01900",
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.PROG",
+                "kind": "file",
+                "modified": null,
+                "name": "$.PROG",
+                "path": [
+                    "$.PROG"
+                ],
+                "problem": null,
+                "size": 8,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

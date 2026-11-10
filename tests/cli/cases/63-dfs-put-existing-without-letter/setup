@@ -1,0 +1,4 @@
+#!/bin/bash
+$TOOL new img.ssd --format=dfs-ss40 --title=CLASH --quiet
+$TOOL put img.ssd host/PROG / --quiet
+$TOOL attr img.ssd PROG --set load=1900 --set exec=8023 --quiet

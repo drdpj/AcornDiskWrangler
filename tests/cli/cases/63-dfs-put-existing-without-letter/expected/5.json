@@ -1,0 +1,26 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "locked=1",
+            "op": "attr",
+            "path": "$.PROG",
+            "vol": "drive 0"
+        }
+    ],
+    "command": "attr",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.ssd",
+    "ok": true,
+    "result": {
+        "changed": 1
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}
