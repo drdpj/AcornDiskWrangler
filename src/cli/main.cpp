@@ -29,8 +29,12 @@ int main(int argc, char **argv) {
     AcornCli::Backend backend;
     dw::cli::AppInfo info;
     info.tool = "acorndw";
-    info.appName = "Acorn Disk Wrangler";
-    info.appVersion = APP_VERSION;
+    info.program.name = "Acorn Disk Wrangler";
+    info.program.id = "acorndiskwrangler";
+    info.program.version = APP_VERSION;
+    info.program.organisation = "acorndiskwrangler";
+    info.program.releases = dw::fs::acornDiskWrangler().releases;
+    info.program.handsTo = {dw::fs::cpmDiskWrangler()};
     info.backend = &backend;
     info.options = QStringList{"sides", "sidecars", "title", "dosboot", "to-sides"};
     return dw::runCli(argc, argv, info);
