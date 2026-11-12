@@ -204,6 +204,77 @@ int main(int argc, char **argv) {
         QFile::remove(p);
     }
 
+    printf("the window's rules: only a volume the changes touch vetoes a save (step 5i)\n");
+    {
+        err.clear();
+        const QString p = copyIn(W, argv[7]);
+        {                                   // a file in DRIVE_C's root, for the test
+            OpenedDisc o;
+            CHECK(openIt(o, p, &err) && o.disc().transact([&](QString *e) {
+                      return o.disc().volume(1)->write(Path(), "BROKEN.TXT", "xyz", {}, QDateTime(), false, e); }, &err) && o.save(&err),
+                  "BROKEN.TXT written into DRIVE_C: " + err);
+        }
+        {                                   // its directory entry broken on the disc: a size but no cluster
+            Image img;
+            Dir root, dosDir;
+            QFile f(p);
+            CHECK(img.open(p, &err) && img.readDir(RootSector, &root, &err) &&
+                      img.readDir(root.entries[root.indexOf("DOS")].sin, &dosDir, &err), "find $.DOS.DRIVE_C: " + err);
+            const Entry c = dosDir.entries[dosDir.indexOf("DRIVE_C")];
+            img.close();
+            CHECK(f.open(QIODevice::ReadWrite), "open the copy");
+            f.seek(qint64(c.sin) * SectorSize);
+            const QByteArray part = f.read(qMin<qint64>(c.length, 4 * 1024 * 1024));
+            const int at = part.indexOf("BROKEN  TXT");
+            CHECK(at >= 0 && at % 32 == 0, "its directory entry");
+            for (int k : {20, 21, 26, 27}) { f.seek(qint64(c.sin) * SectorSize + at + k); f.write(QByteArray(1, 0)); }
+            f.close();
+        }
+        auto openWindow = [&](OpenedDisc &o) {
+            o.setWindowRules(true);
+            return openIt(o, p, &err);
+        };
+        {
+            OpenedDisc o;
+            CHECK(openWindow(o) && labels(o.disc()) == QStringList({"ADFS:adfs", "DOS:fat"}), "opened with the window's rules: " + err);
+            const dw::fs::Report dr = o.dos().check();
+            CHECK(!dr.ok() && dr.errors.join("|").contains("file has a size but no clusters"), "the DOS partition fails its check: " + dr.errors.join("; "));
+            o.setDosOk(dr.ok());
+            CHECK(o.readOnlyWhy(o.dosMount()) == "the DOS volume has errors (Tools > Check disc)" && o.readOnlyWhy(o.adfsMount()).isEmpty(),
+                  "the window's read-only reasons: " + o.readOnlyWhy(o.dosMount()));
+            CHECK(o.disc().transact([&](QString *e) { return o.disc().volume(0)->mkdir(Path(), "WINRULES", e); }, &err) &&
+                      !o.disc().mounts()[1].touched(), "an ADFS change, outside DRIVE_C: " + err);
+            CHECK(o.save(&err), "it saves: the untouched DOS partition doesn't veto it (" + err + ")");
+            OpenedDisc o2;
+            dw::fs::Entry e;
+            CHECK(openWindow(o2) && o2.disc().volume(0)->stat(Path({"WINRULES"}), &e, &err), "read back");
+        }
+        {
+            OpenedDisc o;                   // the command line's rules: every mount checked
+            CHECK(openIt(o, p, &err) && o.disc().transact([&](QString *e) { return o.disc().volume(0)->mkdir(Path(), "CLIRULES", e); }, &err),
+                  "the same change, command line: " + err);
+            CHECK(!o.save(&err) && err.startsWith("The disc failed its check, so NOTHING was written."), "refused: " + err.section('\n', 0, 0));
+        }
+        {
+            OpenedDisc o;                   // a change inside DRIVE_C touches it: its errors veto the save
+            CHECK(openWindow(o) && o.disc().transact([&](QString *e) {
+                      return o.disc().volume(1)->write(Path(), "NEW.TXT", "new", {}, QDateTime(), false, e); }, &err) &&
+                      o.disc().mounts()[1].touched(), "a DOS change: " + err);
+            CHECK(!o.save(&err) && err.startsWith("A consistency check failed. NOTHING was written.") &&
+                      err.contains("DOS partition: C:\\BROKEN.TXT: file has a size but no clusters"), "refused: " + err.simplified());
+        }
+        {
+            OpenedDisc o;                   // $.DOS.DRIVE_C is followed: deleted, the DOS mount goes; reverted, it is back
+            CHECK(openWindow(o) && o.disc().transact([&](QString *e) { return o.disc().volume(0)->remove(Path({"DOS", "DRIVE_C"}), e); }, &err),
+                  "delete $.DOS.DRIVE_C: " + err);
+            CHECK(o.followDriveC() && labels(o.disc()) == QStringList({"ADFS:adfs"}) && !o.dos().attached(), "no DOS mount: " + labels(o.disc()).join(", "));
+            o.revert();
+            CHECK(o.followDriveC() && labels(o.disc()) == QStringList({"ADFS:adfs", "DOS:fat"}) && o.dos().attached() && !o.followDriveC(),
+                  "back after Revert: " + labels(o.disc()).join(", "));
+        }
+        QFile::remove(p);
+    }
+
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails ? 1 : 0;
 }

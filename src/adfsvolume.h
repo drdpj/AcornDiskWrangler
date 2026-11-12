@@ -17,12 +17,13 @@
  */
 // adfsvolume.h - an old-map ADFS disc (Adfs::Image) as a DiskWranglerCore dw::fs::Volume, and the whole opened disc
 // as a dw::fs::Disc: ADFS with the DOS Plus partition inside it, DFS side 0 and side 2, or a FAT floppy. These are
-// the adapters of step 4 of the move to the core; the main window doesn't use them yet (step 5), the tests and the
-// command-line program (step 4b) do.
+// the adapters of step 4 of the move to the core; the command-line program (step 4b), the tests and, since step 5i,
+// the main window (OpenedDisc is its dw::app::Document) use them.
 #pragma once
 
 #include <memory>
 
+#include <diskwrangler/app/document.h>
 #include <diskwrangler/fs/disc.h>
 #include <diskwrangler/fs/volume.h>
 
@@ -86,24 +87,70 @@ private:
     bool m_flatten = false;
 };
 
-// Everything an opened disc holds, the way the main window shows it: owns the Image and the volumes.
+// Everything an opened disc holds, the way the main window shows it: owns the Image and the volumes, and is the
+// window's dw::app::Document as well as what the command-line program opens.
 // mounts: ADFS ("ADFS", read-only on a hybrid) and DOS Plus ("DOS", $.DOS.DRIVE_C or the hybrid's FAT); "drive 0"
-// and "drive 2" (DFS); "DOS" alone for a FAT floppy.
-class OpenedDisc {
+// and "drive 2" (DFS); "DOS" alone for a FAT floppy. Groups (the window's tabs): "ADFS", "DOS", "DFS".
+class OpenedDisc : public dw::app::Document {
 public:
-    OpenedDisc() = default;
+    OpenedDisc();
     OpenedDisc(const OpenedDisc &) = delete;
     OpenedDisc &operator=(const OpenedDisc &) = delete;
-    // Opens path as info says (detectDisk / diskInfo of a detection candidate).
+    // The window's rules (step 5i; set before open): a disc nothing recognised is opened as ADFS, so that its problems
+    // can be shown; a DFS side or a DOS partition that can't be read is left out instead of refusing the disc (a disc
+    // with nothing readable stays open with no mounts); and a save lets only the volumes its changes touch veto it
+    // (Disc::validateTouched). Without them (the command line): every mount is checked before a save (validateAll).
+    void setWindowRules(bool on) { m_window = on; }
+    // Opens path as info says (detectDisk / diskInfo of a detection candidate). Whatever was open is closed first;
+    // when it fails nothing is open.
     bool open(const QString &path, const DiskInfo &info, QString *err);
-    dw::fs::Disc &disc() { return m_disc; }
+    void close();
+    dw::fs::Disc &disc() override { return m_disc; }
+    const dw::fs::Disc &disc() const override { return m_disc; }
     Image &image() { return m_img; }
+    const Image &image() const { return m_img; }
     const DiskInfo &info() const { return m_info; }
-    bool save(QString *err, bool backup = false);        // the Disc's checked save (every mount checked first)
+    void setSides(const SideLayout &s) { m_info.sides = s; }      // after Save changed the file's side order (the window)
+    // The checked save: every mount checked first (command line), or, with the window's rules, the volumes the
+    // changes touch (DOS Plus by its region, DFS by any change; ADFS is always checked by Image::commit). Either way
+    // the copy that replaces the file is read again and its DOS and DFS volumes checked, if the changes touched them.
+    bool save(QString *err, bool backup = false);
+
+    // The volumes as Acorn's own classes (never null: detached when the disc has none), and their mounts (-1: none).
+    dw::fat::Volume &dos() const { return *m_dos; }
+    dw::dfs::Disc &dfs(int side) const { return *m_dfs[side ? 1 : 0]; }
+    int adfsMount() const;
+    int dosMount() const;
+    int dfsMount(int side) const;
+    // The window's checks after opening: a DOS or DFS volume that failed its check can be browsed but not changed.
+    void setDosOk(bool ok) { m_dosOk = ok; }
+    void setDfsOk(int side, bool ok) { m_dfsOk[side ? 1 : 0] = ok; }
+    bool dosOk() const { return m_dosOk; }
+    bool dfsOk(int side) const { return m_dfsOk[side ? 1 : 0]; }
+    // An ADFS disc's DOS Plus partition is the file $.DOS.DRIVE_C: read it again from wherever the file is now (the
+    // window does this at every refresh, as it always has), adding or removing the "DOS" mount as the file comes or
+    // goes. True if the mounts changed.
+    bool followDriveC();
+
+    // dw::app::Document
+    bool isOpen() const override { return m_img.isOpen(); }
+    QString path() const override { return m_img.path(); }
+    bool dirty() const override { return m_img.dirty(); }
+    bool save(bool backup, QString *err) override { return save(err, backup); }
+    // The disc into another file of the same kind (Image::moveToCopy, then the checked save into it).
+    bool saveAs(const QString &path, dw::device::Kind kind, QString *err) override;
+    void revert() override;
+    // Why a mount can't be changed, in the window's words; mount -1 asks about the image as a whole (and the ADFS
+    // side of a hybrid).
+    QString readOnlyWhy(int mount) const override;
 
 private:
+    void reloadMounts();
+    bool attachDriveC(QString *err);
     Image m_img;
     DiskInfo m_info;
+    bool m_window = false;
+    bool m_dosOk = false, m_dfsOk[2] = {false, false};
     std::shared_ptr<dw::fat::Volume> m_dos;
     std::shared_ptr<dw::dfs::Disc> m_dfs[2];
     dw::fs::Disc m_disc;

@@ -295,38 +295,124 @@ QString AdfsVolume::displayPath(const Path &p) const { return p.isRoot() ? QStri
 
 // ------------------------------------------------------------------ OpenedDisc
 
+OpenedDisc::OpenedDisc() : m_dos(std::make_shared<dw::fat::Volume>()) {
+    m_dfs[0] = std::make_shared<dw::dfs::Disc>();
+    m_dfs[1] = std::make_shared<dw::dfs::Disc>();
+    // The checks the main window ran before a save (step 5i: moved here, so the command line has them too). Image's
+    // commit checks ADFS itself; a DOS Plus or DFS volume the changes touch vetoes the save with its own errors ...
+    m_img.setExtraValidator([this]() -> QStringList {
+        QStringList out;
+        QVector<dw::fs::Report> per;
+        m_disc.validateTouched(&per);
+        for (int i = 0; i < m_disc.mounts().size() && i < per.size(); ++i) {
+            const QString g = m_disc.mounts()[i].group;
+            const QString p = g == "DOS" ? QString("DOS partition: ")
+                            : g == "DFS" ? QString("DFS drive %1: ").arg(i == dfsMount(1) ? 2 : 0) : QString();
+            if (!p.isEmpty()) for (const QString &e : per[i].errors) out << p + e;
+        }
+        return out;
+    });
+    // ... and the copy about to replace the file is checked the same way, its volumes read from the copy itself
+    m_img.setReopenValidator([this](Image &saved) -> QStringList {
+        QStringList out;
+        QString err;
+        const int dm = dosMount();
+        if (dm >= 0 && m_disc.mounts()[dm].touched()) {
+            dw::fat::Volume v;
+            bool ok;
+            switch (m_info.kind) {
+            case DiskInfo::AdfsDosHybrid: ok = v.attachFormat(&saved, m_dos->sin(), m_dos->length(), dw::fat::FmtAcorn640, &err); break;
+            case DiskInfo::DosAcorn800: ok = v.attachFormat(&saved, m_dos->sin(), m_dos->length(), dw::fat::FmtAcorn800, &err); break;
+            case DiskInfo::DosPc:
+                ok = m_info.dosFromTable ? v.attachFormat(&saved, m_dos->sin(), m_dos->length(), m_info.dosFormat, &err)
+                                         : v.attach(&saved, m_dos->sin(), m_dos->length(), &err);
+                break;
+            default: ok = v.attach(&saved, m_dos->sin(), m_dos->length(), &err);
+            }
+            if (!ok) out << "DOS partition: " + err;
+            else for (const QString &e : v.check().errors) out << "DOS partition: " + e;
+        }
+        for (int s = 0; s < 2; ++s) {
+            const int m = dfsMount(s);
+            if (m < 0 || !m_disc.mounts()[m].touched()) continue;
+            dw::dfs::Disc d;
+            if (!d.attach(&saved, s, m_info.dfs, &err)) out << QString("DFS drive %1: %2").arg(s * 2).arg(err);
+            else for (const QString &e : d.check().errors) out << QString("DFS drive %1: %2").arg(s * 2).arg(e);
+        }
+        return out;
+    });
+}
+
+void OpenedDisc::close() {
+    m_disc.clearMounts();
+    m_disc.setContainer(nullptr);
+    m_dos->detach();
+    m_dfs[0]->detach();
+    m_dfs[1]->detach();
+    m_dosOk = m_dfsOk[0] = m_dfsOk[1] = false;
+    m_info = DiskInfo();
+    m_img.close();
+}
+
+int OpenedDisc::adfsMount() const {
+    for (int i = 0; i < m_disc.mounts().size(); ++i) if (m_disc.mounts()[i].group == "ADFS") return i;
+    return -1;
+}
+
+int OpenedDisc::dosMount() const {
+    for (int i = 0; i < m_disc.mounts().size(); ++i) if (m_disc.mounts()[i].group == "DOS") return i;
+    return -1;
+}
+
+int OpenedDisc::dfsMount(int side) const {
+    const QString label = QString("drive %1").arg(side ? 2 : 0);
+    for (int i = 0; i < m_disc.mounts().size(); ++i)
+        if (m_disc.mounts()[i].group == "DFS" && m_disc.mounts()[i].label == label) return i;
+    return -1;
+}
+
+// $.DOS.DRIVE_C, attached as the "DOS" mount (an ADFS disc's DOS Plus partition)
+bool OpenedDisc::attachDriveC(QString *err) {
+    Dir root, dosDir;
+    const int i = m_img.readDir(RootSector, &root, err) ? root.indexOf("DOS") : -1;
+    const int j = i >= 0 && root.entries[i].isDir() && m_img.readDir(root.entries[i].sin, &dosDir, err)
+                      ? dosDir.indexOf("DRIVE_C") : -1;
+    return j >= 0 && !dosDir.entries[j].isDir() && m_dos->attach(&m_img, dosDir.entries[j].sin, dosDir.entries[j].length, err);
+}
+
 bool OpenedDisc::open(const QString &path, const DiskInfo &info, QString *err) {
+    close();
     m_info = info;
-    switch (info.kind) {
+    DiskInfo::Kind kind = info.kind;
+    if (kind == DiskInfo::Unknown && m_window) kind = DiskInfo::Adfs;      // opened as ADFS, so its problems are shown
+    switch (kind) {
     case DiskInfo::Unknown: case DiskInfo::AdfsNewMap: case DiskInfo::AcornCpm: case DiskInfo::TorchCpn:
         *err = info.description.isEmpty() ? QString("not a disc this program opens") : info.description + ": not opened here";
+        m_info = DiskInfo();
         return false;
     default: break;
     }
-    const bool raw = info.kind == DiskInfo::Dfs || info.kind == DiskInfo::DosPc || info.kind == DiskInfo::DosAcorn800;
+    const bool raw = kind == DiskInfo::Dfs || kind == DiskInfo::DosPc || kind == DiskInfo::DosAcorn800;
     if (!(raw ? m_img.openRaw(path, info.fullSize, err, info.sides)
-              : m_img.open(path, err, info.kind == DiskInfo::AdfsDosHybrid ? info.fullSize : 0, info.sides)))
+              : m_img.open(path, err, kind == DiskInfo::AdfsDosHybrid ? info.fullSize : 0, info.sides))) {
+        close();
         return false;
+    }
     m_disc.setContainer(&m_img.container());
     const quint32 len = quint32(m_img.fullSize());
     auto mountDos = [&](bool ok) {
-        if (ok) m_disc.addMount({"DOS", std::make_shared<dw::fat::FsVolume>(m_dos), false, QString(), "DOS"});
-        else m_dos.reset();
+        if (!ok) { m_dos->detach(); return; }
+        dw::fs::Disc::Mount m("DOS", std::make_shared<dw::fat::FsVolume>(m_dos), false, QString(), "DOS");
+        m.touched = [this] { return m_img.pendingTouches(m_dos->sin(), sectorsFor(m_dos->length())); };
+        m_disc.addMount(m);
     };
     QString e;
-    m_dos = std::make_shared<dw::fat::Volume>();
-    switch (info.kind) {
-    case DiskInfo::Adfs: {
+    switch (kind) {
+    case DiskInfo::Adfs:
         m_disc.addMount({"ADFS", std::make_shared<AdfsVolume>(&m_img), !m_img.editable(),
                          m_img.editable() ? QString() : QString("read-only"), "ADFS"});
-        Dir root, dosDir;                // the DOS Plus partition, $.DOS.DRIVE_C
-        const int i = m_img.readDir(RootSector, &root, &e) ? root.indexOf("DOS") : -1;
-        const int j = i >= 0 && root.entries[i].isDir() && m_img.readDir(root.entries[i].sin, &dosDir, &e)
-                          ? dosDir.indexOf("DRIVE_C") : -1;
-        mountDos(j >= 0 && !dosDir.entries[j].isDir() &&
-                 m_dos->attach(&m_img, dosDir.entries[j].sin, dosDir.entries[j].length, &e));
+        mountDos(attachDriveC(&e));     // the DOS Plus partition, $.DOS.DRIVE_C
         break;
-    }
     case DiskInfo::AdfsDosHybrid:
         m_img.setAdfsLocked(true);
         m_disc.addMount({"ADFS", std::make_shared<AdfsVolume>(&m_img), true, "the ADFS side of a hybrid disc", "ADFS"});
@@ -339,30 +425,86 @@ bool OpenedDisc::open(const QString &path, const DiskInfo &info, QString *err) {
         mountDos(info.dosFromTable ? m_dos->attachFormat(&m_img, 0, len, info.dosFormat, &e) : m_dos->attach(&m_img, 0, len, &e));
         break;
     case DiskInfo::Dfs:
-        m_dos.reset();
         for (int s = 0; s < (info.dfs.doubleSided ? 2 : 1); ++s) {
-            m_dfs[s] = std::make_shared<dw::dfs::Disc>();
-            if (!m_dfs[s]->attach(&m_img, s, info.dfs, &e)) { *err = QString("drive %1: %2").arg(s * 2).arg(e); return false; }
-            m_disc.addMount({QString("drive %1").arg(s * 2), std::make_shared<dw::dfs::Volume>(m_dfs[s]), false, QString(), "DFS"});
+            if (!m_dfs[s]->attach(&m_img, s, info.dfs, &e)) {
+                m_dfs[s]->detach();
+                if (m_window) continue;              // the window shows the side that can be read
+                *err = QString("drive %1: %2").arg(s * 2).arg(e);
+                close();
+                return false;
+            }
+            dw::fs::Disc::Mount m(QString("drive %1").arg(s * 2), std::make_shared<dw::dfs::Volume>(m_dfs[s]), false, QString(), "DFS");
+            m.touched = [this] { return m_img.pendingTouches(0, quint32(m_img.fullSize() / SectorSize)); };
+            m_disc.addMount(m);
         }
         break;
     default: break;
     }
-    if (m_disc.mounts().isEmpty()) { *err = "nothing on the disc could be read: " + e; return false; }
+    if (m_disc.mounts().isEmpty() && !m_window) { *err = "nothing on the disc could be read: " + e; close(); return false; }
     return true;
+}
+
+bool OpenedDisc::followDriveC() {
+    if (!m_img.isOpen() || !m_img.isAdfs() || m_info.kind == DiskInfo::AdfsDosHybrid) return false;
+    QString e;
+    const bool have = attachDriveC(&e);           // read again, as the window always has
+    const int m = dosMount();
+    if (have == (m >= 0)) return false;
+    if (have) {
+        dw::fs::Disc::Mount d("DOS", std::make_shared<dw::fat::FsVolume>(m_dos), false, QString(), "DOS");
+        d.touched = [this] { return m_img.pendingTouches(m_dos->sin(), sectorsFor(m_dos->length())); };
+        m_disc.addMount(d);
+    } else {
+        m_dos->detach();
+        m_disc.mounts().remove(m);
+    }
+    return true;
+}
+
+void OpenedDisc::reloadMounts() {
+    QString re;
+    for (const auto &m : m_disc.mounts())
+        if (m.vol) m.vol->reload(&re);
 }
 
 bool OpenedDisc::save(QString *err, bool backup) {
     // Adfs::Image keeps its own saving sequence (the map checks, padding, the side-order conversion, the
-    // changed-on-disc refusal); every mount is checked first, as the main window does
-    const dw::fs::Report r = m_disc.validateAll();
-    if (!r.ok()) { *err = "The disc failed its check, so NOTHING was written.\n\n" + r.errors.join("\n"); return false; }
+    // changed-on-disc refusal, and the checks above); the command line checks every mount first
+    if (!m_window) {
+        const dw::fs::Report r = m_disc.validateAll();
+        if (!r.ok()) { *err = "The disc failed its check, so NOTHING was written.\n\n" + r.errors.join("\n"); return false; }
+    }
     Report post;
     const bool ok = m_img.commit(err, backup, &post);
-    QString re;
-    for (const auto &m : m_disc.mounts())
-        if (m.vol) m.vol->reload(&re);
+    reloadMounts();
     return ok;
+}
+
+bool OpenedDisc::saveAs(const QString &path, dw::device::Kind kind, QString *err) {
+    if (kind != dw::device::Kind::None && kind != m_img.containerKind()) {
+        *err = "the copy can only be of the same kind as the image";
+        return false;
+    }
+    return m_img.moveToCopy(path, err) && save(err, false);
+}
+
+void OpenedDisc::revert() {
+    m_img.revert();
+    reloadMounts();
+}
+
+QString OpenedDisc::readOnlyWhy(int mount) const {
+    if (!m_img.isOpen()) return "no disc";
+    if (!m_img.editable())
+        return m_img.isAdfs() && !m_img.openReport().ok() ? "the free space map or directories are damaged (Tools > Check disc)"
+               : m_img.containerKind() == dw::device::Kind::Td0 ? "TeleDisk images can only be read"
+                                                                : "the image file can't be written";
+    if (mount >= 0 && mount == dosMount()) return m_dosOk ? QString() : "the DOS volume has errors (Tools > Check disc)";
+    for (int s = 0; s < 2; ++s)
+        if (mount >= 0 && mount == dfsMount(s))
+            return m_dfsOk[s] ? QString() : QString("drive %1's catalogue has errors (Tools > Check disc)").arg(s * 2);
+    if (m_img.adfsLocked()) return "the ADFS side of a DOS Plus disc is kept read-only, so the DOS files stay safe";
+    return QString();
 }
 
 } // namespace Adfs
