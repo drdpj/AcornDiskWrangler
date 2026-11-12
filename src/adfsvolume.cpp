@@ -17,6 +17,12 @@
  */
 #include "adfsvolume.h"
 
+#include <QFile>
+#include <QFileInfo>
+#include <QDir>
+#include <QUuid>
+#include <diskwrangler/device/sideorder.h>
+
 #include <diskwrangler/fs/dfs/dfsvolume.h>
 #include <diskwrangler/fs/fat/fatvolume.h>
 
@@ -475,17 +481,109 @@ bool OpenedDisc::save(QString *err, bool backup) {
         if (!r.ok()) { *err = "The disc failed its check, so NOTHING was written.\n\n" + r.errors.join("\n"); return false; }
     }
     Report post;
+    const bool converting = m_img.convertPending();
     const bool ok = m_img.commit(err, backup, &post);
+    if (converting && !m_img.convertPending()) m_info.sides = m_img.sideLayout();   // the file's side order changed
     reloadMounts();
     return ok;
 }
 
 bool OpenedDisc::saveAs(const QString &path, dw::device::Kind kind, QString *err) {
-    if (kind != dw::device::Kind::None && kind != m_img.containerKind()) {
-        *err = "the copy can only be of the same kind as the image";
+    if (kind == dw::device::Kind::None || kind == m_img.containerKind()) return m_img.moveToCopy(path, err) && save(err, false);
+    if (!writeCopy(path, kind, QString(), true, err)) return false;
+    DiskInfo unknown;
+    const dw::fs::Verdict v = detectCandidates(path, -1, &unknown);
+    if (!open(path, v.bestCandidate() ? diskInfo(*v.bestCandidate()) : unknown, err)) return false;
+    m_dosOk = m_dos->attached() && m_dos->check().ok();
+    for (int s = 0; s < 2; ++s) m_dfsOk[s] = m_dfs[s]->attached() && m_dfs[s]->check().ok();
+    return true;
+}
+
+bool OpenedDisc::convertible(QString *why) const {
+    dw::device::RawLayout l;
+    QString w;
+    if (!m_img.isOpen()) w = "no disc";
+    else if (rawLayoutFor(m_info, &l, &w)) return true;
+    if (why) *why = w;
+    return false;
+}
+
+bool OpenedDisc::verifyCopy(const QString &path, DiskInfo::Kind want, int forceSeq, QString *err) {
+    DiskInfo unknown;
+    const dw::fs::Verdict v = detectCandidates(path, forceSeq, &unknown);
+    if (v.action != dw::fs::Verdict::Open && v.action != dw::fs::Verdict::Ask) { *err = "the copy isn't recognised as the same kind of disc"; return false; }
+    const DiskInfo info = diskInfo(*v.bestCandidate());
+    if (info.kind != want) { *err = "the copy is read as " + info.description + ", not as the original kind of disc"; return false; }
+    OpenedDisc d;
+    if (!d.open(path, info, err)) return false;
+    const dw::fs::Report r = d.disc().validateAll();
+    if (!r.ok()) { *err = "the copy fails its check: " + r.errors.join("; "); return false; }
+    return true;
+}
+
+static QString tempBeside(const QString &file) {
+    const QFileInfo fi(file);
+    return fi.absoluteDir().filePath(QString(".dwconv-%1-%2").arg(QUuid::createUuid().toString(QUuid::Id128).left(8), fi.fileName()));
+}
+
+// Moved here from acorndw's convert (src/cli/backend.cpp) in step 5j, so that the window's Save As makes the same bytes.
+bool OpenedDisc::writeCopy(const QString &out, dw::device::Kind to, const QString &toSides, bool withStaged, QString *err,
+                           CopyFailure *whyFail) {
+    using dw::device::Kind;
+    CopyFailure dummy;
+    CopyFailure &fail = whyFail ? *whyFail : dummy;
+    fail = CopyFailure::None;
+    auto no = [&](CopyFailure f, const QString &e) { fail = f; *err = e; return false; };
+    const DiskInfo &info = m_info;
+    const Kind from = m_img.container().kind();
+    if (!m_img.isOpen()) return no(CopyFailure::Failed, "no disc");
+    if (to == Kind::None) to = from;
+    if (to == Kind::Td0) return no(CopyFailure::Unsupported, "TeleDisk files can be read but not written");
+    if (!toSides.isEmpty() && !info.sides.doubleSided()) return no(CopyFailure::Unsupported, "only a double-sided floppy has a side order");
+    if (!toSides.isEmpty() && to != Kind::Raw) return no(CopyFailure::Unsupported, "a side order belongs to a raw image: the other containers record where every track is");
+    const bool sequentialOut = toSides == "sequential";
+    const int forceSeq = to == Kind::Raw && info.sides.doubleSided() ? (toSides.isEmpty() ? 0 : sequentialOut ? 1 : 0) : -1;
+    dw::device::Container x = m_img.container();
+    if (!withStaged) x.discardPending();
+    QString why;
+    if (to != Kind::Raw) {
+        if (from == Kind::Raw) {                                     // give the raw bytes their tracks
+            dw::device::RawLayout l;
+            if (!rawLayoutFor(info, &l, &why)) return no(CopyFailure::Unsupported, why);
+            x.setRawPadding(qint64(info.fullSize), char(0));
+            if (!x.setRawLayout(l, err)) { fail = CopyFailure::Failed; return false; }
+        }
+        const DiskInfo::Kind want = info.kind;
+        if (!x.saveAs(out, to, err, [&](dw::device::Container &w, QString *e) { return verifyCopy(w.path(), want, -1, e); })) {
+            fail = CopyFailure::Save;
+            return false;
+        }
+        return true;
+    }
+    // the stored bytes (interleaved), padded to the disc's full size, in the side order asked for
+    const qint64 n = x.storedSize(&why);
+    if (n <= 0) return no(CopyFailure::Unsupported, "this container can't be written as a raw image: " + why);
+    QByteArray bytes;
+    if (!x.readStored(0, n, &bytes, err)) { fail = CopyFailure::Failed; return false; }
+    if (quint64(bytes.size()) < info.fullSize) bytes.append(QByteArray(int(info.fullSize - quint64(bytes.size())), char(0)));
+    if (from == Kind::Raw && info.sides.sequential) {            // the raw file is sequential: the stored bytes are too
+        if (!sequentialOut && !toSides.isEmpty()) bytes = dw::device::reorderSides(bytes, info.sides, false);
+    } else if (info.sides.doubleSided() && sequentialOut) {
+        bytes = dw::device::reorderSides(bytes, info.sides, true);
+    }
+    const QString tmp = tempBeside(out);
+    QFile f(tmp);
+    if (!f.open(QIODevice::WriteOnly) || f.write(bytes) != bytes.size()) {
+        *err = QString("cannot write %1: %2").arg(out, f.errorString());
+        QFile::remove(tmp);
+        fail = CopyFailure::Save;
         return false;
     }
-    return m_img.moveToCopy(path, err) && save(err, false);
+    f.close();
+    if (!verifyCopy(tmp, info.kind, forceSeq, err)) { QFile::remove(tmp); fail = CopyFailure::Save; return false; }
+    if (QFile::exists(out)) QFile::remove(out);
+    if (!QFile::rename(tmp, out)) { QFile::remove(tmp); return no(CopyFailure::Save, "cannot write " + out); }
+    return true;
 }
 
 void OpenedDisc::revert() {

@@ -110,7 +110,7 @@ public:
     Image &image() { return m_img; }
     const Image &image() const { return m_img; }
     const DiskInfo &info() const { return m_info; }
-    void setSides(const SideLayout &s) { m_info.sides = s; }      // after Save changed the file's side order (the window)
+    void setSides(const SideLayout &s) { m_info.sides = s; }      // the file's side order (save() keeps it after a conversion)
     // The checked save: every mount checked first (command line), or, with the window's rules, the volumes the
     // changes touch (DOS Plus by its region, DFS by any change; ADFS is always checked by Image::commit). Either way
     // the copy that replaces the file is read again and its DOS and DFS volumes checked, if the changes touched them.
@@ -137,8 +137,32 @@ public:
     QString path() const override { return m_img.path(); }
     bool dirty() const override { return m_img.dirty(); }
     bool save(bool backup, QString *err) override { return save(err, backup); }
-    // The disc into another file of the same kind (Image::moveToCopy, then the checked save into it).
+    // The disc into another file. Of the same kind (or Kind::None): Image::moveToCopy, then the checked save into it.
+    // Of another kind (a floppy only: convertible()): writeCopy with what is staged, then this document is the copy,
+    // opened as detection reads it, its DOS and DFS volumes checked (dosOk / dfsOk).
     bool saveAs(const QString &path, dw::device::Kind kind, QString *err) override;
+
+    // Save As into another kind of file (deliberate change 8) and acorndw convert go through this one function: the
+    // disc written to out as `to` (raw, ImageDisk, standard or extended DSK; TeleDisk is never written), with what is
+    // staged (withStaged) or as the file holds it, then opened again the way this program opens any image (verifyCopy:
+    // the same kind of disc, a clean check) before it is put in place. A raw copy of a double-sided floppy is in
+    // toSides' order ("interleaved" or "sequential"; empty: a raw file keeps its own order, any other is interleaved).
+    // The document itself is unchanged. why (if given) says what kind of failure it was, for the command line's exit
+    // codes: Unsupported (a hard disc, a side order where there is none), Failed (reading the disc) or Save (writing).
+    enum class CopyFailure { None, Unsupported, Failed, Save };
+    bool writeCopy(const QString &out, dw::device::Kind to, const QString &toSides, bool withStaged, QString *err,
+                   CopyFailure *why = nullptr);
+    // A floppy whose track layout is known (rawLayoutFor): it can be written as any of the kinds writeCopy makes.
+    // Hard discs (and discs nothing recognised) can't: their Save As is a copy of the same kind.
+    bool convertible(QString *why = nullptr) const;
+    // A written copy, opened as the program opens any image (forceSeq as detectCandidates takes it): it must be the
+    // same kind of disc (want) and pass its check.
+    static bool verifyCopy(const QString &path, DiskInfo::Kind want, int forceSeq, QString *err);
+
+    // Tools > Side order: stage a rewrite of the raw file in the other side order (done by save(), which then records
+    // the file's new order in info()), or, with the order the file has, drop a staged one.
+    bool setConvertSides(bool toSequential, QString *err) { return m_img.setConvertOnSave(toSequential, err); }
+    bool convertPending() const { return m_img.convertPending(); }
     void revert() override;
     // Why a mount can't be changed, in the window's words; mount -1 asks about the image as a whole (and the ADFS
     // side of a hybrid).

@@ -21,8 +21,6 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QUuid>
-#include <diskwrangler/device/sideorder.h>
 #include <diskwrangler/fs/dfs/dfs.h>
 
 #include "../adfsvolume.h"
@@ -51,11 +49,6 @@ static QString kindId(DiskInfo::Kind k) {
 }
 
 // ------------------------------------------------------------------------------------------------ the opened image
-
-static QString tempBeside(const QString &file) {
-    const QFileInfo fi(file);
-    return fi.absoluteDir().filePath(QString(".dwconv-%1-%2").arg(QUuid::createUuid().toString(QUuid::Id128).left(8), fi.fileName()));
-}
 
 class Image : public OpenedImage {
 public:
@@ -87,20 +80,7 @@ public:
         return true;
     }
 
-    // Opens a written copy the way the program opens any image and requires the same kind of disc and a clean check.
-    static bool verifyCopy(const QString &path, DiskInfo::Kind want, int forceSeq, QString *err) {
-        DiskInfo unknown;
-        const dw::fs::Verdict v = detectCandidates(path, forceSeq, &unknown);
-        if (v.action != dw::fs::Verdict::Open && v.action != dw::fs::Verdict::Ask) { *err = "the copy isn't recognised as the same kind of disc"; return false; }
-        const DiskInfo info = diskInfo(*v.bestCandidate());
-        if (info.kind != want) { *err = "the copy is read as " + info.description + ", not as the original kind of disc"; return false; }
-        Adfs::OpenedDisc d;
-        if (!d.open(path, info, err)) return false;
-        const dw::fs::Report r = d.disc().validateAll();
-        if (!r.ok()) { *err = "the copy fails its check: " + r.errors.join("; "); return false; }
-        return true;
-    }
-
+    // The conversion is the window's Save As's too (Adfs::OpenedDisc::writeCopy): the same bytes either way.
     bool convertTo(const QString &out, const ConvertOptions &o, QJsonObject *result, QString *err, int *exit) override {
         using dw::device::Kind;
         const DiskInfo &info = od.info();
@@ -112,42 +92,12 @@ public:
         else if (o.container == "edsk") to = Kind::Edsk;
         else if (o.container == "td0") to = Kind::Td0;
         if (to == Kind::Td0) { *err = "TeleDisk files can be read but not written: name --container=raw, imd, dsk or edsk"; *exit = ExitUnsupported; return false; }
-        if (!o.toSides.isEmpty() && !info.sides.doubleSided()) { *err = "only a double-sided floppy has a side order"; *exit = ExitUnsupported; return false; }
-        if (!o.toSides.isEmpty() && to != Kind::Raw) { *err = "a side order belongs to a raw image: the other containers record where every track is"; *exit = ExitUnsupported; return false; }
         const bool sequentialOut = o.toSides == "sequential";
-        const int forceSeq = to == Kind::Raw && info.sides.doubleSided() ? (o.toSides.isEmpty() ? 0 : sequentialOut ? 1 : 0) : -1;
-        dw::device::Container x = od.image().container();
-        x.discardPending();
-        QString why;
-        if (to != Kind::Raw) {
-            if (from == Kind::Raw) {                                     // give the raw bytes their tracks
-                dw::device::RawLayout l;
-                if (!rawLayoutFor(info, &l, &why)) { *err = why; *exit = ExitUnsupported; return false; }
-                x.setRawPadding(qint64(info.fullSize), char(0));
-                if (!x.setRawLayout(l, err)) { *exit = ExitFailed; return false; }
-            }
-            const DiskInfo::Kind want = info.kind;
-            if (!x.saveAs(out, to, err, [&](dw::device::Container &w, QString *e) { return verifyCopy(w.path(), want, -1, e); })) { *exit = ExitSave; return false; }
-        } else {
-            // the stored bytes (interleaved), padded to the disc's full size, in the side order asked for
-            const qint64 n = x.storedSize(&why);
-            if (n <= 0) { *err = "this container can't be written as a raw image: " + why; *exit = ExitUnsupported; return false; }
-            QByteArray bytes;
-            if (!x.readStored(0, n, &bytes, err)) { *exit = ExitFailed; return false; }
-            if (quint64(bytes.size()) < info.fullSize) bytes.append(QByteArray(int(info.fullSize - quint64(bytes.size())), char(0)));
-            if (from == Kind::Raw && info.sides.sequential) {            // the raw file is sequential: the stored bytes are too
-                if (!sequentialOut && !o.toSides.isEmpty()) bytes = dw::device::reorderSides(bytes, info.sides, false);
-                else if (o.toSides.isEmpty()) { /* keep as it is */ }
-            } else if (info.sides.doubleSided() && sequentialOut) {
-                bytes = dw::device::reorderSides(bytes, info.sides, true);
-            }
-            const QString tmp = tempBeside(out);
-            QFile f(tmp);
-            if (!f.open(QIODevice::WriteOnly) || f.write(bytes) != bytes.size()) { *err = QString("cannot write %1: %2").arg(out, f.errorString()); *exit = ExitSave; QFile::remove(tmp); return false; }
-            f.close();
-            if (!verifyCopy(tmp, info.kind, forceSeq, err)) { QFile::remove(tmp); *exit = ExitSave; return false; }
-            if (QFile::exists(out)) QFile::remove(out);
-            if (!QFile::rename(tmp, out)) { *err = "cannot write " + out; QFile::remove(tmp); *exit = ExitSave; return false; }
+        Adfs::OpenedDisc::CopyFailure why;
+        if (!od.writeCopy(out, to, o.toSides, false, err, &why)) {
+            *exit = why == Adfs::OpenedDisc::CopyFailure::Unsupported ? ExitUnsupported
+                    : why == Adfs::OpenedDisc::CopyFailure::Save ? ExitSave : ExitFailed;
+            return false;
         }
         QJsonObject r;
         r["container"] = dw::device::kindName(to);
