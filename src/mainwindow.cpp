@@ -442,9 +442,9 @@ MainWindow::MainWindow(QWidget *parent) : DiscWindow(parent) {
     connect(m_actReadIl, &QAction::triggered, this, [this] { readWithSideOrder(false); });
     connect(m_actReadSeq, &QAction::triggered, this, [this] { readWithSideOrder(true); });
     connect(m_actConvertSides, &QAction::triggered, this, [this] {
-        if (m_img.convertPending()) {                     // the action reads "Cancel ..." while one is staged
+        if (m_doc.convertPending()) {                     // the action reads "Cancel ..." while one is staged
             QString e;
-            m_img.setConvertOnSave(m_img.sideLayout().sequential, &e);
+            m_doc.setConvertSides(m_img.sideLayout().sequential, &e);
             updateUi();
         } else {
             convertSideOrder(!m_img.sideLayout().sequential);
@@ -515,40 +515,47 @@ void MainWindow::openDialog() {
         this, "Open disc image", s.value("lastDir").toString(),
         "Disc images (" + dw::anyCase("*.dat *.img *.ima *.dsk *.hdf *.adf *.adl *.adm *.ads *.ssd *.dsd *.bin *.imd *.td0") + ");;All files (*)");
     if (p.isEmpty()) return;
-    MainWindow *target = this;
-    if (m_img.isOpen()) {                       // each disc lives in its own window, so they can be dragged between
-        target = new MainWindow;
-        target->setAttribute(Qt::WA_DeleteOnClose);
-        target->show();
-    }
-    if (!target->openImage(p) && target != this) target->close();
+    openInWindow(p);                            // each disc lives in its own window, so they can be dragged between
 }
 
-bool MainWindow::openImage(const QString &path, int force) {
-    if (!confirmDiscard()) return false;
-    DiskInfo info;
-    const dw::fs::Verdict verdict = detectCandidates(path, force, &info);
-    const dw::fs::Candidate *pick = verdict.bestCandidate();
-    if (verdict.action == dw::fs::Verdict::Ask) {          // two kinds of disc equally likely: the user says which
-        const int a = dw::ui::askWhich(this, path, *verdict.bestCandidate(), *verdict.rivalCandidate());
-        if (a < 0) return false;
-        if (a == 1) pick = verdict.rivalCandidate();
-    }
-    if (pick) info = diskInfo(*pick);
+// Each disc in its own window (Open..., New disc image, dropped images): a new one, closed again if the disc didn't open.
+dw::ui::DiscWindow *MainWindow::createWindow() {
+    auto *w = new MainWindow;
+    w->setAttribute(Qt::WA_DeleteOnClose);
+    w->show();
+    return w;
+}
+
+// ---------------------------------------------------------------- opening, on the kit's open pipeline (openFile)
+// confirmDiscard (beforeOpen) -> detectImage -> the kit asks when two readings are equally likely, and hands a CP/M
+// disc to CP/M Disk Wrangler (handOverMessage: this program's words) -> openDocument -> afterOpen (the notices).
+
+bool MainWindow::detectImage(const QString &path, int force, dw::fs::Verdict *verdict) {
+    m_unknown = DiskInfo();
+    *verdict = detectCandidates(path, force, &m_unknown);     // never refuses: a file nothing reads is opened as ADFS
+    return true;
+}
+
+dw::ui::DiscWindow::NotOpened MainWindow::handOverMessage(const QString &, const dw::fs::Verdict &, const dw::fs::Candidate &pick) const {
+    // CP/M discs are CP/M Disk Wrangler's: the kit starts it with the image, or shows this (with where to get it)
+    const DiskInfo info = diskInfo(pick);
+    const QString why = info.kind == DiskInfo::AcornCpm
+        ? "Its DFS catalogue holds only $.CPMDISC, a locked file that keeps DFS off the CP/M files."
+        : "Its files are CP/M files, kept in Torch's own filesystem.";
+    NotOpened m;
+    m.title = "A CP/M disc";
+    m.startedTitle = "A CP/M disc";
+    m.text = info.description + "\n\n" + why + " Open it with " + pick.owner.name + " (github.com/drdpj/CPMDiskWrangler).";
+    return m;
+}
+
+bool MainWindow::openDocument(const QString &path, const dw::fs::Verdict &, const dw::fs::Candidate *pick, int force) {
+    const DiskInfo info = pick ? diskInfo(*pick) : m_unknown;
     // the contents can't always tell (e.g. a blank disc): then detection uses the format's usual order
     QString sidesHow = force >= 0 ? "set by hand" : (info.sides.doubleSided() && !info.sidesConfirmed ? "assumed" : "");
     if (info.kind == DiskInfo::AdfsNewMap) {
         QMessageBox::information(this, "Not supported",
                                  info.description + "\n\nADFS D/E (new map) discs are not supported yet.");
-        return false;
-    }
-    // CP/M discs are CP/M Disk Wrangler's: it is started with the image (or, if it isn't here, this says where to get it)
-    if (pick && pick->foreign()) {
-        const QString why = info.kind == DiskInfo::AcornCpm
-            ? "Its DFS catalogue holds only $.CPMDISC, a locked file that keeps DFS off the CP/M files."
-            : "Its files are CP/M files, kept in Torch's own filesystem.";
-        dw::ui::handOff(this, *pick, path, "A CP/M disc",
-                        info.description + "\n\n" + why + " Open it with " + pick->owner.name + " (github.com/drdpj/CPMDiskWrangler).");
         return false;
     }
     QString err;
@@ -557,6 +564,7 @@ bool MainWindow::openImage(const QString &path, int force) {
         refreshTree(); updateUi();
         return false;
     }
+    m_opened = info;
     m_sidesHow = info.sides.doubleSided() ? sidesHow : QString();
     AppSettings().setValue("lastDir", QFileInfo(path).absolutePath());
     refreshTree();
@@ -577,7 +585,12 @@ bool MainWindow::openImage(const QString &path, int force) {
         }
     m_tabs->setCurrentIndex(0);
     updateUi();
+    return true;
+}
 
+// The read-only notices and the status line once a disc is open (no refresh: openDocument has made the rows).
+void MainWindow::afterOpen(const QString &path) {
+    const DiskInfo &info = m_opened;
     QString pad;
     if (m_img.needsPadding())
         pad = QString("  NOTE: the image file is %1 bytes shorter than a full disc; it will be padded with zeros when saved.")
@@ -599,7 +612,6 @@ bool MainWindow::openImage(const QString &path, int force) {
             sides = "  The side order can't be told from the contents, so the usual order (interleaved) is used - Tools > Side order to change.";
         statusBar()->showMessage("Opened " + path + " - " + (info.description.isEmpty() ? QString("ADFS") : info.description) + "." + pad + sides, 15000);
     }
-    return true;
 }
 
 // ---------------------------------------------------------------- side order
@@ -607,7 +619,7 @@ bool MainWindow::openImage(const QString &path, int force) {
 bool MainWindow::readWithSideOrder(bool sequential) {
     if (!m_img.isOpen() || !m_img.sideLayout().doubleSided() || !m_img.isRawFile()) return false;
     if (m_img.sideLayout().sequential == sequential && !m_img.convertPending()) { updateUi(); return true; }
-    bool ok = openImage(m_img.path(), sequential ? 1 : 0);
+    bool ok = openFile(m_img.path(), sequential ? 1 : 0);   // read again, the order given (nothing is written)
     updateUi();
     return ok;
 }
@@ -625,7 +637,7 @@ bool MainWindow::convertSideOrder(bool toSequential, bool confirm) {
             return false;
     }
     QString err;
-    if (!m_img.setConvertOnSave(toSequential, &err)) {
+    if (!m_doc.setConvertSides(toSequential, &err)) {
         QMessageBox::warning(this, "Convert side order", err);
         return false;
     }
@@ -787,26 +799,17 @@ void MainWindow::newImageDialog() {
         return;
     }
     st.setValue("lastDir", QFileInfo(path).absolutePath());
-    MainWindow *target = this;
-    if (m_img.isOpen()) {
-        target = new MainWindow;
-        target->setAttribute(Qt::WA_DeleteOnClose);
-        target->show();
-    }
-    if (!target->openImage(path) && target != this) target->close();
+    openInWindow(path);                          // in this window if it is empty, else in a new one
 }
 
 bool MainWindow::save() {
     if (!m_img.isOpen() || !(m_img.dirty() || m_img.needsPadding())) return true;
     QString err;
-    bool converting = m_img.convertPending();
+    bool converting = m_doc.convertPending();
     QApplication::setOverrideCursor(Qt::WaitCursor);
     bool ok = m_doc.save(&err, m_optBackup->isChecked());   // the document's checked save (the volumes it touches)
     QApplication::restoreOverrideCursor();
-    if (converting && !m_img.convertPending()) {      // the file's side order changed, whether or not all else went well
-        m_doc.setSides(m_img.sideLayout());
-        m_sidesHow.clear();
-    }
+    if (converting && !m_doc.convertPending()) m_sidesHow.clear();   // the file's side order changed (the document has it)
     if (!ok) {
         QMessageBox::critical(this, "Save failed", err);
         refreshTree(); updateUi();
@@ -1253,8 +1256,7 @@ bool MainWindow::dropImages(int pane, const QStringList &paths, std::function<vo
         QTimer::singleShot(0, this, [this, paths] {
             for (const QString &p : paths) {
                 if (QFileInfo(p).isDir() || p.endsWith(".inf", Qt::CaseInsensitive)) continue;
-                if (!m_img.isOpen()) openImage(p);
-                else openInNewWindow(p);
+                openInWindow(p);                    // this window while it is empty, then new windows
             }
         });
         return true;

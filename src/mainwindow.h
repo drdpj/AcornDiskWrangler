@@ -81,9 +81,11 @@ struct ImportCtx;
 // The main window, on DiskWranglerCore's window kit (step 5i): a dw::ui::DiscWindow showing an Adfs::OpenedDisc, with
 // a pane per mount group as tabs that come and go with the disc ("ADFS", "DOS", "DFS": paneShown, paneTitle), the
 // rows written by decorateRow from this program's own classes (Adfs::Image, the FAT volume, the DFS catalogue), and
-// Delete, New directory and Extract on the kit's patterns. Opening, side order, View, Copy, drags, Rename,
-// Properties, the disc's name and boot option, Check and the imports are still this program's own code (series
-// 5j-5l move them); every public function and slot a test calls stays, forwarding where the kit now does the work.
+// Delete, New directory and Extract on the kit's patterns; opening on the kit's open pipeline (step 5j: detectImage,
+// openDocument, handOverMessage, afterOpen), the side order and Save As through the document. View, Copy, drags,
+// Rename, Properties, the disc's name and boot option, Check and the imports are still this program's own code
+// (series 5k and 5l move them); every public function and slot a test calls stays, forwarding where the kit now does
+// the work.
 class MainWindow : public dw::ui::DiscWindow {
     Q_OBJECT
 public:
@@ -109,9 +111,10 @@ public:
     bool isHardDisc() const;                    // an ADFS disc bigger than any floppy (over 640K)
     static MainWindow *openInNewWindow(const QString &path);   // nullptr (and no window) if it can't be opened
 
-    // forceSequential: -1 = detect the side order (the format's usual order, interleaved, when the contents can't
-    // tell), 0 / 1 = read an Acorn double-sided image as interleaved / sequential.
-    bool openImage(const QString &path, int forceSequential = -1);
+    // The kit's open pipeline (openFile; step 5j). forceSequential: -1 = detect the side order (the format's usual
+    // order, interleaved, when the contents can't tell), 0 / 1 = read an Acorn double-sided image as interleaved /
+    // sequential.
+    bool openImage(const QString &path, int forceSequential = -1) { return openFile(path, forceSequential); }
     // Tools > Side order: re-read the image in the given order (nothing is written), or stage a rewrite of the file
     // in the other order (done on Save). confirm = false skips the explanation box (tests).
     bool readWithSideOrder(bool sequential);
@@ -171,6 +174,12 @@ protected:
     void presentStatus(const QStringList &variants) override;
     void updateActions() override;
     bool confirmDiscard() override;
+    // opening (the kit's open pipeline, step 5j)
+    bool detectImage(const QString &path, int force, dw::fs::Verdict *verdict) override;
+    bool openDocument(const QString &path, const dw::fs::Verdict &verdict, const dw::fs::Candidate *pick, int force) override;
+    NotOpened handOverMessage(const QString &path, const dw::fs::Verdict &verdict, const dw::fs::Candidate &pick) const override;
+    void afterOpen(const QString &path) override;
+    dw::ui::DiscWindow *createWindow() override;
     QVector<Item> deleteItems() const override;
     bool confirmDelete(const QVector<Item> &items) override;
     bool deleteEachOnItsOwn() const override { return true; }
@@ -289,4 +298,6 @@ private:
     QAction *m_actBootOpt = nullptr;
     QAction *m_actReadIl = nullptr, *m_actReadSeq = nullptr, *m_actConvertSides = nullptr;
     QString m_sidesHow;            // how the side order was settled: "" (detected), "assumed", "set by hand"
+    DiskInfo m_unknown;            // what detection says of a disc nothing recognised (opened as ADFS)
+    DiskInfo m_opened;             // the reading just opened, for afterOpen's notices
 };
