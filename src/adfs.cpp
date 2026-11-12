@@ -767,7 +767,7 @@ bool Image::replaceEntry(quint32 parent, const QString &oldName, const Entry &up
         e.seq = d.entries[idx].seq;
         e.setFlag(Entry::D, d.entries[idx].isDir());
         d.entries[idx] = e;
-        d.seq = bcdInc(d.seq);
+        if (renamed) d.seq = bcdInc(d.seq);          // as on a real ADFS: a rename counts as a directory change, new attributes don't
         d.sortEntries();
         writeDir(d);
         if (e.isDir() && renamed) {      // keep the directory's own copy of its name in step
