@@ -155,6 +155,9 @@ QVector<DragRef> DropTree::refsFor(const QList<QTreeWidgetItem *> &items) const 
         r.parent = it->data(0, RoleParent).toUInt();      // a DFS row: its side
         r.name = it->data(0, RoleName).toString();
         r.isDir = it->data(0, RoleIsDir).toBool();
+        const dw::ui::PaneRow row = rowOf(it);          // where the kit knows the row
+        r.mount = row.mount;
+        r.path = row.path;
         refs << r;
     }
     return refs;
@@ -170,7 +173,7 @@ QMimeData *DropTree::makeMime(const QList<QTreeWidgetItem *> &items) const {
     // the files themselves, for the host or another program: exported from the window when (if) they're asked for
     QPointer<MainWindow> win = MainWindow::byId(m_owner);
     int pane = m_pane;
-    RetroFiles::DragOutMime::Exporter exporter = [win, pane, refs](QVector<XItem> *out, QString *err) {
+    RetroFiles::DragOutMime::Exporter exporter = [win, pane, refs](QVector<dw::TransferItem> *out, QString *err) {
         if (!win) { *err = "the disc's window was closed during the drag"; return false; }
         return win->exportRefs(pane, refs, out, err);
     };
@@ -656,34 +659,79 @@ int MainWindow::bootOption() const {
     return m_img.isAdfs() ? m_img.bootOption() : -1;
 }
 
+// The disc's boot option on the kit's pattern for a disc's own attributes (5f): the program's dialog says the value
+// (volumeEditor), the kit checks the mount is writable, changes it in one transaction and refreshes.
 bool MainWindow::setBootOption(int opt) {
     QString err;
-    int ds = dfsSide();
-    bool ok;
-    if (dosActive() || !m_img.isOpen()) { err = "DOS discs have no boot option"; ok = false; }
-    else if (ds >= 0) ok = dfsEditable(ds) ? m_doc.dfs(ds).setBootOption(opt, &err) : (err = "this DFS drive is read-only", false);
-    else ok = m_img.setBootOption(opt, &err);
-    if (!ok) QMessageBox::warning(this, "Boot option", err);
-    refreshTree();
-    updateUi();
+    const int ds = dfsSide();
+    if (dosActive() || !m_img.isOpen()) err = "DOS discs have no boot option";
+    else if (ds >= 0 && !dfsEditable(ds)) err = "this DFS drive is read-only";
+    const int mount = ds >= 0 ? m_doc.dfsMount(ds) : m_doc.adfsMount();
+    bool ok = err.isEmpty() && applyVolumeAttrs(mount, {{"boot", opt}}, &err);
+    if (!ok) message("Boot option", err);
+    refreshChanged({mount});
     return ok;
 }
 
 void MainWindow::bootOptionDialog() {
-    int cur = bootOption();
-    if (cur < 0) return;
-    QStringList items;
-    for (int i = 0; i < 4; ++i) items << Adfs::bootOptionName(i);
-    if (cur > 3) items << Adfs::bootOptionName(cur);           // keep an odd value visible rather than hide it
+    if (bootOption() < 0) return;
+    const int ds = dfsSide();
+    editVolume(ds >= 0 ? m_doc.dfsMount(ds) : m_doc.adfsMount(), "boot");
+}
+
+// The dialogs of the disc's own attributes: Rename disc / volume (title, label) and the boot option. They give only
+// the value; applyVolumeAttrs does the change.
+bool MainWindow::volumeEditor(int mount, const QString &key, VolumeEdit *edit) {
+    const int pane = paneOf(mount);
+    const bool dfs = pane == PaneDfs0 || pane == PaneDfs1;
+    const int side = pane == PaneDfs1 ? 1 : 0;
+    QString err;
     bool ok = false;
-    int ds = dfsSide();
-    QString which = ds >= 0 ? QString("DFS drive %1").arg(ds * 2) : QString("this disc");
-    QString pick = QInputDialog::getItem(this, "Boot option",
-                                         "What SHIFT+BREAK does with " + which + " (*OPT 4):",
-                                         items, cur > 3 ? 4 : cur, false, &ok);
-    if (!ok) return;
-    int opt = items.indexOf(pick);
-    if (opt != cur && opt <= 3) setBootOption(opt);
+    if (key == "boot") {
+        const int cur = dfs ? (m_doc.dfs(side).attached() ? m_doc.dfs(side).bootOption() : -1) : (m_img.isAdfs() ? m_img.bootOption() : -1);
+        if (cur < 0) return false;
+        QStringList items;
+        for (int i = 0; i < 4; ++i) items << Adfs::bootOptionName(i);
+        if (cur > 3) items << Adfs::bootOptionName(cur);           // keep an odd value visible rather than hide it
+        QString which = dfs ? QString("DFS drive %1").arg(side * 2) : QString("this disc");
+        QString pick = QInputDialog::getItem(this, "Boot option",
+                                             "What SHIFT+BREAK does with " + which + " (*OPT 4):",
+                                             items, cur > 3 ? 4 : cur, false, &ok);
+        if (!ok) return false;
+        const int opt = items.indexOf(pick);
+        if (opt == cur || opt > 3) return false;
+        edit->values["boot"] = opt;
+        edit->title = "Boot option";
+        return true;
+    }
+    if (pane == PaneDos) {
+        QString n = QInputDialog::getText(this, "Rename volume", "DOS volume label (max 11 characters, blank to remove):",
+                                          QLineEdit::Normal, m_dos.label(), &ok);
+        if (!ok) return false;
+        edit->values["label"] = n;
+        edit->title = "Rename volume";
+    } else if (dfs) {
+        QString n = QInputDialog::getText(this, "Rename DFS disc", "Disc title (max 12 characters):", QLineEdit::Normal,
+                                          m_doc.dfs(side).title(), &ok);
+        if (!ok) return false;
+        edit->values["title"] = n.trimmed();
+        edit->title = "Rename disc";
+    } else {
+        Dir root;
+        if (!m_img.readDir(RootSector, &root, &err)) { QMessageBox::warning(this, "Rename volume", err); return false; }
+        QString n = QInputDialog::getText(this, "Rename disc", "Disc name (root directory title, max 10 characters):",
+                                          QLineEdit::Normal, root.title(), &ok);
+        if (!ok) return false;
+        edit->values["title"] = n.trimmed();
+        edit->title = "Rename disc";
+    }
+    return true;
+}
+
+// Rename disc (ADFS, DFS) or Rename volume (DOS): the pane in use's root.
+void MainWindow::renameVolume() {
+    const int ds = dfsSide();
+    editVolume(ds >= 0 ? m_doc.dfsMount(ds) : dosActive() ? m_doc.dosMount() : m_doc.adfsMount(), dosActive() && ds < 0 ? "label" : "title");
 }
 
 // ---------------------------------------------------------------- save as
@@ -901,18 +949,27 @@ void MainWindow::about() {
     box.exec();
 }
 
+// Check disc: the kit's (Disc::validateAll, each mount's own report beside it); the words are this program's, as they
+// always were: the ADFS report as it is, the DOS lines headed "DOS: ", each DFS drive's "DFS drive 0: " (or 2), and
+// the warning for an image that is shorter than a full disc.
 void MainWindow::checkImage() {
     if (!m_img.isOpen()) return;
-    Report r = m_img.validate();
+    checkDisc();
+}
+
+void MainWindow::showCheck(const dw::fs::Report &, const QVector<dw::fs::Report> &perMount) {
+    Report r;
+    auto of = [&](int pane) { const int m = mountOf(pane); return m >= 0 && m < perMount.size() ? perMount[m] : Report(); };
+    if (m_doc.adfsMount() >= 0) r = of(PaneAdfs);
     if (m_dos.attached()) {
-        Report dr = m_dos.check();
+        const Report dr = of(PaneDos);
         for (const QString &s : dr.errors) r.errors << "DOS: " + s;
         for (const QString &s : dr.warnings) r.warnings << "DOS: " + s;
         r.info += dr.info;
     }
     for (int s = 0; s < 2; ++s)
         if (dfs(s).attached()) {
-            Report dr = dfs(s).check();
+            const Report dr = of(s ? PaneDfs1 : PaneDfs0);
             for (const QString &e : dr.errors) r.errors << QString("DFS drive %1: %2").arg(s * 2).arg(e);
             for (const QString &e : dr.warnings) r.warnings << QString("DFS drive %1: %2").arg(s * 2).arg(e);
             r.info += dr.info;
@@ -1612,24 +1669,45 @@ QString MainWindow::deleteItemError(const Item &item, const QString &err) const 
     return item.path.name() + ": " + err;
 }
 
+// Properties, on the kit's pattern (5f): the selection is the rows of the pane in use, the dialogs are this program's
+// (the ADFS one here, the DOS one in mainwindow_dos.cpp) and say what changes; each entry is changed in its own
+// transaction and the ones that fail are listed. A DFS drive keeps its own code (dfsProps).
 void MainWindow::editProperties() {
     if (dfsSide() >= 0) { dfsProps(); return; }
-    if (dosActive()) { dosProps(); return; }
-    QVector<Sel> sel = selectedObjects();
-    if (sel.isEmpty()) return;
+    DiscWindow::editProperties();
+}
+
+QVector<dw::ui::DiscWindow::Item> MainWindow::propertiesItems() const {
+    QVector<Item> v;
+    for (QTreeWidgetItem *it : currentTree()->selectedItems()) {
+        const dw::ui::PaneRow r = dw::ui::VolumePane::rowOf(it);
+        if (r.valid() && !r.root) v << Item(r.mount, r.path);
+    }
+    return v;
+}
+
+bool MainWindow::propertiesEditor(const QVector<Item> &items, PropertiesEdit *edit) {
+    edit->eachOnItsOwn = true;
+    return paneOf(items[0].mount) == PaneDos ? dosProperties(items, edit) : adfsProperties(items, edit);
+}
+
+bool MainWindow::adfsProperties(const QVector<Item> &items, PropertiesEdit *edit) {
     QVector<Entry> ents;
     QString err;
-    for (const Sel &s : sel) {
+    for (const Item &i : items) {
+        const QTreeWidgetItem *row = m_tree->findRow(i.mount, i.path);
+        const quint32 parent = row ? row->data(0, RoleParent).toUInt() : 0;
+        const QString name = row ? row->data(0, RoleName).toString() : i.path.name();
         Dir d;
-        if (!m_img.readDir(s.parent, &d, &err) || d.indexOf(s.name) < 0) {
+        if (!m_img.readDir(parent, &d, &err) || d.indexOf(name) < 0) {
             QMessageBox::warning(this, "Properties", err.isEmpty() ? "Entry not found" : err);
-            return;
+            return false;
         }
-        ents.append(d.entries[d.indexOf(s.name)]);
+        ents.append(d.entries[d.indexOf(name)]);
     }
     bool single = ents.size() == 1;
-    bool allDirs = true, anyDir = false;
-    for (const Entry &e : ents) { allDirs = allDirs && e.isDir(); anyDir = anyDir || e.isDir(); }
+    bool allDirs = true;
+    for (const Entry &e : ents) allDirs = allDirs && e.isDir();
 
     QDialog dlg(this);
     dlg.setWindowTitle(single ? "Properties - " + ents[0].name() : QString("Properties - %1 items").arg(ents.size()));
@@ -1671,24 +1749,24 @@ void MainWindow::editProperties() {
     form->addRow(bb);
     connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
-    if (dlg.exec() != QDialog::Accepted) return;
+    if (dlg.exec() != QDialog::Accepted) return false;
 
-    QStringList errors;
     for (int i = 0; i < ents.size(); ++i) {
-        Entry e = ents[i];
-        if (nameEd && nameEd->text().trimmed() != e.name()) e.setName(nameEd->text().trimmed());
-        auto apply = [&](QCheckBox *cb, int idx) {
-            if (cb->checkState() != Qt::PartiallyChecked) e.setFlag(idx, cb->checkState() == Qt::Checked);
-        };
-        apply(cbR, Entry::R); apply(cbW, Entry::W); apply(cbL, Entry::L);
-        if (!e.isDir()) apply(cbE, Entry::E);
-        if (loadEd) e.load = loadEd->text().toUInt(nullptr, 16);
-        if (execEd) e.exec = execEd->text().toUInt(nullptr, 16);
-        if (!m_img.replaceEntry(sel[i].parent, sel[i].name, e, &err)) errors << QString("%1: %2").arg(sel[i].name, err);
+        const Entry &e = ents[i];
+        PropertyChange c;
+        c.item = items[i];
+        // every attribute is given (a box left partly ticked keeps the entry's own), so the entry is written as it always was
+        auto flag = [&](QCheckBox *cb, int idx) { return cb->checkState() == Qt::PartiallyChecked ? e.flag(idx) : cb->checkState() == Qt::Checked; };
+        c.attrs["read"] = flag(cbR, Entry::R);
+        c.attrs["write"] = flag(cbW, Entry::W);
+        c.attrs["locked"] = flag(cbL, Entry::L);
+        c.attrs["execute"] = e.isDir() ? e.flag(Entry::E) : flag(cbE, Entry::E);
+        if (loadEd) c.attrs["load"] = loadEd->text().toUInt(nullptr, 16);
+        if (execEd) c.attrs["exec"] = execEd->text().toUInt(nullptr, 16);
+        if (nameEd && nameEd->text().trimmed() != e.name()) c.to = items[i].path.parent().child(nameEd->text().trimmed());
+        edit->changes << c;
     }
-    (void)anyDir;
-    refreshTree(); updateUi();
-    if (!errors.isEmpty()) QMessageBox::warning(this, "Properties", errors.join("\n"));
+    return true;
 }
 
 // ------------------------------------------------------------------ extracting

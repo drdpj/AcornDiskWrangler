@@ -351,20 +351,9 @@ int MainWindow::dfsMoveSelected(QChar letter, bool moveOthers, QStringList *clas
     return moved;
 }
 
-void MainWindow::dfsRenameVolume(int side) {
-    bool ok = false;
-    QString n = QInputDialog::getText(this, "Rename DFS disc", "Disc title (max 12 characters):", QLineEdit::Normal,
-                                      m_doc.dfs(side).title(), &ok);
-    if (!ok) return;
-    QString err;
-    if (!m_doc.dfs(side).setTitle(n.trimmed(), &err)) { QMessageBox::warning(this, "Rename disc", err); return; }
-    refreshDfs();
-    updateUi();
-}
-
 void MainWindow::dfsRename() {
     QList<QTreeWidgetItem *> items = m_dfsTree->selectedItems();
-    if (items.size() == 1 && items[0]->data(0, RoleIsRoot).toBool()) { dfsRenameVolume(dfsTargetSide(items[0])); return; }
+    if (items.size() == 1 && items[0]->data(0, RoleIsRoot).toBool()) { editVolume(m_doc.dfsMount(dfsTargetSide(items[0])), "title"); return; }
     QVector<FSel> sel = dfsSelected();
     if (sel.size() != 1) { statusBar()->showMessage("Select a single file to rename.", 4000); return; }
     int side = sel[0].side;
@@ -375,111 +364,91 @@ void MainWindow::dfsRename() {
     QChar nd = sel[0].dir;
     QString nn = n;
     if (n.size() >= 3 && n[1] == '.') { nd = n[0]; nn = n.mid(2); }
-    int i = m_doc.dfs(side).indexOf(sel[0].dir, sel[0].name);
-    if (i < 0) return;
-    const dw::dfs::File f = m_doc.dfs(side).files()[i];
-    QString err;
-    if (!m_doc.dfs(side).modify(f.dir, f.name, nd, nn, f.locked, f.load, f.exec, &err)) {
-        QMessageBox::warning(this, "Rename", err);
-        return;
-    }
-    refreshDfs();
+    if (m_doc.dfs(side).indexOf(sel[0].dir, sel[0].name) < 0) return;
+    renameRow(dw::ui::VolumePane::rowOf(sel[0].item), dw::fs::Path({QString(nd) + "." + nn}));
     updateUi();
 }
 
 // ================================================ copying between discs
 
-bool MainWindow::exportAdfs(quint32 parent, const QString &name, XItem *x, QString *err, int depth) {
-    Dir d;
-    if (!m_img.readDir(parent, &d, err)) return false;
-    int i = d.indexOf(name);
-    if (i < 0) { *err = QString("'%1' not found").arg(name); return false; }
-    const Entry e = d.entries[i];
-    x->name = e.name();
-    x->src = PaneAdfs;
-    x->isDir = e.isDir();
-    x->load = e.load;
-    x->exec = e.exec;
-    x->hasAddr = !e.isDir();
-    x->locked = e.flag(Entry::L);
-    x->adfsFlags = quint8((e.flag(Entry::R) ? FlagR : 0) | (e.flag(Entry::W) ? FlagW : 0) |
-                          (e.flag(Entry::L) ? FlagL : 0) | (e.flag(Entry::E) ? FlagE : 0));
-    if (!e.isDir() && e.hasStamp()) {               // as the tree shows it: only plausible RISC OS dates
-        QDateTime t = e.stamp();
-        if (t.date().year() >= 1981 && t.date().year() <= 2100) x->when = QDateTime(t.date(), t.time());   // local time
-    }
-    if (e.isDir()) {
-        if (depth > 32) { *err = "directory nesting too deep"; return false; }
-        Dir c;
-        if (!m_img.readDir(e.sin, &c, err)) return false;
-        for (const Entry &k : c.entries) {
-            XItem kid;
-            if (!exportAdfs(e.sin, k.name(), &kid, err, depth + 1)) return false;
-            x->kids.append(kid);
-        }
-        return true;
-    }
-    return m_img.readFile(e, &x->data, err);
+// Copying out, on the kit's pattern (5d's CP/M exportForCopy): the items are read by exportItems, then what this
+// program's copies have always carried is put right: a date only where the tool showed one (ADFS files, 1981-2100; FAT;
+// never DFS), as a local date and time.
+static void copyDates(dw::TransferItem *t) {
+    const QDateTime w = t->when;
+    t->when = QDateTime();
+    const bool plausible = w.isValid() && w.date().year() >= 1981 && w.date().year() <= 2100;
+    if (t->sourceFs == "fat" ? w.isValid() : (t->sourceFs == "adfs" && !t->isDir && plausible)) t->when = QDateTime(w.date(), w.time());
+    for (dw::TransferItem &k : t->kids) copyDates(&k);
 }
 
-bool MainWindow::exportDos(quint32 parent, const QString &name, XItem *x, QString *err, int depth) {
-    QVector<dw::fat::DEntry> L;
-    if (!m_dos.listDir(parent, &L, err)) return false;
-    for (const dw::fat::DEntry &e : L) {
-        if (e.name != name) continue;
-        x->name = e.name;
-        x->src = PaneDos;
-        x->isDir = e.isDir();
-        x->locked = (e.attr & dw::fat::AttrR) != 0;
-        x->dosAttr = e.attr;
-        QDateTime w = e.when();
-        if (w.isValid()) x->when = QDateTime(w.date(), w.time());   // local time
-        if (e.isDir()) {
-            if (depth > 32) { *err = "directory nesting too deep"; return false; }
-            QVector<dw::fat::DEntry> C;
-            if (!m_dos.listDir(e.cluster, &C, err)) return false;
-            for (const dw::fat::DEntry &k : C) {
-                if (k.name == "." || k.name == "..") continue;
-                XItem kid;
-                if (!exportDos(e.cluster, k.name, &kid, err, depth + 1)) return false;
-                x->kids.append(kid);
+bool MainWindow::exportForCopy(const QVector<Item> &items, QVector<dw::TransferItem> *out, QString *err) const {
+    if (!exportItems(items, out, err)) return false;
+    for (dw::TransferItem &t : *out) copyDates(&t);
+    return true;
+}
+
+// A drag's reference as the kit's address: the row the drag was made from, or (a reference that came in a drop's
+// payload) the row of the source tree it names, or for a DFS file its name in its side.
+bool MainWindow::refItems(int pane, const QVector<DragRef> &refs, QVector<Item> *out, QString *err) const {
+    out->clear();
+    for (const DragRef &r : refs) {
+        if (r.mount >= 0) { out->append(Item(r.mount, r.path)); continue; }
+        if (pane == PaneDfs0 || pane == PaneDfs1) {         // a DFS row's parent is its side (one tree shows both)
+            if (r.name.size() < 3) { *err = "bad item"; return false; }
+            out->append(Item(m_doc.dfsMount(pane == PaneDfs1 || r.parent == 1 ? 1 : 0), dw::fs::Path({r.name})));
+            continue;
+        }
+        QTreeWidget *t = pane == PaneDos ? static_cast<QTreeWidget *>(m_dosTree) : static_cast<QTreeWidget *>(m_tree);
+        QList<QTreeWidgetItem *> todo;
+        for (int i = 0; i < t->topLevelItemCount(); ++i) todo << t->topLevelItem(i);
+        bool found = false;
+        while (!todo.isEmpty() && !found) {
+            QTreeWidgetItem *it = todo.takeFirst();
+            if (!it->data(0, RoleIsRoot).toBool() && it->data(0, RoleParent).toUInt() == r.parent &&
+                it->data(0, RoleName).toString() == r.name) {
+                const dw::ui::PaneRow row = dw::ui::VolumePane::rowOf(it);
+                if (row.valid()) { out->append(Item(row.mount, row.path)); found = true; }
             }
-            return true;
+            for (int i = 0; i < it->childCount(); ++i) todo << it->child(i);
         }
-        return m_dos.readFile(e, &x->data, err);
+        if (!found) { *err = QString("'%1' not found").arg(r.name); return false; }
     }
-    *err = QString("'%1' not found").arg(name);
-    return false;
+    return true;
 }
 
-bool MainWindow::exportDfs(int side, QChar dir, const QString &name, XItem *x, QString *err) {
-    int i = m_doc.dfs(side).indexOf(dir, name);
-    if (i < 0) { *err = QString("'%1.%2' not found").arg(QString(dir), name); return false; }
-    const dw::dfs::File f = m_doc.dfs(side).files()[i];
-    x->name = f.name;
-    x->dfsDir = f.dir;
-    x->src = side ? PaneDfs1 : PaneDfs0;
-    x->isDir = false;
-    x->load = f.load;
-    x->exec = f.exec;
-    x->hasAddr = true;
-    x->locked = f.locked;
-    return m_doc.dfs(side).readFile(f, &x->data, err);
+bool MainWindow::exportRefs(int pane, const QVector<DragRef> &refs, QVector<dw::TransferItem> *out, QString *err) {
+    QVector<Item> items;
+    if (!refItems(pane, refs, &items, err)) return false;
+    return exportForCopy(items, out, err);
+}
+
+// The program's own kind of item (what a paste into a disc reads), made from the core's.
+static QVector<XItem> xitemsFrom(const QVector<dw::TransferItem> &t, const QVector<int> &panes) {
+    QVector<XItem> v;
+    for (int i = 0; i < t.size(); ++i) {
+        XItem x = RetroFiles::fromTransfer(t[i]);
+        x.when = t[i].when;
+        if (panes[i] == PaneDfs0 || panes[i] == PaneDfs1) {
+            x.src = panes[i];
+            if (x.dfsDir == '$' && t[i].name.size() >= 3 && t[i].name[1] == '.' && t[i].name[0] != '$') {   // a letter the disc shouldn't have
+                x.dfsDir = t[i].name[0];
+                x.name = t[i].name.mid(2);
+            }
+        }
+        v.append(x);
+    }
+    return v;
 }
 
 bool MainWindow::exportRefs(int pane, const QVector<DragRef> &refs, QVector<XItem> *out, QString *err) {
     out->clear();
-    for (const DragRef &r : refs) {
-        XItem x;
-        bool ok = false;
-        if (pane == PaneAdfs) ok = exportAdfs(r.parent, r.name, &x, err, 0);
-        else if (pane == PaneDos) ok = exportDos(r.parent, r.name, &x, err, 0);
-        else if (r.name.size() >= 3)       // a DFS row's parent is its side (one tree shows both)
-            ok = exportDfs(pane == PaneDfs1 || r.parent == 1 ? 1 : 0, r.name[0], r.name.mid(2), &x, err);
-        else *err = "bad item";
-        if (!ok) return false;
-        out->append(x);
-    }
+    QVector<Item> items;
+    QVector<dw::TransferItem> t;
+    if (!refItems(pane, refs, &items, err) || !exportForCopy(items, &t, err)) return false;
+    QVector<int> panes;
+    for (const Item &i : items) panes << paneOf(i.mount);
+    *out = xitemsFrom(t, panes);
     return true;
 }
 
@@ -697,16 +666,20 @@ void MainWindow::copySelected() {
     QVector<DragRef> refs = t->refsFor(t->selectedItems());
     if (refs.isEmpty()) { statusBar()->showMessage("Select the files to copy.", 4000); return; }
     int pane = t == m_dfsTree ? PaneDfs0 : t->pane();      // DFS refs carry their side
-    QVector<XItem> items;
+    QVector<Item> picked;
+    QVector<dw::TransferItem> copied;
     QString err;
     QApplication::setOverrideCursor(Qt::WaitCursor);
-    bool ok = exportRefs(pane, refs, &items, &err);
+    bool ok = refItems(pane, refs, &picked, &err) && exportForCopy(picked, &copied, &err);
     QApplication::restoreOverrideCursor();
     if (!ok) { QMessageBox::warning(this, "Copy", err); return; }
+    QVector<int> panes;
+    for (const Item &i : picked) panes << paneOf(i.mount);
+    const QVector<XItem> items = xitemsFrom(copied, panes);
     static int serial = 0;
     clipItems() = items;
     clipToken() = QByteArray::number(qint64(QCoreApplication::applicationPid())) + ":" + QByteArray::number(++serial);
-    auto *m = new RetroFiles::DragOutMime([items](QVector<XItem> *out, QString *) { *out = items; return true; },
+    auto *m = new RetroFiles::DragOutMime([copied](QVector<dw::TransferItem> *out, QString *) { *out = copied; return true; },
                                           writeInfOnExtract(), QFileInfo(m_img.path()).fileName(), pane);
     m->setForClipboard(true);
     m->setData(DW_MIME_CLIP, clipToken());

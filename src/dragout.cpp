@@ -148,12 +148,7 @@ int cleanStale(qint64 maxAgeSecs) { return dw::xfer::cleanStale(dragDirPrefix(),
 
 DragOutMime::DragOutMime(Exporter exporter, bool writeInf, const QString &imageName, int srcPane)
     : dw::DragOutMime(
-          [exporter](QVector<dw::TransferItem> *out, QString *err) {
-              QVector<XItem> items;
-              if (!exporter(&items, err)) return false;
-              for (const XItem &x : items) out->append(toTransfer(x));
-              return true;
-          },
+          exporter,
           [&] {
               dw::DragSpec s;
               s.policy = std::make_shared<AcornPolicy>(writeInf);

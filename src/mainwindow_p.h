@@ -35,6 +35,7 @@
 #include <diskwrangler/xfer/hostname.h>
 #include <diskwrangler/xfer/mime.h>
 #include <diskwrangler/fs/dfs/inf.h>
+#include <diskwrangler/fs/volume.h>
 #include "adfs.h"
 #include "dfs.h"
 #include "dosfs.h"
@@ -68,6 +69,8 @@ struct DragRef {
     quint32 parent = 0;
     QString name;
     bool isDir = false;
+    int mount = -1;             // the kit's address of the row, filled in where the row is known (refsFor)
+    dw::fs::Path path;
 };
 
 // A file or directory read out of one kind of disc, ready to be written into any other kind.

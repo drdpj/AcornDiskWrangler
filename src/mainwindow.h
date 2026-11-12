@@ -82,10 +82,11 @@ struct ImportCtx;
 // a pane per mount group as tabs that come and go with the disc ("ADFS", "DOS", "DFS": paneShown, paneTitle), the
 // rows written by decorateRow from this program's own classes (Adfs::Image, the FAT volume, the DFS catalogue), and
 // Delete, New directory and Extract on the kit's patterns; opening on the kit's open pipeline (step 5j: detectImage,
-// openDocument, handOverMessage, afterOpen), the side order and Save As through the document. View, Copy, drags,
-// Rename, Properties, the disc's name and boot option, Check and the imports are still this program's own code
-// (series 5k and 5l move them); every public function and slot a test calls stays, forwarding where the kit now does
-// the work.
+// openDocument, handOverMessage, afterOpen), the side order and Save As through the document; and (step 5k) View,
+// Copy, the drags' files and Rename on the kit's copy-out and change patterns, Properties of ADFS and DOS files, the
+// disc's name and boot option (volumeEditor) and Check disc (showCheck). A DFS drive's Properties (and its letter
+// mover) and the imports are still this program's own code (series 5l moves them); every public function and slot a
+// test calls stays, forwarding where the kit now does the work.
 class MainWindow : public dw::ui::DiscWindow {
     Q_OBJECT
 public:
@@ -107,6 +108,7 @@ public:
     int dfsMoveSelected(QChar letter, bool moveOthers, QStringList *clashes, QStringList *errors);
     void refreshDfs();
     bool exportRefs(int pane, const QVector<DragRef> &refs, QVector<XItem> *out, QString *err);
+    bool exportRefs(int pane, const QVector<DragRef> &refs, QVector<dw::TransferItem> *out, QString *err);   // a drag's items, for the kit
     bool paneEditable(int pane) const;
     bool isHardDisc() const;                    // an ADFS disc bigger than any floppy (over 640K)
     static MainWindow *openInNewWindow(const QString &path);   // nullptr (and no window) if it can't be opened
@@ -184,6 +186,10 @@ protected:
     bool confirmDelete(const QVector<Item> &items) override;
     bool deleteEachOnItsOwn() const override { return true; }
     QString deleteItemError(const Item &item, const QString &err) const override;
+    QVector<Item> propertiesItems() const override;
+    bool propertiesEditor(const QVector<Item> &items, PropertiesEdit *edit) override;
+    bool volumeEditor(int mount, const QString &key, VolumeEdit *edit) override;
+    void showCheck(const dw::fs::Report &all, const QVector<dw::fs::Report> &perMount) override;
     std::shared_ptr<dw::xfer::HostPolicy> hostPolicy(const QVector<dw::TransferItem> &items) const override;
 
 private slots:
@@ -217,7 +223,8 @@ private:
     void dosImportDir(const QString &path, quint32 parent, ImportCtx &c);
     void dosAddOne(quint32 dir, QString name, const QByteArray &data, const QString &src, ImportCtx &c,
                    bool readOnly = false);
-    void dosProps();
+    bool dosProperties(const QVector<Item> &items, PropertiesEdit *edit);
+    bool adfsProperties(const QVector<Item> &items, PropertiesEdit *edit);
     void dosCount(quint32 dirCluster, int &files, int &dirs, int &readOnly, int depth) const;
     void importSummary(const ImportCtx &c, bool refreshDosOnly);
     using DiscWindow::importSummary;
@@ -238,14 +245,14 @@ private:
                    bool locked, bool haveAttrs, const QString &src, ImportCtx &c);
     void dfsProps();
     void dfsRename();
-    void dfsRenameVolume(int side);
     int dropPane(const DropTree *t, QTreeWidgetItem *it) const;   // the pane a drop onto that row lands in
     quint32 dropTarget(int pane, QTreeWidgetItem *it) const;
     void onInternalDrop(int pane, quint32 dir, const QByteArray &payload);
     void onRetroFilesDrop(int pane, quint32 dir, const QByteArray &json);
-    bool exportAdfs(quint32 parent, const QString &name, XItem *x, QString *err, int depth);
-    bool exportDos(quint32 parent, const QString &name, XItem *x, QString *err, int depth);
-    bool exportDfs(int side, QChar dir, const QString &name, XItem *x, QString *err);
+    // copying out (5k): the kit's exportItems with this program's dates; a drag's references as the kit's items
+    bool exportForCopy(const QVector<Item> &items, QVector<dw::TransferItem> *out, QString *err) const;
+    bool refItems(int pane, const QVector<DragRef> &refs, QVector<Item> *out, QString *err) const;
+    bool renameRow(const dw::ui::PaneRow &row, const dw::fs::Path &to);
     void importX(int pane, quint32 dir, const QVector<XItem> &items, ImportCtx &c);
     void importXAdfs(quint32 dir, const XItem &x, ImportCtx &c);
     // A DFS file letter.NAME added under ADFS directory *dir: moves *dir into the letter's subdirectory (made if need

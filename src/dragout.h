@@ -76,7 +76,7 @@ typedef dw::DragState DragState;
 class DragOutMime : public dw::DragOutMime {
     Q_OBJECT
 public:
-    typedef std::function<bool(QVector<XItem> *, QString *)> Exporter;
+    typedef dw::DragOutMime::Exporter Exporter;       // fills the core's items: the window kit's exportItems
     DragOutMime(Exporter exporter, bool writeInf, const QString &imageName, int srcPane);
 };
 

@@ -59,46 +59,25 @@ quint32 MainWindow::dosTargetDir(QTreeWidgetItem *it) const {
 
 // ----------------------------------------------------------------- viewing
 
+// View, on the window kit's pattern for copying out: each selected file is read by exportItems (one at a time, so a
+// file that can't be read says so and the rest still open). At most 8 viewers, as ever.
 void MainWindow::viewSelected() {
     int opened = 0;
-    QString err;
-    int ds = dfsSide();
-    if (ds >= 0) {
-        for (const FSel &s : dfsSelected()) {
-            if (opened >= 8) break;
-            int i = m_doc.dfs(s.side).indexOf(s.dir, s.name);
-            QByteArray data;
-            if (i < 0 || !m_doc.dfs(s.side).readFile(m_doc.dfs(s.side).files()[i], &data, &err)) {
-                QMessageBox::warning(this, "View", QString("%1: %2").arg(s.name, err));
-                continue;
-            }
-            (new ViewerDialog(QString(s.dir) + "." + s.name, data, this))->show();
-            ++opened;
+    for (QTreeWidgetItem *it : currentTree()->selectedItems()) {
+        if (opened >= 8) break;
+        const dw::ui::PaneRow r = dw::ui::VolumePane::rowOf(it);
+        if (!r.isFile()) continue;
+        const int pane = paneOf(r.mount);
+        const bool dfs = pane == PaneDfs0 || pane == PaneDfs1;
+        const QString leaf = r.path.name();                  // DFS: "D.NAME"
+        QVector<dw::TransferItem> one;
+        QString err;
+        if (!exportItems({Item(r.mount, r.path)}, &one, &err)) {
+            QMessageBox::warning(this, "View", QString("%1: %2").arg(dfs ? leaf.mid(2) : leaf, err));
+            continue;
         }
-    } else if (dosActive()) {
-        for (const DSel &s : dosSelected()) {
-            if (s.isDir || opened >= 8) continue;
-            QVector<dw::fat::DEntry> L;
-            QByteArray data;
-            bool ok = false;
-            if (m_dos.listDir(s.parent, &L, &err))
-                for (const dw::fat::DEntry &e : L)
-                    if (e.name == s.name) { ok = m_dos.readFile(e, &data, &err); break; }
-            if (!ok) { QMessageBox::warning(this, "View", QString("%1: %2").arg(s.name, err)); continue; }
-            (new ViewerDialog("C:\\" + s.name, data, this))->show();
-            ++opened;
-        }
-    } else {
-        for (const Sel &s : selectedObjects()) {
-            if (s.isDir || opened >= 8) continue;
-            Dir d;
-            QByteArray data;
-            bool ok = m_img.readDir(s.parent, &d, &err) && d.indexOf(s.name) >= 0 &&
-                      m_img.readFile(d.entries[d.indexOf(s.name)], &data, &err);
-            if (!ok) { QMessageBox::warning(this, "View", QString("%1: %2").arg(s.name, err)); continue; }
-            (new ViewerDialog(s.name, data, this))->show();
-            ++opened;
-        }
+        (new ViewerDialog(pane == PaneDos ? "C:\\" + leaf : leaf, one[0].data, this))->show();
+        ++opened;
     }
     if (!opened) statusBar()->showMessage("Select a file to view.", 4000);
 }
@@ -231,17 +210,18 @@ void MainWindow::dosCount(quint32 dirCluster, int &files, int &dirs, int &ro, in
     }
 }
 
-void MainWindow::dosProps() {
-    QVector<DSel> sel = dosSelected();
-    if (sel.isEmpty()) return;
+bool MainWindow::dosProperties(const QVector<Item> &items, PropertiesEdit *edit) {
     QVector<dw::fat::DEntry> ents;
     QString err;
-    for (const DSel &s : sel) {
+    for (const Item &i : items) {
+        const QTreeWidgetItem *row = m_dosTree->findRow(i.mount, i.path);
+        const quint32 parent = row ? row->data(0, RoleParent).toUInt() : 0;
+        const QString name = row ? row->data(0, RoleName).toString() : i.path.name();
         QVector<dw::fat::DEntry> L;
         bool found = false;
-        if (m_dos.listDir(s.parent, &L, &err))
-            for (const dw::fat::DEntry &e : L) if (e.name == s.name) { ents.append(e); found = true; break; }
-        if (!found) { QMessageBox::warning(this, "Properties", err.isEmpty() ? "Entry not found" : err); return; }
+        if (m_dos.listDir(parent, &L, &err))
+            for (const dw::fat::DEntry &e : L) if (e.name == name) { ents.append(e); found = true; break; }
+        if (!found) { QMessageBox::warning(this, "Properties", err.isEmpty() ? "Entry not found" : err); return false; }
     }
     bool single = ents.size() == 1;
     QDialog dlg(this);
@@ -273,25 +253,26 @@ void MainWindow::dosProps() {
     form->addRow(bb);
     connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
-    if (dlg.exec() != QDialog::Accepted) return;
+    if (dlg.exec() != QDialog::Accepted) return false;
 
-    QStringList errors;
     for (int i = 0; i < ents.size(); ++i) {
-        quint8 attr = ents[i].attr;
-        auto apply = [&](QCheckBox *cb, int bit) {
-            if (cb->checkState() == Qt::PartiallyChecked) return;
-            attr = quint8(cb->checkState() == Qt::Checked ? (attr | bit) : (attr & ~bit));
-        };
-        apply(cbR, dw::fat::AttrR); apply(cbH, dw::fat::AttrH); apply(cbS, dw::fat::AttrS); apply(cbA, dw::fat::AttrA);
-        QString nn = nameEd ? nameEd->text().trimmed() : ents[i].name;
-        if (!m_dos.modify(sel[i].parent, sel[i].name, nn, attr, &err)) errors << QString("%1: %2").arg(sel[i].name, err);
+        PropertyChange c;
+        c.item = items[i];
+        auto bit = [&](QCheckBox *cb, int b) { return cb->checkState() == Qt::PartiallyChecked ? (ents[i].attr & b) != 0 : cb->checkState() == Qt::Checked; };
+        c.attrs["readonly"] = bit(cbR, dw::fat::AttrR);
+        c.attrs["hidden"] = bit(cbH, dw::fat::AttrH);
+        c.attrs["system"] = bit(cbS, dw::fat::AttrS);
+        c.attrs["archive"] = bit(cbA, dw::fat::AttrA);
+        if (nameEd && nameEd->text().trimmed() != ents[i].name) c.to = items[i].path.parent().child(nameEd->text().trimmed());
+        edit->changes << c;
     }
-    refreshDos(); updateUi();
-    if (!errors.isEmpty()) QMessageBox::warning(this, "Properties", errors.join("\n"));
+    return true;
 }
 
 // ------------------------------------------------------------------ renaming
 
+// Rename, on the kit's pattern for a change: this program's dialog and its checks (ADFS names, DOS 8.3, a DFS name or
+// D.NAME), then one Disc::transact over Volume::rename, and the pane's rows again.
 void MainWindow::renameSelected() {
     if (dfsSide() >= 0) { dfsRename(); return; }
     bool dos = dosActive();
@@ -301,50 +282,34 @@ void MainWindow::renameSelected() {
         statusBar()->showMessage("Select a single file or directory to rename.", 4000);
         return;
     }
-    QTreeWidgetItem *it = items[0];
-    quint32 parent = it->data(0, RoleParent).toUInt();
-    QString old = it->data(0, RoleName).toString(), err, why;
+    const dw::ui::PaneRow row = dw::ui::VolumePane::rowOf(items[0]);
+    QString old = items[0]->data(0, RoleName).toString(), why;
     bool ok = false;
     QString n = QInputDialog::getText(this, "Rename", dos ? "New name (8.3):" : "New name (max 10 characters):",
                                       QLineEdit::Normal, old, &ok).trimmed();
     if (!ok || n.isEmpty() || n == old) return;
-    if (dos) {
-        QVector<dw::fat::DEntry> L;
-        quint8 attr = 0;
-        if (m_dos.listDir(parent, &L, &err))
-            for (const dw::fat::DEntry &e : L) if (e.name == old) attr = e.attr;
-        if (!m_dos.modify(parent, old, n, attr, &err)) { QMessageBox::warning(this, "Rename", err); return; }
-        refreshDos();
-    } else {
-        if (!isValidName(n, &why)) { QMessageBox::warning(this, "Rename", QString("'%1': %2").arg(n, why)); return; }
-        Dir d;
-        if (!m_img.readDir(parent, &d, &err) || d.indexOf(old) < 0) { QMessageBox::warning(this, "Rename", err); return; }
-        Entry e = d.entries[d.indexOf(old)];
-        e.setName(n);
-        if (!m_img.replaceEntry(parent, old, e, &err)) { QMessageBox::warning(this, "Rename", err); return; }
-        refreshTree();
-    }
+    if (!dos && !isValidName(n, &why)) { QMessageBox::warning(this, "Rename", QString("'%1': %2").arg(n, why)); return; }
+    renameRow(row, row.path.parent().child(n));
     updateUi();
 }
 
-void MainWindow::renameVolume() {
-    if (dfsSide() >= 0) { dfsRenameVolume(dfsSide()); return; }
+// The change itself: the row's entry moved to `to` (the same folder, another name), in one transaction. A refusal is
+// said with the kit's message and the rows are left alone; after a change they are made again.
+bool MainWindow::renameRow(const dw::ui::PaneRow &row, const dw::fs::Path &to) {
+    if (!row.valid()) return false;
     QString err;
-    bool ok = false;
-    if (dosActive()) {
-        QString n = QInputDialog::getText(this, "Rename volume", "DOS volume label (max 11 characters, blank to remove):",
-                                          QLineEdit::Normal, m_dos.label(), &ok);
-        if (!ok) return;
-        if (!m_dos.setLabel(n, &err)) { QMessageBox::warning(this, "Rename volume", err); return; }
-        refreshDos();
+    bool ok = true;
+    if (!writable(row.mount)) {
+        err = "read-only: " + readOnlyReason(row.mount);
+        ok = false;
     } else {
-        Dir root;
-        if (!m_img.readDir(RootSector, &root, &err)) { QMessageBox::warning(this, "Rename volume", err); return; }
-        QString n = QInputDialog::getText(this, "Rename disc", "Disc name (root directory title, max 10 characters):",
-                                          QLineEdit::Normal, root.title(), &ok);
-        if (!ok) return;
-        if (!m_img.setDiscTitle(n.trimmed(), &err)) { QMessageBox::warning(this, "Rename disc", err); return; }
-        refreshTree();
+        ok = m_doc.disc().transact([&](QString *e) {
+            dw::fs::Volume *v = m_doc.disc().volume(row.mount);
+            if (!v) { *e = "no such volume"; return false; }
+            return v->rename(row.path, to, e);
+        }, &err);
     }
-    updateUi();
+    if (!ok) { message("Rename", err); return false; }       // nothing changed: the rows stay as they are
+    refreshChanged({row.mount});
+    return true;
 }
