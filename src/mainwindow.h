@@ -17,11 +17,14 @@
  */
 #pragma once
 
-#include <QMainWindow>
+#include <QHash>
 #include <QSet>
 #include <QTreeWidget>
 
+#include <diskwrangler/ui/discwindow.h>
+
 #include "adfs.h"
+#include "adfsvolume.h"
 #include "diskformat.h"
 #include "dosfs.h"
 #include "mainwindow_p.h"
@@ -34,8 +37,9 @@ class QLabel;
 class QTabWidget;
 class QMimeData;
 
-// Tree that accepts files/folders dragged in from the desktop, and items dragged between discs/windows.
-class DropTree : public QTreeWidget {
+// A pane of the window (the window kit's VolumePane) that accepts files and folders dragged in from the desktop, and
+// items dragged between discs and windows. Its rows carry the program's own roles (RoleParent ...) beside the kit's.
+class DropTree : public dw::ui::VolumePane {
     Q_OBJECT
 public:
     explicit DropTree(QWidget *parent = nullptr);
@@ -74,18 +78,27 @@ private:
 
 struct ImportCtx;
 
-class MainWindow : public QMainWindow {
+// The main window, on DiskWranglerCore's window kit (step 5i): a dw::ui::DiscWindow showing an Adfs::OpenedDisc, with
+// a pane per mount group as tabs that come and go with the disc ("ADFS", "DOS", "DFS": paneShown, paneTitle), the
+// rows written by decorateRow from this program's own classes (Adfs::Image, the FAT volume, the DFS catalogue), and
+// Delete, New directory and Extract on the kit's patterns. Opening, side order, View, Copy, drags, Rename,
+// Properties, the disc's name and boot option, Check and the imports are still this program's own code (series
+// 5j-5l move them); every public function and slot a test calls stays, forwarding where the kit now does the work.
+class MainWindow : public dw::ui::DiscWindow {
     Q_OBJECT
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
-    quint64 id() const { return quint64(quintptr(this)); }
     static MainWindow *byId(quint64 id);
-    static QList<MainWindow *> &windows();
-    const DiskInfo &info() const { return m_info; }
+    static QList<MainWindow *> windows();                // every main window, oldest first (the kit's DiscWindow::all())
+
+    dw::app::Document *document() const override { return const_cast<Adfs::OpenedDisc *>(&m_doc); }
+    dw::app::AppInfo appInfo() const override;
+
+    const DiskInfo &info() const { return m_doc.info(); }
     DropTree *dfsTree() { return m_dfsTree; }            // both sides of a DFS disc
     QTreeWidgetItem *dfsRoot(int side) const;           // that side's root row ("Drive 0", "Drive 2"), or nullptr
-    dw::dfs::Disc &dfs(int side) { return m_dfs[side]; }
+    dw::dfs::Disc &dfs(int side) { return m_doc.dfs(side); }
     int dfsSide() const;            // the DFS tab is showing: the side of the selection (or current row), else -1
     int dfsTargetSide(QTreeWidgetItem *it) const;       // the side a DFS row belongs to (0 for none)
     // Edit > Properties with several DFS files and a directory letter: see mainwindow_dfs.cpp
@@ -107,44 +120,69 @@ public:
     int bootOption() const;
     bool setBootOption(int opt);                     // staged like any edit; shows a message on failure
     void importPaths(const QStringList &paths, quint32 dirSector);
-    Adfs::Image &image() { return m_img; }
+    Adfs::Image &image() { return m_doc.image(); }
     DropTree *tree() { return m_tree; }
-    void refreshTree();
+    void refreshTree();                         // every pane (the kit's refresh)
     void refreshDos();
-    bool save();
-    dw::fat::Volume &dos() { return m_dos; }
+    bool save() override;
+    dw::fat::Volume &dos() { return m_doc.dos(); }
     DropTree *dosTree() { return m_dosTree; }
-    QTabWidget *tabs() { return m_tabs; }
-    bool dosEditable() const { return m_img.editable() && m_dosOk; }
+    QTabWidget *tabs() { return tabWidget(); }
+    bool dosEditable() const { return m_img.editable() && m_doc.dosOk(); }
     bool writeInfOnExtract() const;
     bool dosActive() const;
+    QString readOnlyReason() const;                      // empty if the pane in use can be changed
+    using DiscWindow::readOnlyReason;
+
+    // the kit's slots, as this program does them
+    void refresh() override;
+    void newWindow() override;
+    void openDialog() override;
+    void saveAsDialog() override;
+    void revert() override;
+    void addFilesDialog() override;
+    void addFolderDialog() override;
+    void newDirectory() override;
+    void editProperties() override;
+    void extractSelected() override;
+    void about() override;
+    void newImageDialog() override;
+    void viewSelected() override;
+    void renameSelected() override;
+    void copySelected() override;
+    void paste() override;
 
 protected:
-    void closeEvent(QCloseEvent *e) override;
+    ActionSpec actionSpec(Act a) const override;
+    QStringList paneGroups() const override { return {"ADFS", "DOS", "DFS"}; }
+    QString paneTitle(const QString &group) const override;
+    void refreshChanged(const QVector<int> &mounts) override;
+    bool paneShown(const QString &group) const override;
+    dw::ui::PaneLayout paneLayout(const QString &group) const override;
+    dw::ui::VolumePane *createPane(const QString &group) override;
+    QList<QAction *> contextActions() const override;
+    QString rootLabel(int mount) const override;
+    void decorateRow(QTreeWidgetItem *row, int mount, const dw::fs::Path &path, const dw::fs::Entry *entry) const override;
+    void listFailed(QTreeWidgetItem *row, int mount, const dw::fs::Path &path, const QString &err) const override;
+    void orderRows(int mount, const dw::fs::Path &dir, QVector<dw::fs::Entry> *entries) const override;
+    bool listChildren(int mount, const dw::fs::Path &dir, int depth) const override;
+    QString title() const override;
+    QStringList statusVariants() const override;
+    void presentStatus(const QStringList &variants) override;
+    void updateActions() override;
+    bool confirmDiscard() override;
+    QVector<Item> deleteItems() const override;
+    bool confirmDelete(const QVector<Item> &items) override;
+    bool deleteEachOnItsOwn() const override { return true; }
+    QString deleteItemError(const Item &item, const QString &err) const override;
+    std::shared_ptr<dw::xfer::HostPolicy> hostPolicy(const QVector<dw::TransferItem> &items) const override;
 
 private slots:
-    void openDialog();
-    void saveAsDialog();
-    void revert();
-    void addFilesDialog();
-    void addFolderDialog();
-    void newDirectory();
-    void deleteSelected();
-    void editProperties();
-    void extractSelected();
     void checkImage();
-    void about();
-    void newImageDialog();
     void bootOptionDialog();
-    void viewSelected();
-    void renameSelected();
     void renameVolume();
     void onDosDropped(const QStringList &paths, QTreeWidgetItem *target);
     void onDropped(const QStringList &paths, QTreeWidgetItem *target);
-    void showContextMenu(const QPoint &pos);
-    void updateUi();
-    void copySelected();
-    void paste();
 
 private:
     struct Sel {
@@ -163,8 +201,6 @@ private:
         QTreeWidgetItem *item;
     };
     // DOS partition (implemented in mainwindow_dos.cpp)
-    bool findDriveC(Adfs::Entry *out) const;
-    void populateDos(QTreeWidgetItem *parentItem, quint32 dirCluster, QSet<quint32> &seen, int depth);
     QVector<DSel> dosSelected() const;
     quint32 dosTargetDir(QTreeWidgetItem *it) const;
     void dosImportPaths(const QStringList &paths, quint32 dirCluster);
@@ -172,13 +208,10 @@ private:
     void dosImportDir(const QString &path, quint32 parent, ImportCtx &c);
     void dosAddOne(quint32 dir, QString name, const QByteArray &data, const QString &src, ImportCtx &c,
                    bool readOnly = false);
-    void dosNewDir(const QString &name);
-    void dosDelete();
     void dosProps();
-    void dosExtract();
-    void dosExtractEntry(const dw::fat::DEntry &e, quint32 cluster, const QString &hostDir, QStringList &errors);
     void dosCount(quint32 dirCluster, int &files, int &dirs, int &readOnly, int depth) const;
     void importSummary(const ImportCtx &c, bool refreshDosOnly);
+    using DiscWindow::importSummary;
 
     struct FSel {
         int side;
@@ -194,9 +227,7 @@ private:
     void dfsImportDir(int side, const QString &path, ImportCtx &c);
     void dfsAddOne(int side, QChar dir, QString name, const QByteArray &data, quint32 load, quint32 exec,
                    bool locked, bool haveAttrs, const QString &src, ImportCtx &c);
-    void dfsDelete();
     void dfsProps();
-    void dfsExtract();
     void dfsRename();
     void dfsRenameVolume(int side);
     int dropPane(const DropTree *t, QTreeWidgetItem *it) const;   // the pane a drop onto that row lands in
@@ -214,14 +245,9 @@ private:
     bool placeDfsLetter(QChar letter, const QString &src, quint32 *dir, QString *name, ImportCtx &c);
     void importXDos(quint32 dir, const XItem &x, ImportCtx &c);
     void importXDfs(int side, const XItem &x, ImportCtx &c, QChar keepDir = QChar());
-    void ensureTab(QWidget *w, const QString &text, bool want);
 
-    void populate(QTreeWidgetItem *parentItem, quint32 dirSector, QSet<quint32> &seen, int depth);
     QVector<Sel> selectedObjects() const;
     quint32 targetDirForItem(QTreeWidgetItem *it) const;
-    bool confirmDiscard();
-    QString title() const;
-    QString readOnlyReason() const;                      // empty if the pane in use can be changed
     QTreeWidget *currentTree() const;
     bool clipboardUsable() const;                         // something Paste can add
     bool pasteItems(int pane, quint32 dir, const QMimeData *m);
@@ -233,25 +259,31 @@ private:
                 quint8 flags, bool haveAttrs, const QString &src, ImportCtx &c);
     bool isSidecar(const QString &path) const;
     bool dropImages(int pane, const QStringList &paths, std::function<void(const QStringList &)> importRest);
-
-    void extractEntry(quint32 parent, const Adfs::Entry &e, const QString &hostDir, QStringList &errors);
     void countTree(quint32 dirSector, int &files, int &dirs, int &locked, int depth) const;
 
-    Adfs::Image m_img;
-    DropTree *m_tree;
+    // The pane a mount is shown in, and back: PaneAdfs, PaneDos, PaneDfs0 / PaneDfs1 (-1: no such mount).
+    int paneOf(int mount) const;
+    int mountOf(int pane) const;
+    void refreshPane(DropTree *t);              // one pane's rows again (its mounts unchanged), then updateUi
+    // What a row of a pane is, read from this program's own classes while the rows are made (decorateRow): the
+    // directory a row's path names (its sector, or its cluster), each directory read once, and the next entry of each.
+    static QString rowKey(int mount, const dw::fs::Path &p) { return QString::number(mount) + QChar(1) + p.parts.join(QChar(1)); }
+    mutable QHash<QString, quint32> m_rowDir;   // a directory row's sector (ADFS) or cluster (DOS)
+    mutable QHash<QString, int> m_rowNext;      // the position of the next row made under a directory
+    mutable QHash<quint32, Adfs::Dir> m_adfsDirs;
+    mutable QHash<quint32, QVector<dw::fat::DEntry>> m_dosDirs;
+    mutable QSet<quint32> m_seenAdfs, m_seenDos;   // directories already shown (a loop on a damaged disc stops there)
+    void clearRowCache() const;
+
+    Adfs::OpenedDisc m_doc;
+    Adfs::Image &m_img = m_doc.image();
+    dw::fat::Volume &m_dos = m_doc.dos();
+    DropTree *m_tree = nullptr, *m_dosTree = nullptr, *m_dfsTree = nullptr;
+    QTabWidget *m_tabs = nullptr;
     QLabel *m_status;
     QAction *m_actOpen, *m_actSave, *m_actSaveAs, *m_actRevert, *m_actClose, *m_actQuit, *m_actCopy, *m_actPaste;
     QAction *m_actAddFiles, *m_actAddFolder, *m_actNewDir, *m_actDelete, *m_actProps, *m_actExtract;
     QAction *m_actCheck, *m_optReadInf, *m_optWriteInf, *m_optBackup, *m_optLetterDirs, *m_actView, *m_actRename, *m_actRenameVol;
-    QTabWidget *m_tabs;
-    DropTree *m_dosTree;
-    dw::fat::Volume m_dos;
-    bool m_dosOk = false;          // DOS volume passed its consistency check when the image was opened
-    DiskInfo m_info;               // what kind of disc this is
-    DropTree *m_dfsTree = nullptr;
-    dw::dfs::Disc m_dfs[2];
-    bool m_dfsOk[2] = {false, false};
-    QString m_dfsErr[2];
     QAction *m_actNewWin = nullptr;
     QAction *m_actNewImage = nullptr;
     QAction *m_actBootOpt = nullptr;

@@ -53,51 +53,20 @@
 
 using namespace Adfs;
 
-// ------------------------------------------------------- registry / tabs / panes
-
-QList<MainWindow *> &MainWindow::windows() {
-    static QList<MainWindow *> l;
-    return l;
-}
-
-MainWindow *MainWindow::byId(quint64 id) {
-    for (MainWindow *w : windows())
-        if (w->id() == id) return w;
-    return nullptr;
-}
-
-MainWindow::~MainWindow() { windows().removeAll(this); }
-
-void MainWindow::ensureTab(QWidget *w, const QString &text, bool want) {
-    int idx = m_tabs->indexOf(w);
-    if (!want) {
-        if (idx >= 0) m_tabs->removeTab(idx);
-        return;
-    }
-    if (idx < 0) {
-        QWidget *order[] = {m_tree, m_dosTree, m_dfsTree};
-        int pos = 0;
-        for (QWidget *o : order) {
-            if (o == w) break;
-            if (m_tabs->indexOf(o) >= 0) ++pos;
-        }
-        idx = m_tabs->insertTab(pos, w, text);
-    }
-    m_tabs->setTabText(idx, text);
-}
+// ---------------------------------------------------------------------- panes
 
 // The DFS tab shows both sides of a .dsd in one tree, a root row per side ("Drive 0", "Drive 2"), as CP/M Disk
 // Wrangler shows a disc with a filesystem on each side; every row carries its side (RoleSide, and RoleParent for drags).
 int MainWindow::dfsSide() const {
-    if (m_tabs->currentWidget() != m_dfsTree || !(m_dfs[0].attached() || m_dfs[1].attached())) return -1;
+    if (m_tabs->currentWidget() != m_dfsTree || !(m_doc.dfs(0).attached() || m_doc.dfs(1).attached())) return -1;
     QList<QTreeWidgetItem *> sel = m_dfsTree->selectedItems();
     return dfsTargetSide(!sel.isEmpty() ? sel.first() : m_dfsTree->currentItem());
 }
 
 int MainWindow::dfsTargetSide(QTreeWidgetItem *it) const {
     int s = it ? it->data(0, RoleSide).toInt() : 0;
-    if (s == 1 && m_dfs[1].attached()) return 1;
-    return m_dfs[0].attached() ? 0 : (m_dfs[1].attached() ? 1 : 0);
+    if (s == 1 && m_doc.dfs(1).attached()) return 1;
+    return m_doc.dfs(0).attached() ? 0 : (m_doc.dfs(1).attached() ? 1 : 0);
 }
 
 QTreeWidgetItem *MainWindow::dfsRoot(int side) const {
@@ -106,7 +75,7 @@ QTreeWidgetItem *MainWindow::dfsRoot(int side) const {
     return nullptr;
 }
 
-bool MainWindow::dfsEditable(int s) const { return m_img.editable() && m_dfs[s].attached() && m_dfsOk[s]; }
+bool MainWindow::dfsEditable(int s) const { return m_img.editable() && m_doc.dfs(s).attached() && m_doc.dfsOk(s); }
 
 int MainWindow::dropPane(const DropTree *t, QTreeWidgetItem *it) const {
     if (t == m_dfsTree) return dfsTargetSide(it) ? PaneDfs1 : PaneDfs0;
@@ -129,71 +98,8 @@ quint32 MainWindow::dropTarget(int pane, QTreeWidgetItem *it) const {
 
 // ----------------------------------------------------------------- DFS tree
 
-void MainWindow::refreshDfs() {
-    // Every refresh rebuilds the rows: keep the selection, the current row and closed sides by side and name.
-    auto key = [](QTreeWidgetItem *it) {
-        return it->data(0, RoleSide).toString() + (it->data(0, RoleIsRoot).toBool() ? "/" : ":" + it->data(0, RoleName).toString());
-    };
-    QSet<QString> sel, closed;
-    for (QTreeWidgetItem *it : m_dfsTree->selectedItems()) sel << key(it);
-    QString cur = m_dfsTree->currentItem() ? key(m_dfsTree->currentItem()) : QString();
-    for (int i = 0; i < m_dfsTree->topLevelItemCount(); ++i)
-        if (!m_dfsTree->topLevelItem(i)->isExpanded()) closed << key(m_dfsTree->topLevelItem(i));
-    const QSignalBlocker block(m_dfsTree);           // one updateUi at the end, not one per restored row
-    m_dfsTree->clear();
-    QTreeWidgetItem *current = nullptr;
-    bool any = false;
-    for (int s = 0; s < 2; ++s) {
-        bool have = false;
-        if (m_img.isOpen() && m_info.kind == DiskInfo::Dfs && (s == 0 || m_info.dfs.doubleSided)) {
-            QString err;
-            have = m_dfs[s].attach(&m_img, s, m_info.dfs, &err);
-            if (!have) { m_dfs[s].detach(); m_dfsErr[s] = err; }
-        } else {
-            m_dfs[s].detach();
-        }
-        if (!have) continue;
-        any = true;
-
-        auto *r = new QTreeWidgetItem(m_dfsTree);
-        r->setText(0, dw::rootLabel(QString("Drive %1").arg(s * 2), m_dfs[s].title()));
-        r->setIcon(0, style()->standardIcon(QStyle::SP_DriveFDIcon));
-        r->setData(0, RoleParent, s);
-        r->setData(0, RoleName, "$");
-        r->setData(0, RoleIsDir, true);
-        r->setData(0, RoleSector, 0);
-        r->setData(0, RoleIsRoot, true);
-        r->setData(0, RoleSide, s);
-        QVector<dw::dfs::File> v = m_dfs[s].files();
-        std::stable_sort(v.begin(), v.end(), [](const dw::dfs::File &a, const dw::dfs::File &b) {
-            if (a.dir.toUpper() != b.dir.toUpper()) return a.dir.toUpper() < b.dir.toUpper();
-            return a.name.toUpper() < b.name.toUpper();
-        });
-        for (const dw::dfs::File &f : v) {
-            auto *it = new QTreeWidgetItem(r);
-            it->setText(0, f.fullName());
-            it->setText(1, f.locked ? "L" : "");
-            dw::setNumCell(it, 2, dw::dfs::addrText(f.load));
-            dw::setNumCell(it, 3, dw::dfs::addrText(f.exec));
-            dw::setNumCell(it, 4, QString::number(f.length));
-            dw::setNumCell(it, 5, QString::number(f.start));
-            it->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
-            it->setData(0, RoleParent, s);           // a drag's DragRef::parent: the side
-            it->setData(0, RoleName, f.fullName());
-            it->setData(0, RoleIsDir, false);
-            it->setData(0, RoleSector, f.start);
-            it->setData(0, RoleIsRoot, false);
-            it->setData(0, RoleSide, s);
-            if (sel.contains(key(it))) it->setSelected(true);
-            if (key(it) == cur) current = it;
-        }
-        r->setExpanded(!closed.contains(key(r)));
-        if (sel.contains(key(r))) r->setSelected(true);
-        if (key(r) == cur) current = r;
-    }
-    if (current) m_dfsTree->setCurrentItem(current, 0, QItemSelectionModel::NoUpdate);
-    ensureTab(m_dfsTree, "DFS", any);
-}
+// The DFS pane's rows again (the window kit's pane: the selection, the current row and closed sides are kept)
+void MainWindow::refreshDfs() { refreshPane(m_dfsTree); }
 
 QVector<MainWindow::FSel> MainWindow::dfsSelected() const {
     QVector<FSel> v;
@@ -264,11 +170,11 @@ void MainWindow::dfsImportFile(int side, const QString &path, ImportCtx &c) {
 void MainWindow::dfsAddOne(int side, QChar dir, QString name, const QByteArray &data, quint32 load, quint32 exec,
                            bool locked, bool haveAttrs, const QString &src, ImportCtx &c) {
     QString err;
-    if (c.created.contains(dfsKey(side, dir, name))) name = uniqueDfsName(name, dir, m_dfs[side], c, side);
-    int idx = m_dfs[side].indexOf(dir, name);
+    if (c.created.contains(dfsKey(side, dir, name))) name = uniqueDfsName(name, dir, m_doc.dfs(side), c, side);
+    int idx = m_doc.dfs(side).indexOf(dir, name);
     bool replace = false;
     if (idx >= 0) {
-        const dw::dfs::File ex = m_dfs[side].files()[idx];
+        const dw::dfs::File ex = m_doc.dfs(side).files()[idx];
         int pol = c.policy;
         if (pol == 0) {
             auto b = QMessageBox::question(
@@ -286,7 +192,7 @@ void MainWindow::dfsAddOne(int side, QChar dir, QString name, const QByteArray &
         replace = true;
         if (!haveAttrs) { load = ex.load; exec = ex.exec; locked = ex.locked; }
     }
-    if (!m_dfs[side].addFile(dir, name, data, load, exec, locked, replace, &err)) {
+    if (!m_doc.dfs(side).addFile(dir, name, data, load, exec, locked, replace, &err)) {
         c.errors << QString("%1: %2").arg(src, err);
         return;
     }
@@ -296,40 +202,14 @@ void MainWindow::dfsAddOne(int side, QChar dir, QString name, const QByteArray &
 
 // ------------------------------------------------- delete / props / rename / extract
 
-void MainWindow::dfsDelete() {
-    QVector<FSel> sel = dfsSelected();
-    if (sel.isEmpty()) return;
-    int locked = 0;
-    QSet<int> sides;
-    for (const FSel &s : sel) {
-        sides << s.side;
-        int i = m_dfs[s.side].indexOf(s.dir, s.name);
-        if (i >= 0 && m_dfs[s.side].files()[i].locked) ++locked;
-    }
-    QString from = sides.size() > 1 ? QString("both sides") : QString("DFS drive %1").arg(sel[0].side * 2);
-    QString msg = QString("Delete %1 file(s) from %2?").arg(sel.size()).arg(from);
-    if (locked) msg += QString("\n\n%1 of these are LOCKED.").arg(locked);
-    if (QMessageBox::question(this, "Delete", msg, QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
-    QStringList errors;
-    for (const FSel &s : sel) {
-        QString err;
-        if (!dfsEditable(s.side)) err = "this side is read-only";
-        else if (m_dfs[s.side].remove(s.dir, s.name, &err)) continue;
-        errors << QString("%1.%2: %3").arg(QString(s.dir), s.name, err);
-    }
-    refreshDfs();
-    updateUi();
-    if (!errors.isEmpty()) QMessageBox::warning(this, "Delete", errors.join("\n"));
-}
-
 void MainWindow::dfsProps() {
     QVector<FSel> sel = dfsSelected();
     if (sel.isEmpty()) return;
     QVector<dw::dfs::File> files;
     for (const FSel &s : sel) {
-        int i = m_dfs[s.side].indexOf(s.dir, s.name);
+        int i = m_doc.dfs(s.side).indexOf(s.dir, s.name);
         if (i < 0) { QMessageBox::warning(this, "Properties", "Entry not found"); return; }
-        files.append(m_dfs[s.side].files()[i]);
+        files.append(m_doc.dfs(s.side).files()[i]);
     }
     bool single = files.size() == 1;
     QDialog dlg(this);
@@ -369,7 +249,7 @@ void MainWindow::dfsProps() {
         form->addRow("Exec address (hex):", execEd);
         form->addRow("Length:", new QLabel(QString("%1 bytes").arg(files[0].length)));
         form->addRow("Start sector:", new QLabel(QString::number(files[0].start)));
-        if (m_dfs[1].attached()) form->addRow("Drive:", new QLabel(QString::number(sel[0].side * 2)));
+        if (m_doc.dfs(1).attached()) form->addRow("Drive:", new QLabel(QString::number(sel[0].side * 2)));
     }
     auto *bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     form->addRow(bb);
@@ -402,7 +282,7 @@ void MainWindow::dfsProps() {
         quint32 exec = execEd ? newExec : f.exec;
         QString err;
         if (!dfsEditable(side)) err = "this side is read-only";
-        else if (m_dfs[side].modify(f.dir, f.name, nd, nn, locked, load, exec, &err)) continue;
+        else if (m_doc.dfs(side).modify(f.dir, f.name, nd, nn, locked, load, exec, &err)) continue;
         errors << QString("%1: %2").arg(f.fullName(), err);
     }
     if (!single && !letter.isNull()) {
@@ -446,11 +326,11 @@ int MainWindow::dfsMoveSelected(QChar letter, bool moveOthers, QStringList *clas
     for (const FSel &s : sel) {
         if (s.dir == letter) continue;
         QString to = dfsKey(s.side, letter, s.name);
-        int i = m_dfs[s.side].indexOf(letter, s.name);
-        bool occupied = i >= 0 && !mine.contains(dfsKey(s.side, m_dfs[s.side].files()[i].dir, m_dfs[s.side].files()[i].name));
+        int i = m_doc.dfs(s.side).indexOf(letter, s.name);
+        bool occupied = i >= 0 && !mine.contains(dfsKey(s.side, m_doc.dfs(s.side).files()[i].dir, m_doc.dfs(s.side).files()[i].name));
         if (occupied || taken.contains(to)) {
             *clashes << QString("%1.%2: %3.%2 is taken%4").arg(QString(s.dir), s.name, QString(letter))
-                            .arg(m_dfs[1].attached() ? QString(" (drive %1)").arg(s.side * 2) : QString());
+                            .arg(m_doc.dfs(1).attached() ? QString(" (drive %1)").arg(s.side * 2) : QString());
             continue;
         }
         taken << to;
@@ -459,12 +339,12 @@ int MainWindow::dfsMoveSelected(QChar letter, bool moveOthers, QStringList *clas
     if (!clashes->isEmpty() && !moveOthers) return 0;
     int moved = 0;
     for (const FSel &s : todo) {
-        int i = m_dfs[s.side].indexOf(s.dir, s.name);
+        int i = m_doc.dfs(s.side).indexOf(s.dir, s.name);
         QString err = "not found";
         if (!dfsEditable(s.side)) err = "this side is read-only";
         else if (i >= 0) {
-            const dw::dfs::File f = m_dfs[s.side].files()[i];
-            if (m_dfs[s.side].modify(f.dir, f.name, letter, f.name, f.locked, f.load, f.exec, &err)) { ++moved; continue; }
+            const dw::dfs::File f = m_doc.dfs(s.side).files()[i];
+            if (m_doc.dfs(s.side).modify(f.dir, f.name, letter, f.name, f.locked, f.load, f.exec, &err)) { ++moved; continue; }
         }
         *errors << QString("%1.%2: %3").arg(QString(s.dir), s.name, err);
     }
@@ -474,10 +354,10 @@ int MainWindow::dfsMoveSelected(QChar letter, bool moveOthers, QStringList *clas
 void MainWindow::dfsRenameVolume(int side) {
     bool ok = false;
     QString n = QInputDialog::getText(this, "Rename DFS disc", "Disc title (max 12 characters):", QLineEdit::Normal,
-                                      m_dfs[side].title(), &ok);
+                                      m_doc.dfs(side).title(), &ok);
     if (!ok) return;
     QString err;
-    if (!m_dfs[side].setTitle(n.trimmed(), &err)) { QMessageBox::warning(this, "Rename disc", err); return; }
+    if (!m_doc.dfs(side).setTitle(n.trimmed(), &err)) { QMessageBox::warning(this, "Rename disc", err); return; }
     refreshDfs();
     updateUi();
 }
@@ -495,59 +375,16 @@ void MainWindow::dfsRename() {
     QChar nd = sel[0].dir;
     QString nn = n;
     if (n.size() >= 3 && n[1] == '.') { nd = n[0]; nn = n.mid(2); }
-    int i = m_dfs[side].indexOf(sel[0].dir, sel[0].name);
+    int i = m_doc.dfs(side).indexOf(sel[0].dir, sel[0].name);
     if (i < 0) return;
-    const dw::dfs::File f = m_dfs[side].files()[i];
+    const dw::dfs::File f = m_doc.dfs(side).files()[i];
     QString err;
-    if (!m_dfs[side].modify(f.dir, f.name, nd, nn, f.locked, f.load, f.exec, &err)) {
+    if (!m_doc.dfs(side).modify(f.dir, f.name, nd, nn, f.locked, f.load, f.exec, &err)) {
         QMessageBox::warning(this, "Rename", err);
         return;
     }
     refreshDfs();
     updateUi();
-}
-
-// Selected files (from either side), or with nothing selected every file on the side in use. Files from both sides
-// go into a folder per side ("Drive 0", "Drive 2"), as the two sides are separate discs and may hold the same names.
-void MainWindow::dfsExtract() {
-    AppSettings s;
-    QString dest = QFileDialog::getExistingDirectory(this, "Extract DFS files to folder", s.value("extractDir").toString());
-    if (dest.isEmpty()) return;
-    s.setValue("extractDir", dest);
-    QVector<QPair<int, dw::dfs::File>> list;
-    QVector<FSel> sel = dfsSelected();
-    if (sel.isEmpty()) { int ds = qMax(0, dfsSide()); for (const dw::dfs::File &f : m_dfs[ds].files()) list.append({ds, f}); }
-    else for (const FSel &x : sel) { int i = m_dfs[x.side].indexOf(x.dir, x.name); if (i >= 0) list.append({x.side, m_dfs[x.side].files()[i]}); }
-    bool both = false;
-    for (const auto &p : list) both = both || p.first != list[0].first;
-    QStringList errors;
-    for (const auto &p : list) {
-        const dw::dfs::File &f = p.second;
-        QString folder = dest;
-        if (both) {
-            folder += QString("/Drive %1").arg(p.first * 2);
-            if (!QDir().mkpath(folder)) { errors << "cannot create folder " + folder; continue; }
-        }
-        QByteArray data;
-        QString err;
-        if (!m_dfs[p.first].readFile(f, &data, &err)) { errors << QString("%1: %2").arg(f.fullName(), err); continue; }
-        QString host = dw::hostSafeName(f.dir == '$' ? f.name : f.fullName());
-        QFile out(folder + "/" + host);
-        if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate) || out.write(data) != data.size()) {
-            errors << QString("%1: %2").arg(host, out.errorString());
-            continue;
-        }
-        out.close();
-        if (m_optWriteInf->isChecked()) {
-            QFile inf(folder + "/" + host + ".inf");
-            if (inf.open(QIODevice::WriteOnly | QIODevice::Truncate))
-                inf.write(QString::asprintf("%c.%-7s %08X %08X %08X %02X\n", f.dir.toLatin1(), qPrintable(f.name),
-                                            dw::dfs::extendAddr(f.load), dw::dfs::extendAddr(f.exec), f.length,
-                                            f.locked ? 8 : 3).toLatin1());
-        }
-    }
-    if (errors.isEmpty()) statusBar()->showMessage(QString("Extracted %1 file(s) to %2").arg(list.size()).arg(dest), 6000);
-    else QMessageBox::warning(this, "Extract", errors.join("\n"));
 }
 
 // ================================================ copying between discs
@@ -616,9 +453,9 @@ bool MainWindow::exportDos(quint32 parent, const QString &name, XItem *x, QStrin
 }
 
 bool MainWindow::exportDfs(int side, QChar dir, const QString &name, XItem *x, QString *err) {
-    int i = m_dfs[side].indexOf(dir, name);
+    int i = m_doc.dfs(side).indexOf(dir, name);
     if (i < 0) { *err = QString("'%1.%2' not found").arg(QString(dir), name); return false; }
-    const dw::dfs::File f = m_dfs[side].files()[i];
+    const dw::dfs::File f = m_doc.dfs(side).files()[i];
     x->name = f.name;
     x->dfsDir = f.dir;
     x->src = side ? PaneDfs1 : PaneDfs0;
@@ -627,7 +464,7 @@ bool MainWindow::exportDfs(int side, QChar dir, const QString &name, XItem *x, Q
     x->exec = f.exec;
     x->hasAddr = true;
     x->locked = f.locked;
-    return m_dfs[side].readFile(f, &x->data, err);
+    return m_doc.dfs(side).readFile(f, &x->data, err);
 }
 
 bool MainWindow::exportRefs(int pane, const QVector<DragRef> &refs, QVector<XItem> *out, QString *err) {

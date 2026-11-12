@@ -41,113 +41,6 @@ using namespace Adfs;
 
 bool MainWindow::dosActive() const { return m_dos.attached() && m_tabs->currentWidget() == m_dosTree; }
 
-bool MainWindow::findDriveC(Entry *out) const {
-    Dir root, d;
-    QString err;
-    if (!m_img.readDir(RootSector, &root, &err)) return false;
-    int i = root.indexOf("DOS");
-    if (i < 0 || !root.entries[i].isDir() || !m_img.readDir(root.entries[i].sin, &d, &err)) return false;
-    int j = d.indexOf("DRIVE_C");
-    if (j < 0 || d.entries[j].isDir()) return false;
-    *out = d.entries[j];
-    return true;
-}
-
-void MainWindow::refreshDos() {
-    QSet<quint32> expanded;
-    std::function<void(QTreeWidgetItem *)> gather = [&](QTreeWidgetItem *it) {
-        if (it->isExpanded() && it->data(0, RoleIsDir).toBool()) expanded.insert(it->data(0, RoleSector).toUInt());
-        for (int i = 0; i < it->childCount(); ++i) gather(it->child(i));
-    };
-    for (int i = 0; i < m_dosTree->topLevelItemCount(); ++i) gather(m_dosTree->topLevelItem(i));
-    bool first = m_dosTree->topLevelItemCount() == 0;
-    m_dosTree->clear();
-
-    bool have = false;
-    QString tabText = "DOS Plus (DRIVE_C)";
-    if (m_img.isOpen()) {
-        QString err;
-        const quint32 len = quint32(m_img.fullSize());
-        switch (m_info.kind) {
-        case DiskInfo::AdfsDosHybrid:
-            have = m_dos.attachFormat(&m_img, 0, len, dw::fat::FmtAcorn640, &err);
-            tabText = "DOS Plus (640K hybrid)";
-            break;
-        case DiskInfo::DosAcorn800:
-            have = m_dos.attachFormat(&m_img, 0, len, dw::fat::FmtAcorn800, &err);
-            tabText = "DOS Plus (800K)";
-            break;
-        case DiskInfo::DosPc:
-            have = m_info.dosFromTable ? m_dos.attachFormat(&m_img, 0, len, m_info.dosFormat, &err)
-                                       : m_dos.attach(&m_img, 0, len, &err);
-            tabText = "PC FAT";
-            break;
-        case DiskInfo::Dfs:
-            break;
-        default: {                       // ADFS: the partition file $.DOS.DRIVE_C
-            Entry e;
-            if (findDriveC(&e) && m_dos.attach(&m_img, e.sin, e.length, &err)) have = true;
-        }
-        }
-        if (!have) m_dos.detach();
-    } else {
-        m_dos.detach();
-    }
-    ensureTab(m_dosTree, tabText, have);
-    if (!have) return;
-
-    auto *r = new QTreeWidgetItem(m_dosTree);
-    r->setText(0, dw::rootLabel("C:\\", m_dos.label()));
-    r->setIcon(0, style()->standardIcon(QStyle::SP_DriveHDIcon));
-    r->setData(0, RoleParent, 0);
-    r->setData(0, RoleName, "\\");
-    r->setData(0, RoleIsDir, true);
-    r->setData(0, RoleSector, 0);
-    r->setData(0, RoleIsRoot, true);
-    QSet<quint32> seen;
-    populateDos(r, 0, seen, 0);
-    expanded.insert(0);
-    std::function<void(QTreeWidgetItem *)> restore = [&](QTreeWidgetItem *it) {
-        if (it->data(0, RoleIsDir).toBool() && (first ? it == r : expanded.contains(it->data(0, RoleSector).toUInt())))
-            it->setExpanded(true);
-        for (int i = 0; i < it->childCount(); ++i) restore(it->child(i));
-    };
-    restore(r);
-}
-
-void MainWindow::populateDos(QTreeWidgetItem *parentItem, quint32 dirCluster, QSet<quint32> &seen, int depth) {
-    if (depth > 32 || (dirCluster && seen.contains(dirCluster))) return;
-    if (dirCluster) seen.insert(dirCluster);
-    QVector<dw::fat::DEntry> v;
-    QString err;
-    if (!m_dos.listDir(dirCluster, &v, &err)) {
-        parentItem->setToolTip(0, err);
-        parentItem->setForeground(0, Qt::red);
-        return;
-    }
-    for (const dw::fat::DEntry &e : v) {
-        if (e.name == "." || e.name == "..") continue;
-        auto *it = new QTreeWidgetItem(parentItem);
-        it->setText(0, e.name);
-        it->setText(1, e.attrString());
-        dw::setNumCell(it, 3, QString::number(e.cluster));
-        QDateTime w = e.when();
-        if (w.isValid()) it->setText(4, w.toString("yyyy-MM-dd hh:mm"));
-        it->setData(0, RoleParent, dirCluster);
-        it->setData(0, RoleName, e.name);
-        it->setData(0, RoleIsDir, e.isDir());
-        it->setData(0, RoleSector, e.cluster);
-        it->setData(0, RoleIsRoot, false);
-        if (e.isDir()) {
-            it->setIcon(0, style()->standardIcon(QStyle::SP_DirIcon));
-        } else {
-            it->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
-            dw::setNumCell(it, 2, QString::number(e.size));
-        }
-        if (e.isDir()) populateDos(it, e.cluster, seen, depth + 1);
-    }
-}
-
 QVector<MainWindow::DSel> MainWindow::dosSelected() const {
     QVector<DSel> v;
     for (QTreeWidgetItem *it : m_dosTree->selectedItems()) {
@@ -173,9 +66,9 @@ void MainWindow::viewSelected() {
     if (ds >= 0) {
         for (const FSel &s : dfsSelected()) {
             if (opened >= 8) break;
-            int i = m_dfs[s.side].indexOf(s.dir, s.name);
+            int i = m_doc.dfs(s.side).indexOf(s.dir, s.name);
             QByteArray data;
-            if (i < 0 || !m_dfs[s.side].readFile(m_dfs[s.side].files()[i], &data, &err)) {
+            if (i < 0 || !m_doc.dfs(s.side).readFile(m_doc.dfs(s.side).files()[i], &data, &err)) {
                 QMessageBox::warning(this, "View", QString("%1: %2").arg(s.name, err));
                 continue;
             }
@@ -325,15 +218,6 @@ void MainWindow::dosImportDir(const QString &path, quint32 parent, ImportCtx &c)
 
 // ------------------------------------------------ new dir / delete / properties
 
-void MainWindow::dosNewDir(const QString &name) {
-    QString err;
-    if (!m_dos.makeDir(dosTargetDir(m_dosTree->currentItem()), name, &err)) {
-        QMessageBox::warning(this, "Cannot create directory", err);
-        return;
-    }
-    refreshDos(); updateUi();
-}
-
 void MainWindow::dosCount(quint32 dirCluster, int &files, int &dirs, int &ro, int depth) const {
     if (depth > 32) return;
     QVector<dw::fat::DEntry> v;
@@ -345,32 +229,6 @@ void MainWindow::dosCount(quint32 dirCluster, int &files, int &dirs, int &ro, in
         if (e.isDir()) { ++dirs; dosCount(e.cluster, files, dirs, ro, depth + 1); }
         else ++files;
     }
-}
-
-void MainWindow::dosDelete() {
-    QVector<DSel> todo;
-    for (const DSel &s : dosSelected()) {
-        bool covered = false;
-        for (QTreeWidgetItem *p = s.item->parent(); p; p = p->parent())
-            if (p->isSelected()) { covered = true; break; }
-        if (!covered) todo.append(s);
-    }
-    if (todo.isEmpty()) return;
-    int files = 0, dirs = 0, ro = 0;
-    for (const DSel &s : todo) {
-        if (s.isDir) { ++dirs; dosCount(s.cluster, files, dirs, ro, 0); } else ++files;
-        if (s.item->text(1).contains('R')) ++ro;
-    }
-    QString msg = QString("Delete %1 file(s) and %2 director%3 from the DOS partition?").arg(files).arg(dirs).arg(dirs == 1 ? "y" : "ies");
-    if (ro) msg += QString("\n\n%1 of these are marked read-only.").arg(ro);
-    if (QMessageBox::question(this, "Delete", msg, QMessageBox::Yes | QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) return;
-    QStringList errors;
-    for (const DSel &s : todo) {
-        QString err;
-        if (!m_dos.remove(s.parent, s.name, &err)) errors << QString("%1: %2").arg(s.name, err);
-    }
-    refreshDos(); updateUi();
-    if (!errors.isEmpty()) QMessageBox::warning(this, "Delete", errors.join("\n"));
 }
 
 void MainWindow::dosProps() {
@@ -430,59 +288,6 @@ void MainWindow::dosProps() {
     }
     refreshDos(); updateUi();
     if (!errors.isEmpty()) QMessageBox::warning(this, "Properties", errors.join("\n"));
-}
-
-// --------------------------------------------------------------- extracting
-
-void MainWindow::dosExtractEntry(const dw::fat::DEntry &e, quint32 /*cluster*/, const QString &hostDir, QStringList &errors) {
-    QString host = dw::hostSafeName(e.name);
-    QString err;
-    if (e.isDir()) {
-        QString sub = hostDir + "/" + host;
-        if (!QDir().mkpath(sub)) { errors << "cannot create folder " + sub; return; }
-        QVector<dw::fat::DEntry> v;
-        if (!m_dos.listDir(e.cluster, &v, &err)) { errors << QString("%1: %2").arg(e.name, err); return; }
-        for (const dw::fat::DEntry &c : v)
-            if (c.name != "." && c.name != "..") dosExtractEntry(c, e.cluster, sub, errors);
-        return;
-    }
-    QByteArray data;
-    if (!m_dos.readFile(e, &data, &err)) { errors << QString("%1: %2").arg(e.name, err); return; }
-    QFile f(hostDir + "/" + host);
-    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate) || f.write(data) != data.size())
-        errors << QString("%1: %2").arg(host, f.errorString());
-}
-
-void MainWindow::dosExtract() {
-    AppSettings s;
-    QString dest = QFileDialog::getExistingDirectory(this, "Extract DOS files to folder", s.value("extractDir").toString());
-    if (dest.isEmpty()) return;
-    s.setValue("extractDir", dest);
-    QVector<dw::fat::DEntry> list;
-    QString err;
-    QVector<DSel> sel = dosSelected();
-    if (sel.isEmpty()) {
-        QVector<dw::fat::DEntry> v;
-        if (!m_dos.listDir(0, &v, &err)) { QMessageBox::warning(this, "Extract", err); return; }
-        list = v;
-    } else {
-        for (const DSel &x : sel) {
-            QVector<dw::fat::DEntry> L;
-            if (m_dos.listDir(x.parent, &L, &err))
-                for (const dw::fat::DEntry &e : L) if (e.name == x.name) { list.append(e); break; }
-        }
-    }
-    for (const dw::fat::DEntry &e : list)
-        if (QFileInfo::exists(dest + "/" + dw::hostSafeName(e.name))) {
-            if (QMessageBox::question(this, "Extract", "Some files already exist in that folder. Overwrite them?") != QMessageBox::Yes) return;
-            break;
-        }
-    QStringList errors;
-    QApplication::setOverrideCursor(Qt::WaitCursor);
-    for (const dw::fat::DEntry &e : list) dosExtractEntry(e, 0, dest, errors);
-    QApplication::restoreOverrideCursor();
-    if (errors.isEmpty()) statusBar()->showMessage(QString("Extracted %1 item(s) to %2").arg(list.size()).arg(dest), 6000);
-    else QMessageBox::warning(this, "Extract", errors.join("\n"));
 }
 
 // ------------------------------------------------------------------ renaming
