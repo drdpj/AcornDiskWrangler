@@ -687,18 +687,59 @@ void MainWindow::bootOptionDialog() {
 }
 
 // ---------------------------------------------------------------- save as
+// A floppy can be saved as ImageDisk, standard or extended DSK, or a raw image (deliberate change 8), through the same
+// code as acorndw convert (Adfs::OpenedDisc::writeCopy): the copy is checked, then opened in this window. What the copy
+// is comes from the filter chosen, never from the name typed (as in CP/M Disk Wrangler), so the dialog starts on the
+// image's own kind. A copy of the image's own kind is made as it always was; a hard disc (and a disc nothing
+// recognised) is saved only as a copy of its own kind, in the dialog it always had.
 void MainWindow::saveAsDialog() {
     if (!m_img.isOpen()) return;
+    using dw::device::Kind;
     QFileInfo fi(m_img.path());
-    QString p = QFileDialog::getSaveFileName(this, "Save as", fi.absolutePath() + "/" + fi.completeBaseName() + "-copy." + fi.suffix(),
-                                             QString("Disc image (*.%1);;All files (*)").arg(fi.suffix()));
+    const Kind own = m_img.containerKind();
+    Kind kind = own;
+    QString p;
+    if (!m_doc.convertible()) {
+        p = QFileDialog::getSaveFileName(this, "Save as", fi.absolutePath() + "/" + fi.completeBaseName() + "-copy." + fi.suffix(),
+                                         QString("Disc image (*.%1);;All files (*)").arg(fi.suffix()));
+    } else {
+        const QString imd = "ImageDisk (*.imd)";
+        const QString edsk = "Extended DSK image (*.dsk)";
+        const QString dsk = "Standard DSK image (*.dsk)";
+        // the image's own suffix first: the dialog gives a name the first suffix of the filter chosen
+        QStringList rawSuffixes = {"*.adf", "*.adl", "*.adm", "*.ads", "*.ssd", "*.dsd", "*.img", "*.ima", "*.dsk", "*.bin"};
+        if (own == Kind::Raw && !fi.suffix().isEmpty()) {
+            rawSuffixes.removeAll("*." + fi.suffix().toLower());
+            rawSuffixes.prepend("*." + fi.suffix());
+        }
+        const QString raw = "Raw image (" + rawSuffixes.join(' ') + ")";
+        QString filter = own == Kind::Raw ? raw : own == Kind::Dsk ? dsk : own == Kind::Edsk ? edsk : imd;
+        const QString name = own == Kind::Td0 ? fi.completeBaseName() + ".imd"                // TeleDisk: a writable kind
+                                              : fi.completeBaseName() + "-copy." + fi.suffix();
+        p = QFileDialog::getSaveFileName(this, "Save as", fi.absolutePath() + "/" + name,
+                                         QStringList{imd, edsk, dsk, raw}.join(";;"), &filter);
+        kind = filter == imd ? Kind::Imd : filter == edsk ? Kind::Edsk : filter == dsk ? Kind::Dsk : Kind::Raw;
+    }
     if (p.isEmpty()) return;
     QString abs = QFileInfo(p).absoluteFilePath();
-    if (abs == fi.absoluteFilePath()) { save(); return; }
+    if (abs == fi.absoluteFilePath()) {
+        if (kind == own) { save(); return; }
+        QMessageBox::warning(this, "Save as", "That is the image's own file. Choose another name for the " + dw::device::kindName(kind) + ".");
+        return;
+    }
     for (MainWindow *w : windows())
         if (w != this && w->m_img.isOpen() && QFileInfo(w->m_img.path()).absoluteFilePath() == abs) {
             QMessageBox::warning(this, "Save as", "That file is open in another window."); return; }
     QString err;
+    if (kind != own) {                                   // another kind: written with what is staged, checked, then opened
+        QApplication::setOverrideCursor(Qt::WaitCursor);
+        const bool ok = m_doc.writeCopy(p, kind, QString(), true, &err);
+        QApplication::restoreOverrideCursor();
+        if (!ok) { QMessageBox::warning(this, "Save as", "Not saved: " + err); return; }
+        m_doc.revert();                                  // the changes are in the copy, which this window now shows
+        openFile(p);
+        return;
+    }
     if (!m_img.dirty() || !m_img.editable()) {          // nothing to write, or opened read-only: copy, then open the copy
         if (!QFile::exists(p) || QFile::remove(p)) QFile::copy(m_img.path(), p);
         QFile(p).setPermissions(QFile(p).permissions() | QFile::WriteOwner);
