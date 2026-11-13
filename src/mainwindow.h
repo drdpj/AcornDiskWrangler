@@ -76,7 +76,6 @@ private:
     int m_pane = 0;
 };
 
-struct ImportCtx;
 
 // The main window, on DiskWranglerCore's window kit (step 5i): a dw::ui::DiscWindow showing an Adfs::OpenedDisc, with
 // a pane per mount group as tabs that come and go with the disc ("ADFS", "DOS", "DFS": paneShown, paneTitle), the
@@ -84,9 +83,10 @@ struct ImportCtx;
 // Delete, New directory and Extract on the kit's patterns; opening on the kit's open pipeline (step 5j: detectImage,
 // openDocument, handOverMessage, afterOpen), the side order and Save As through the document; and (step 5k) View,
 // Copy, the drags' files and Rename on the kit's copy-out and change patterns, Properties of ADFS and DOS files, the
-// disc's name and boot option (volumeEditor) and Check disc (showCheck). A DFS drive's Properties (and its letter
-// mover) and the imports are still this program's own code (series 5l moves them); every public function and slot a
-// test calls stays, forwarding where the kit now does the work.
+// disc's name and boot option (volumeEditor) and Check disc (showCheck); and (step 5l) every import on the kit's import
+// session (importItems, with this program's hooks: its names, attributes, DFS letter rules, questions and summary),
+// host files read by the core's one host reader, and a DFS drive's Properties (and its letter mover) on the kit's
+// Properties hooks. Every public function and slot a test calls stays, forwarding where the kit now does the work.
 class MainWindow : public dw::ui::DiscWindow {
     Q_OBJECT
 public:
@@ -148,7 +148,6 @@ public:
     void addFilesDialog() override;
     void addFolderDialog() override;
     void newDirectory() override;
-    void editProperties() override;
     void extractSelected() override;
     void about() override;
     void newImageDialog() override;
@@ -188,9 +187,15 @@ protected:
     QString deleteItemError(const Item &item, const QString &err) const override;
     QVector<Item> propertiesItems() const override;
     bool propertiesEditor(const QVector<Item> &items, PropertiesEdit *edit) override;
+    QString propertiesItemError(const PropertyChange &c, const QString &err) const override;
     bool volumeEditor(int mount, const QString &key, VolumeEdit *edit) override;
     void showCheck(const dw::fs::Report &all, const QVector<dw::fs::Report> &perMount) override;
     std::shared_ptr<dw::xfer::HostPolicy> hostPolicy(const QVector<dw::TransferItem> &items) const override;
+    // importing (step 5l): the session's hooks for a pane, its question and its summary
+    dw::ui::ImportHooks importHooks(int mount) override;
+    dw::xfer::Conflict askReplace(int mount, const dw::fs::Path &target, const dw::fs::Entry &existing,
+                                  const dw::TransferItem &incoming) override;
+    void importSummary(const dw::xfer::ImportResult &r) override;
 
 private slots:
     void checkImage();
@@ -219,15 +224,9 @@ private:
     QVector<DSel> dosSelected() const;
     quint32 dosTargetDir(QTreeWidgetItem *it) const;
     void dosImportPaths(const QStringList &paths, quint32 dirCluster);
-    void dosImportFile(const QString &path, quint32 dir, ImportCtx &c);
-    void dosImportDir(const QString &path, quint32 parent, ImportCtx &c);
-    void dosAddOne(quint32 dir, QString name, const QByteArray &data, const QString &src, ImportCtx &c,
-                   bool readOnly = false);
     bool dosProperties(const QVector<Item> &items, PropertiesEdit *edit);
     bool adfsProperties(const QVector<Item> &items, PropertiesEdit *edit);
     void dosCount(quint32 dirCluster, int &files, int &dirs, int &readOnly, int depth) const;
-    void importSummary(const ImportCtx &c, bool refreshDosOnly);
-    using DiscWindow::importSummary;
 
     struct FSel {
         int side;
@@ -239,11 +238,8 @@ private:
     QVector<FSel> dfsSelected() const;                  // from both sides
     bool dfsEditable(int side) const;
     void dfsImportPaths(int side, const QStringList &paths);
-    void dfsImportFile(int side, const QString &path, ImportCtx &c);
-    void dfsImportDir(int side, const QString &path, ImportCtx &c);
-    void dfsAddOne(int side, QChar dir, QString name, const QByteArray &data, quint32 load, quint32 exec,
-                   bool locked, bool haveAttrs, const QString &src, ImportCtx &c);
-    void dfsProps();
+    bool dfsProperties(const QVector<Item> &items, PropertiesEdit *edit);
+    QVector<int> planDfsMove(const QVector<FSel> &sel, QChar letter, QStringList *clashes) const;
     void dfsRename();
     int dropPane(const DropTree *t, QTreeWidgetItem *it) const;   // the pane a drop onto that row lands in
     quint32 dropTarget(int pane, QTreeWidgetItem *it) const;
@@ -253,14 +249,29 @@ private:
     bool exportForCopy(const QVector<Item> &items, QVector<dw::TransferItem> *out, QString *err) const;
     bool refItems(int pane, const QVector<DragRef> &refs, QVector<Item> *out, QString *err) const;
     bool renameRow(const dw::ui::PaneRow &row, const dw::fs::Path &to);
-    void importX(int pane, quint32 dir, const QVector<XItem> &items, ImportCtx &c);
-    void importXAdfs(quint32 dir, const XItem &x, ImportCtx &c);
-    // A DFS file letter.NAME added under ADFS directory *dir: moves *dir into the letter's subdirectory (made if need
-    // be) or changes *name, by the "DFS directories become ADFS directories" setting. False (an error in c) if it
-    // can't go in. src names the file in messages.
-    bool placeDfsLetter(QChar letter, const QString &src, quint32 *dir, QString *name, ImportCtx &c);
-    void importXDos(quint32 dir, const XItem &x, ImportCtx &c);
-    void importXDfs(int side, const XItem &x, ImportCtx &c, QChar keepDir = QChar());
+    // importing (mainwindow_dfs.cpp): every import ends in importAll, the kit's importItems with this program's hooks
+    struct ImportRun {
+        int pane = PaneAdfs;
+        bool internal = false;          // the items were copied in this program (a drop from one of its windows, its clipboard)
+        bool refreshAll = false;        // every pane made again before the summary
+        int letterPolicy = 0;           // the single-letter directory question's "to all": 0 ask, 1 keep the letter, 2 use $
+        QStringList problems;           // the summary's lines, in the order met
+        QHash<QString, QString> src, letterSrc;    // an item's Importer "from" -> how messages name it
+        QHash<QString, bool> isDir;
+        int readErrors = 0, hooked = 0;
+    };
+    ImportRun m_run;
+    void hostImport(int pane, quint32 dir, const QStringList &paths, bool useInf);
+    void importAll(int pane, quint32 dir, const QVector<dw::TransferItem> &items,
+                   const QVector<dw::xfer::HostReadError> &readProblems, bool internal, bool refreshAll);
+    XItem asX(const dw::TransferItem &t) const;
+    QString importSrc(const dw::TransferItem &item) const;
+    void mapImportItem(const QString &from, const dw::TransferItem &t);
+    dw::fs::Path dirPath(int pane, quint32 dir) const;
+    // A DFS file letter.NAME added under an ADFS directory: p's directory or name, by the "DFS directories become ADFS
+    // directories" setting (a letter ADFS can't have: X_NAME, its warning among the summary's problems).
+    void placeDfsLetter(QChar letter, dw::fs::Placement *p);
+    QString importErrorText(const dw::xfer::ImportError &e) const;
 
     QVector<Sel> selectedObjects() const;
     quint32 targetDirForItem(QTreeWidgetItem *it) const;
@@ -269,11 +280,6 @@ private:
     bool pasteItems(int pane, quint32 dir, const QMimeData *m);
     void showReport(const QString &title, const QString &headline, const Adfs::Report &r, bool warn);
 
-    void importFile(const QString &path, quint32 dir, ImportCtx &c);
-    void importDir(const QString &path, quint32 parent, ImportCtx &c);
-    void addOne(quint32 dir, QString name, const QByteArray &data, quint32 load, quint32 exec,
-                quint8 flags, bool haveAttrs, const QString &src, ImportCtx &c);
-    bool isSidecar(const QString &path) const;
     bool dropImages(int pane, const QStringList &paths, std::function<void(const QStringList &)> importRest);
     void countTree(quint32 dirSector, int &files, int &dirs, int &locked, int depth) const;
 

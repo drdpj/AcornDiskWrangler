@@ -21,6 +21,7 @@
 #include "mainwindow_p.h"
 #include "viewer.h"
 #include "dragout.h"
+#include <diskwrangler/fs/dfs/dfsvolume.h>
 
 #include <QAction>
 #include <QApplication>
@@ -119,97 +120,58 @@ void MainWindow::dfsImportPaths(int side, const QStringList &paths) {
         QMessageBox::warning(this, "Read-only", "This DFS drive is read-only (image read-only, or its catalogue has errors).");
         return;
     }
-    ImportCtx c;
-    for (const QString &p : paths) {
-        if (c.cancelled) break;
-        if (QFileInfo(p).isDir()) dfsImportDir(side, p, c);
-        else if (!isSidecar(p)) dfsImportFile(side, p, c);
-    }
-    refreshDfs();
-    updateUi();
-    importSummary(c, true);
-}
-
-void MainWindow::dfsImportDir(int side, const QString &path, ImportCtx &c) {
-    // DFS has no subdirectories: everything inside the folder is added flat
-    const QFileInfoList list = QDir(path).entryInfoList(
-        QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks, QDir::Name | QDir::DirsFirst);
-    for (const QFileInfo &e : list) {
-        if (c.cancelled) return;
-        if (e.isDir()) dfsImportDir(side, e.absoluteFilePath(), c);
-        else if (!isSidecar(e.absoluteFilePath())) dfsImportFile(side, e.absoluteFilePath(), c);
-    }
-}
-
-void MainWindow::dfsImportFile(int side, const QString &path, ImportCtx &c) {
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly)) {
-        c.errors << QString("%1: cannot read (%2)").arg(path, f.errorString());
-        return;
-    }
-    QByteArray data = f.readAll();
-    f.close();
-    QString name = dw::dfs::sanitizeName(QFileInfo(path).fileName());
-    QChar dir = '$';
-    quint32 load = 0, exec = 0;
-    bool locked = false, haveInf = false;
-    if (m_optReadInf->isChecked()) {
-        InfData inf;
-        if (readInf(path, &inf)) {
-            haveInf = true;
-            if (!inf.name.isEmpty()) name = dw::dfs::sanitizeName(inf.name);
-            if (!inf.dir.isNull() && dw::dfs::validDir(inf.dir)) dir = inf.dir;
-            load = inf.load & 0x3FFFF;
-            exec = inf.exec & 0x3FFFF;
-            locked = (inf.flags & FlagL) != 0;
-        }
-    }
-    dfsAddOne(side, dir, name, data, load, exec, locked, haveInf, path, c);
-}
-
-void MainWindow::dfsAddOne(int side, QChar dir, QString name, const QByteArray &data, quint32 load, quint32 exec,
-                           bool locked, bool haveAttrs, const QString &src, ImportCtx &c) {
-    QString err;
-    if (c.created.contains(dfsKey(side, dir, name))) name = uniqueDfsName(name, dir, m_doc.dfs(side), c, side);
-    int idx = m_doc.dfs(side).indexOf(dir, name);
-    bool replace = false;
-    if (idx >= 0) {
-        const dw::dfs::File ex = m_doc.dfs(side).files()[idx];
-        int pol = c.policy;
-        if (pol == 0) {
-            auto b = QMessageBox::question(
-                this, "File already exists",
-                QString("'%1.%2' already exists on this disc%3.\nReplace it with\n%4 ?")
-                    .arg(QString(dir), name, ex.locked ? " and is LOCKED" : "", src),
-                QMessageBox::Yes | QMessageBox::YesToAll | QMessageBox::No | QMessageBox::NoToAll | QMessageBox::Cancel,
-                QMessageBox::No);
-            if (b == QMessageBox::Cancel) { c.cancelled = true; return; }
-            if (b == QMessageBox::YesToAll) c.policy = pol = 1;
-            else if (b == QMessageBox::NoToAll) c.policy = pol = 2;
-            else pol = (b == QMessageBox::Yes) ? 1 : 2;
-        }
-        if (pol == 2) { c.skipped++; return; }
-        replace = true;
-        if (!haveAttrs) { load = ex.load; exec = ex.exec; locked = ex.locked; }
-    }
-    if (!m_doc.dfs(side).addFile(dir, name, data, load, exec, locked, replace, &err)) {
-        c.errors << QString("%1: %2").arg(src, err);
-        return;
-    }
-    c.created.insert(dfsKey(side, dir, name));
-    if (replace) c.replaced++; else c.files++;
+    hostImport(side ? PaneDfs1 : PaneDfs0, 0, paths, m_optReadInf->isChecked());
 }
 
 // ------------------------------------------------- delete / props / rename / extract
 
-void MainWindow::dfsProps() {
-    QVector<FSel> sel = dfsSelected();
-    if (sel.isEmpty()) return;
-    QVector<dw::dfs::File> files;
+// The files of the selection a move into directory letter would rename (indexes into sel), the rest that would clash
+// listed in *clashes ("$.NAME: D.NAME is taken"): a name taken there by a file not being moved, or by another selected
+// file going to the same place. Files already in that directory stay.
+QVector<int> MainWindow::planDfsMove(const QVector<FSel> &sel, QChar letter, QStringList *clashes) const {
+    auto key = [](int side, QChar dir, const QString &name) {
+        return QString("F%1:%2.%3").arg(side).arg(QString(dir.toUpper())).arg(name.toUpper());
+    };
+    clashes->clear();
+    QSet<QString> mine, taken;
     for (const FSel &s : sel) {
-        int i = m_doc.dfs(s.side).indexOf(s.dir, s.name);
-        if (i < 0) { QMessageBox::warning(this, "Properties", "Entry not found"); return; }
-        files.append(m_doc.dfs(s.side).files()[i]);
+        mine << key(s.side, s.dir, s.name);
+        if (s.dir == letter) taken << key(s.side, s.dir, s.name);       // stays where it is
+    }
+    QVector<int> todo;
+    for (int k = 0; k < sel.size(); ++k) {
+        const FSel &s = sel[k];
+        if (s.dir == letter) continue;
+        QString to = key(s.side, letter, s.name);
+        const dw::dfs::Disc &d = m_doc.dfs(s.side);
+        int i = d.indexOf(letter, s.name);
+        bool occupied = i >= 0 && !mine.contains(key(s.side, d.files()[i].dir, d.files()[i].name));
+        if (occupied || taken.contains(to)) {
+            *clashes << QString("%1.%2: %3.%2 is taken%4").arg(QString(s.dir), s.name, QString(letter))
+                            .arg(m_doc.dfs(1).attached() ? QString(" (drive %1)").arg(s.side * 2) : QString());
+            continue;
+        }
+        taken << to;
+        todo << k;
+    }
+    return todo;
+}
+
+// A DFS drive's Properties (step 5l, on the kit's pattern: this dialog says what changes, the kit applies each file's
+// change on its own and lists what failed). One file: its name, letter, lock and addresses. Several: the lock, and a
+// letter to move them all into (asking first when some names are taken there).
+bool MainWindow::dfsProperties(const QVector<Item> &items, PropertiesEdit *edit) {
+    QVector<dw::dfs::File> files;
+    QVector<int> sides;
+    for (const Item &it : items) {
+        const int side = paneOf(it.mount) == PaneDfs1 ? 1 : 0;
+        QChar dir;
+        QString name;
+        dw::dfs::splitName(it.path.name(), &dir, &name);
+        int i = m_doc.dfs(side).indexOf(dir, name);
+        if (i < 0) { QMessageBox::warning(this, "Properties", "Entry not found"); return false; }
+        files.append(m_doc.dfs(side).files()[i]);
+        sides.append(side);
     }
     bool single = files.size() == 1;
     QDialog dlg(this);
@@ -249,13 +211,14 @@ void MainWindow::dfsProps() {
         form->addRow("Exec address (hex):", execEd);
         form->addRow("Length:", new QLabel(QString("%1 bytes").arg(files[0].length)));
         form->addRow("Start sector:", new QLabel(QString::number(files[0].start)));
-        if (m_doc.dfs(1).attached()) form->addRow("Drive:", new QLabel(QString::number(sel[0].side * 2)));
+        if (m_doc.dfs(1).attached()) form->addRow("Drive:", new QLabel(QString::number(sides[0] * 2)));
     }
     auto *bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     form->addRow(bb);
     connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
     connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
-    if (dlg.exec() != QDialog::Accepted) return;
+    if (dlg.exec() != QDialog::Accepted) return false;
+
 
     // DFS keeps 18 bits: accept up to 3FFFF, or FFxxxx / FFFFxxxx for 3xxxx; nothing else
     quint32 newLoad = 0, newExec = 0;
@@ -263,34 +226,39 @@ void MainWindow::dfsProps() {
         if (ed && !dw::dfs::parseAddr(ed->text(), ed == loadEd ? &newLoad : &newExec)) {
             QMessageBox::warning(this, "Properties", QString("%1 is not a DFS address: use up to 3FFFF, or FFxxxx "
                                                          "(the same as 3xxxx).").arg(ed->text().toUpper()));
-            return;
+            return false;
         }
     }
-    QStringList errors;
     QChar letter = dirEd && !dirEd->text().isEmpty() ? dirEd->text()[0] : QChar();
     if (!letter.isNull() && !dw::dfs::validDir(letter)) {
         QMessageBox::warning(this, "Properties", QString("'%1' is not a valid DFS directory character.").arg(letter));
-        return;
+        return false;
     }
+    edit->eachOnItsOwn = true;
     for (int i = 0; i < files.size(); ++i) {
         const dw::dfs::File &f = files[i];
-        int side = sel[i].side;
         QString nn = nameEd ? nameEd->text().trimmed() : f.name;
         QChar nd = single && !letter.isNull() ? letter : f.dir;     // several files: moved below, all checked first
         bool locked = cbL->checkState() == Qt::PartiallyChecked ? f.locked : cbL->checkState() == Qt::Checked;
-        quint32 load = loadEd ? newLoad : f.load;
-        quint32 exec = execEd ? newExec : f.exec;
-        QString err;
-        if (!dfsEditable(side)) err = "this side is read-only";
-        else if (m_doc.dfs(side).modify(f.dir, f.name, nd, nn, locked, load, exec, &err)) continue;
-        errors << QString("%1: %2").arg(f.fullName(), err);
+        quint32 load = (loadEd ? newLoad : f.load) & 0x3FFFF;
+        quint32 exec = (execEd ? newExec : f.exec) & 0x3FFFF;
+        PropertyChange c;
+        c.item = items[i];
+        const bool moves = nd != f.dir || nn != f.name;
+        // every file is written, as the dialog always did; a rename alone is one write (the attributes go with it)
+        if (!moves || locked != f.locked || load != f.load || exec != f.exec)
+            c.attrs = {{"locked", locked}, {"load", load}, {"exec", exec}};
+        if (moves) c.to = dw::fs::Path({QString(nd) + "." + nn});
+        edit->changes << c;
     }
     if (!single && !letter.isNull()) {
-        refreshDfs();                           // the rows again, after any change to the lock
+        QVector<FSel> sel;
+        for (int i = 0; i < files.size(); ++i) sel.append({sides[i], files[i].dir, files[i].name, nullptr});
         QStringList clashes;
-        dfsMoveSelected(letter, false, &clashes, &errors);
+        const QVector<int> todo = planDfsMove(sel, letter, &clashes);
+        bool move = clashes.isEmpty();
         if (!clashes.isEmpty()) {
-            int n = dfsSelected().size();
+            int n = sel.size();
             if (clashes.size() >= n) {
                 QMessageBox::warning(this, "Properties", QString("No file was moved into %1: the names are taken.\n\n").arg(letter) +
                                                              clashes.join("\n"));
@@ -300,51 +268,50 @@ void MainWindow::dfsProps() {
                                     .arg(clashes.size()).arg(n).arg(letter).arg(clashes.join("\n")),
                                 QMessageBox::Yes | QMessageBox::Cancel, this);
                 box.button(QMessageBox::Yes)->setText("Move the others");
-                if (box.exec() == QMessageBox::Yes) dfsMoveSelected(letter, true, &clashes, &errors);
+                move = box.exec() == QMessageBox::Yes;
             }
         }
+        if (move)
+            for (int k : todo) edit->changes[k].to = dw::fs::Path({QString(letter) + "." + files[k].name});
     }
-    refreshDfs();
-    updateUi();
-    if (!errors.isEmpty()) QMessageBox::warning(this, "Properties", errors.join("\n"));
+    return true;
+}
+
+// A DFS file's change that failed: "D.NAME: <why>", as the dialog always said it (a side that can't be changed, and an
+// empty new name, in its words).
+QString MainWindow::propertiesItemError(const PropertyChange &c, const QString &err) const {
+    const int pane = paneOf(c.item.mount);
+    if (pane == PaneDfs0 || pane == PaneDfs1) {
+        if (err.startsWith("read-only: ")) return c.item.path.name() + ": this side is read-only";
+        if (c.moves() && c.to.name().size() == 2 && c.to.name()[1] == '.') {
+            QString why;
+            dw::dfs::validName(QString(), &why);
+            return c.item.path.name() + ": '': " + why;
+        }
+    }
+    return DiscWindow::propertiesItemError(c, err);
 }
 
 // Moves the selected DFS files (either side) into directory `letter`, keeping their names: on DFS that is only a
 // rename. A name taken there - by a file not being moved, or by another selected file going to the same place - is
 // a clash, listed in *clashes ("$.NAME: D.NAME is taken"); with any clash nothing is moved unless moveOthers is set,
 // when the rest are. Files already in that directory stay (a change of the letter's case only is made). Returns the
-// number moved.
+// number moved. Each move is the kit's change (applyProperties), on its own.
 int MainWindow::dfsMoveSelected(QChar letter, bool moveOthers, QStringList *clashes, QStringList *errors) {
-    clashes->clear();
     const QVector<FSel> sel = dfsSelected();
-    QSet<QString> mine, taken;
-    for (const FSel &s : sel) {
-        mine << dfsKey(s.side, s.dir, s.name);
-        if (s.dir == letter) taken << dfsKey(s.side, s.dir, s.name);       // stays where it is
-    }
-    QVector<FSel> todo;
-    for (const FSel &s : sel) {
-        if (s.dir == letter) continue;
-        QString to = dfsKey(s.side, letter, s.name);
-        int i = m_doc.dfs(s.side).indexOf(letter, s.name);
-        bool occupied = i >= 0 && !mine.contains(dfsKey(s.side, m_doc.dfs(s.side).files()[i].dir, m_doc.dfs(s.side).files()[i].name));
-        if (occupied || taken.contains(to)) {
-            *clashes << QString("%1.%2: %3.%2 is taken%4").arg(QString(s.dir), s.name, QString(letter))
-                            .arg(m_doc.dfs(1).attached() ? QString(" (drive %1)").arg(s.side * 2) : QString());
-            continue;
-        }
-        taken << to;
-        todo << s;
-    }
+    const QVector<int> todo = planDfsMove(sel, letter, clashes);
     if (!clashes->isEmpty() && !moveOthers) return 0;
     int moved = 0;
-    for (const FSel &s : todo) {
+    for (int k : todo) {
+        const FSel &s = sel[k];
         int i = m_doc.dfs(s.side).indexOf(s.dir, s.name);
         QString err = "not found";
         if (!dfsEditable(s.side)) err = "this side is read-only";
         else if (i >= 0) {
-            const dw::dfs::File f = m_doc.dfs(s.side).files()[i];
-            if (m_doc.dfs(s.side).modify(f.dir, f.name, letter, f.name, f.locked, f.load, f.exec, &err)) { ++moved; continue; }
+            PropertyChange c;
+            c.item = Item(m_doc.dfsMount(s.side), dw::fs::Path({QString(s.dir) + "." + s.name}));
+            c.to = dw::fs::Path({QString(letter) + "." + s.name});
+            if (applyProperties({c}, &err)) { ++moved; continue; }
         }
         *errors << QString("%1.%2: %3").arg(QString(s.dir), s.name, err);
     }
@@ -452,108 +419,272 @@ bool MainWindow::exportRefs(int pane, const QVector<DragRef> &refs, QVector<XIte
     return true;
 }
 
-void MainWindow::importXAdfs(quint32 dir, const XItem &x, ImportCtx &c) {
-    QString name = x.src == PaneAdfs ? x.name : sanitizeName(x.name);
-    if (x.isDir) {
-        QString err;
-        Dir d;
-        if (!m_img.readDir(dir, &d, &err)) { c.errors << QString("%1: %2").arg(x.name, err); return; }
-        if (c.created.contains(keyFor(dir, name))) name = uniqueName(name, d, c, dir);
-        int idx = d.indexOf(name);
-        quint32 sector = 0;
-        if (idx >= 0) {
-            if (!d.entries[idx].isDir()) { c.errors << QString("%1: a file called '%2' already exists there").arg(x.name, name); return; }
-            sector = d.entries[idx].sin;
-        } else {
-            if (!m_img.makeDir(dir, name, &err, &sector)) { c.errors << QString("%1: %2").arg(x.name, err); return; }
-            c.dirs++;
+// ================================================ importing, on the kit's import session (step 5l)
+//
+// Every import ends in importAll, which runs the kit's DiscWindow::importItems (an ImportSession: the core's Importer,
+// one transaction per file, nothing undone) with this program's hooks. The rules are the ones this window has always
+// had, per pane: names, attributes and the DFS letter rules (placeDfsLetter for ADFS, the single-letter directory
+// question for DFS), the "File already exists" questions and the summary with its "Some items could not be added" box,
+// every text as before. Host files are read by the core's one host reader (hostImport). What an item is, the hooks ask
+// of the item: hostPath set = a host file (its .inf, if any, read again for the numbers, as Add files always did),
+// otherwise a file of a disc, read as the old code read it (asX). m_run holds what one import needs besides.
+
+// The item as this program's copy code reads it: RetroFiles::fromTransfer, and for a DFS file copied in this program
+// (a drop from one of its windows, its clipboard) the letter put back when it is one the disc shouldn't have.
+XItem MainWindow::asX(const dw::TransferItem &t) const {
+    XItem x = RetroFiles::fromTransfer(t);
+    x.when = t.when;
+    if (m_run.internal && t.sourceFs == "dfs") {
+        x.src = PaneDfs0;
+        if (x.dfsDir == '$' && t.name.size() >= 3 && t.name[1] == '.' && t.name[0] != '$') {
+            x.dfsDir = t.name[0];
+            x.name = t.name.mid(2);
         }
-        c.created.insert(keyFor(dir, name));
-        for (const XItem &k : x.kids) { if (c.cancelled) return; importXAdfs(sector, k, c); }
-        return;
     }
-    if ((x.src == PaneDfs0 || x.src == PaneDfs1) &&
-        !placeDfsLetter(x.dfsDir, QString("%1.%2").arg(QString(x.dfsDir), x.name), &dir, &name, c))
-        return;
-    quint32 load = 0, exec = 0;
-    quint8 flags = FlagR | FlagW;
-    if (x.src == PaneAdfs) {
-        load = x.load; exec = x.exec; flags = x.adfsFlags;
-    } else {
-        if (x.locked) flags |= FlagL;
-        if (x.src == PaneDfs0 || x.src == PaneDfs1) { load = dw::dfs::extendAddr(x.load); exec = dw::dfs::extendAddr(x.exec); }
-    }
-    addOne(dir, name, x.data, load, exec, flags, true, x.name, c);
+    return x;
 }
 
-// A DFS file in a directory other than $ goes into a subdirectory named after the letter, in the letter's case, so
-// $.P.FILE dropped on $.Library becomes $.Library.P.FILE. The subdirectory is reused if it is already there (in either
-// case). A letter ADFS can't have as a name (^ @ & * # " and the like) gives X_NAME in the target directory instead,
-// with a warning (DiskWranglerCore's dw::dfs::placeLetter). With Tools > "DFS directories become ADFS directories"
-// off, every file goes in the target directory as NAME.
-bool MainWindow::placeDfsLetter(QChar letter, const QString &src, quint32 *dir, QString *name, ImportCtx &c) {
-    const dw::dfs::LetterPlace place = dw::dfs::placeLetter(letter, *name, !m_optLetterDirs->isChecked(),
+// A file of an ADFS directory the single-letter question put into a DFS letter carries the letter in front of its name,
+// after a mark that no name has (DirChoice::Into's prefix): the letter (null if none) and the item without it.
+static const QChar LetterMark(1);
+static QChar takeLetter(dw::TransferItem *t) {
+    if (t->name.size() < 2 || t->name[0] != LetterMark) return QChar();
+    const QChar l = t->name[1];
+    t->name = t->name.mid(2);
+    return l;
+}
+
+// How messages name an item: a host file by its path, a disc's file by its name there (a DFS file without its letter).
+QString MainWindow::importSrc(const dw::TransferItem &item) const {
+    if (!item.hostPath.isEmpty()) return item.hostPath;
+    dw::TransferItem t = item;
+    takeLetter(&t);
+    return asX(t).name;
+}
+
+// The Importer's "from" of each item (froms[i], then "/kid" for a folder's contents) -> how this program names it.
+void MainWindow::mapImportItem(const QString &from, const dw::TransferItem &t) {
+    m_run.src[from] = importSrc(t);
+    m_run.isDir[from] = t.isDir;
+    if (t.hostPath.isEmpty() && !t.isDir) {               // placeDfsLetter named a DFS file "D.NAME"
+        const XItem x = asX(t);
+        if (x.src == PaneDfs0 || x.src == PaneDfs1) m_run.letterSrc[from] = QString("%1.%2").arg(QString(x.dfsDir), x.name);
+    }
+    for (const dw::TransferItem &k : t.kids) mapImportItem(from + "/" + k.name, k);
+}
+
+// A sector (ADFS) or cluster (DOS) the window's rows give, as the kit's path: found by walking the disc's directories.
+dw::fs::Path MainWindow::dirPath(int pane, quint32 dir) const {
+    if (pane == PaneAdfs ? dir == RootSector : (pane != PaneDos || dir == 0)) return dw::fs::Path();
+    QVector<QPair<quint32, dw::fs::Path>> todo{{pane == PaneAdfs ? quint32(RootSector) : 0u, dw::fs::Path()}};
+    QSet<quint32> seen;
+    while (!todo.isEmpty()) {
+        const QPair<quint32, dw::fs::Path> at = todo.takeFirst();
+        if (seen.contains(at.first) || at.second.parts.size() > 64) continue;
+        seen.insert(at.first);
+        QString err;
+        if (pane == PaneAdfs) {
+            Dir d;
+            if (!m_img.readDir(at.first, &d, &err)) continue;
+            for (const Entry &e : d.entries) {
+                if (!e.isDir()) continue;
+                if (e.sin == dir) return at.second.child(e.name());
+                todo.append({e.sin, at.second.child(e.name())});
+            }
+        } else {
+            QVector<dw::fat::DEntry> l;
+            if (!m_dos.listDir(at.first, &l, &err)) continue;
+            for (const dw::fat::DEntry &e : l) {
+                if (!e.isDir() || e.name == "." || e.name == "..") continue;
+                if (e.cluster == dir) return at.second.child(e.name);
+                todo.append({e.cluster, at.second.child(e.name)});
+            }
+        }
+    }
+    return dw::fs::Path();
+}
+
+void MainWindow::hostImport(int pane, quint32 dir, const QStringList &paths, bool useInf) {
+    QVector<dw::xfer::HostReadError> problems;
+    const QVector<dw::TransferItem> items = dw::xfer::readHost(paths, acornHostRead(useInf), &problems);
+    importAll(pane, dir, items, problems, false, false);
+}
+
+// One import into a pane: what couldn't be read first ("<path>: cannot read (<reason>)"), then the items through the
+// kit's session. internal: the items were copied in this program; refreshAll: every pane is made again before the
+// summary (the drops between discs, retro-files drops and pastes always did that).
+void MainWindow::importAll(int pane, quint32 dir, const QVector<dw::TransferItem> &items,
+                           const QVector<dw::xfer::HostReadError> &readProblems, bool internal, bool refreshAll) {
+    m_run = ImportRun();
+    m_run.pane = pane;
+    m_run.internal = internal;
+    m_run.refreshAll = refreshAll;
+    QVector<dw::xfer::ImportError> readErrors;
+    for (const dw::xfer::HostReadError &p : readProblems) {
+        dw::xfer::ImportError e;
+        e.kind = dw::xfer::ImportError::Failed;
+        e.message = e.why = QString("%1: cannot read (%2)").arg(p.path, p.reason);
+        e.from = p.path;
+        readErrors << e;
+        m_run.problems << e.message;
+    }
+    m_run.readErrors = readErrors.size();
+    QStringList froms;
+    for (int i = 0; i < items.size(); ++i) {
+        froms << QString::number(i);
+        mapImportItem(froms[i], items[i]);
+    }
+    importItems(mountOf(pane), dirPath(pane, dir), items, froms, readErrors);
+}
+
+// A DFS file letter.NAME added under an ADFS directory: in a subdirectory named after the letter (its case kept, one
+// already there in either case reused), or (letters ADFS can't have) as X_NAME with a warning, or with Tools > "DFS
+// directories become ADFS directories" off, as NAME (DiskWranglerCore's dw::dfs::placeLetter).
+void MainWindow::placeDfsLetter(QChar letter, dw::fs::Placement *p) {
+    const dw::dfs::LetterPlace place = dw::dfs::placeLetter(letter, p->name, !m_optLetterDirs->isChecked(),
                                                             [](QChar ch) { return isValidNameChar(ch); });
     if (place.how == dw::dfs::LetterPlace::Flat) {
-        *name = sanitizeName(place.name);
-        c.errors << place.warning;
+        p->name = sanitizeName(place.name);
+        m_run.problems << place.warning;
     }
-    if (place.how != dw::dfs::LetterPlace::Subdir) return true;
-    QString err;
-    const QString sub = place.subdir;
-    Dir d;
-    if (!m_img.readDir(*dir, &d, &err)) { c.errors << QString("%1: %2").arg(src, err); return false; }
-    int idx = d.indexOf(sub);
-    quint32 sector = 0;
-    if (idx >= 0) {
-        if (!d.entries[idx].isDir()) {
-            c.errors << QString("%1: a file called '%2' is in the way of directory %2").arg(src, sub);
-            return false;
-        }
-        sector = d.entries[idx].sin;
-    } else {
-        if (!m_img.makeDir(*dir, sub, &err, &sector)) { c.errors << QString("%1: %2").arg(src, err); return false; }
-        c.dirs++;
-    }
-    c.created.insert(keyFor(*dir, sub));
-    *dir = sector;
-    return true;
+    if (place.how == dw::dfs::LetterPlace::Subdir) p->dir = p->dir.child(place.subdir);
 }
 
-void MainWindow::importXDos(quint32 dir, const XItem &x, ImportCtx &c) {
-    QString name = dw::fat::Volume::fromHost(x.name, x.isDir);
-    if (x.isDir) {
-        QString err;
-        QVector<dw::fat::DEntry> L;
-        if (!m_dos.listDir(dir, &L, &err)) { c.errors << QString("%1: %2").arg(x.name, err); return; }
-        QString key = QString("D%1:%2").arg(dir).arg(name.toUpper());
-        if (c.created.contains(key)) { name = uniqueDosName(name, L, c, dir); key = QString("D%1:%2").arg(dir).arg(name.toUpper()); }
-        quint32 cluster = 0;
-        bool found = false;
-        for (const dw::fat::DEntry &e : L)
-            if (e.name.compare(name, Qt::CaseInsensitive) == 0) {
-                if (!e.isDir()) { c.errors << QString("%1: a file called '%2' already exists there").arg(x.name, name); return; }
-                cluster = e.cluster;
-                found = true;
+// The words of the summary for an error the Importer met (the old code's texts).
+QString MainWindow::importErrorText(const dw::xfer::ImportError &e) const {
+    const QString src = m_run.src.value(e.from, e.from), letterSrc = m_run.letterSrc.value(e.from, src);
+    const bool dir = m_run.isDir.value(e.from);
+    const QString reason = e.message.startsWith(e.path + ": ") ? e.message.mid(e.path.size() + 2) : e.why;
+    switch (e.cause) {
+    case dw::xfer::ImportError::DirInTheWay:
+        return QString("%1: a directory called '%2' already exists there").arg(src, e.name);
+    case dw::xfer::ImportError::FileInTheWay:
+        return dir ? QString("%1: a file called '%2' already exists there").arg(src, e.name)
+                   : QString("%1: a file called '%2' is in the way of directory %2").arg(letterSrc, e.name);
+    case dw::xfer::ImportError::MakeDir:
+        return QString("%1: %2").arg(dir ? src : letterSrc, reason);
+    case dw::xfer::ImportError::Write:
+        return QString("%1: %2").arg(src, e.why);
+    default:
+        return e.message;
+    }
+}
+
+dw::ui::ImportHooks MainWindow::importHooks(int mount) {
+    dw::ui::ImportHooks h;
+    h.options.unlockBeforeReplace = false;           // ADFS, DFS and FAT replace a locked / read-only file themselves
+    h.errorHook = [this](const dw::xfer::ImportError &e) {
+        m_run.problems << importErrorText(e);
+        ++m_run.hooked;
+    };
+    const int pane = paneOf(mount);
+    if (pane == PaneAdfs) {
+        h.place = [this](const dw::TransferItem &it, const dw::fs::Path &target) {
+            dw::fs::Placement p;
+            p.dir = target;
+            if (!it.hostPath.isEmpty()) {             // a host file: its name, or its .inf's (which may name a letter)
+                QString n = it.name;
+                QChar letter;
+                if (it.sourceFs == "dfs") { letter = n[0]; n = n.mid(2); }
+                p.name = sanitizeName(n);
+                if (!letter.isNull() && !it.isDir) placeDfsLetter(letter, &p);
+                return p;
             }
-        if (!found) {
-            if (!m_dos.makeDir(dir, name, &err, &cluster)) { c.errors << QString("%1: %2").arg(x.name, err); return; }
-            c.dirs++;
-        }
-        c.created.insert(key);
-        for (const XItem &k : x.kids) { if (c.cancelled) return; importXDos(cluster, k, c); }
-        return;
-    }
-    dosAddOne(dir, name, x.data, x.name, c, x.locked);
-}
-
-void MainWindow::importXDfs(int side, const XItem &x, ImportCtx &c, QChar keepDir) {
-    if (x.isDir) {      // DFS has no directories: flatten
-        // An ADFS directory with a one-character name (e.g. $.F) may stand for a DFS directory letter:
-        // ask whether its files should go into DFS directory F (F.NAME) rather than $.
-        if (x.src == PaneAdfs && x.name.size() == 1 && x.name[0] != '$' && dw::dfs::validDir(x.name[0])) {
-            bool keep = c.letterPolicy == 1;
-            if (c.letterPolicy == 0) {
+            const XItem x = asX(it);
+            p.name = x.src == PaneAdfs ? x.name : sanitizeName(x.name);
+            if (!it.isDir && (x.src == PaneDfs0 || x.src == PaneDfs1)) placeDfsLetter(x.dfsDir, &p);
+            return p;
+        };
+        h.attrs = [this](const dw::TransferItem &it, const dw::fs::Entry *replacing) {
+            quint32 load = 0, exec = 0;
+            quint8 flags = FlagR | FlagW;
+            bool given = true;
+            if (!it.hostPath.isEmpty()) {             // a host file: its .inf's numbers as they are, else none
+                InfData inf;
+                given = m_optReadInf->isChecked() && readInf(it.hostPath, &inf);
+                if (given) { load = inf.load; exec = inf.exec; flags = inf.flags; }
+            } else {
+                const XItem x = asX(it);
+                if (x.src == PaneAdfs) {
+                    load = x.load; exec = x.exec; flags = x.adfsFlags;
+                } else {
+                    if (x.locked) flags |= FlagL;
+                    if (x.src == PaneDfs0 || x.src == PaneDfs1) { load = dw::dfs::extendAddr(x.load); exec = dw::dfs::extendAddr(x.exec); }
+                }
+            }
+            if (!given && replacing) {                // a plain file over a file keeps its attributes, L too
+                const dw::fs::AttrValues &a = replacing->attrs;
+                load = a.value("load").toUInt(); exec = a.value("exec").toUInt();
+                flags = quint8((a.value("read").toBool() ? FlagR : 0) | (a.value("write").toBool() ? FlagW : 0) |
+                               (a.value("locked").toBool() ? FlagL : 0) | (a.value("execute").toBool() ? FlagE : 0));
+            }
+            return dw::fs::AttrValues{{"load", load}, {"exec", exec}, {"read", bool(flags & FlagR)}, {"write", bool(flags & FlagW)},
+                                      {"locked", bool(flags & FlagL)}, {"execute", bool(flags & FlagE)}};
+        };
+    } else if (pane == PaneDos) {
+        h.place = [this](const dw::TransferItem &it, const dw::fs::Path &target) {
+            dw::fs::Placement p;
+            p.dir = target;
+            p.name = dw::fat::Volume::fromHost(it.hostPath.isEmpty() ? asX(it).name : it.name, it.isDir);
+            return p;
+        };
+        h.attrs = [this](const dw::TransferItem &it, const dw::fs::Entry *) {       // a new entry, read-only if it was
+            const bool ro = it.hostPath.isEmpty() && asX(it).locked;
+            return dw::fs::AttrValues{{"readonly", ro}, {"hidden", false}, {"system", false}, {"archive", true}};
+        };
+    } else {
+        h.place = [this](const dw::TransferItem &in, const dw::fs::Path &) {
+            dw::TransferItem it = in;
+            const QChar into = takeLetter(&it);
+            QChar dir = '$';
+            QString n;
+            if (!it.hostPath.isEmpty()) {
+                n = it.name;
+                if (it.sourceFs == "dfs") { dir = n[0]; n = n.mid(2); }
+            } else {
+                const XItem x = asX(it);
+                n = x.name;
+                dir = (x.src == PaneDfs0 || x.src == PaneDfs1) ? x.dfsDir : into.isNull() ? QChar('$') : into;
+            }
+            dw::fs::Placement p;
+            p.name = QString(dir) + "." + dw::dfs::sanitizeName(n);
+            return p;
+        };
+        h.attrs = [this](const dw::TransferItem &in, const dw::fs::Entry *replacing) {
+            dw::TransferItem it = in;
+            takeLetter(&it);
+            quint32 load = 0, exec = 0;
+            bool locked = false;
+            if (!it.hostPath.isEmpty()) {
+                if (!it.sourceFs.isEmpty()) {         // its .inf
+                    const QJsonObject a = it.attrs.value("acorn");
+                    RetroFiles::parseHex(a["load"], &load);
+                    RetroFiles::parseHex(a["exec"], &exec);
+                    load &= 0x3FFFF; exec &= 0x3FFFF;
+                    locked = a["access"].toString().contains('L');
+                } else if (replacing) {               // a plain file over a file keeps its addresses and lock
+                    load = replacing->attrs.value("load").toUInt();
+                    exec = replacing->attrs.value("exec").toUInt();
+                    locked = replacing->attrs.value("locked").toBool();
+                }
+            } else {
+                const XItem x = asX(it);
+                // DFS keeps 18 bits. Narrowed the same way for every file: a RISC OS stamp can't be told from an address
+                // for sure (docs/retro-files-format.md), so never zero one on a guess.
+                if (x.hasAddr) { load = x.load & 0x3FFFF; exec = x.exec & 0x3FFFF; }
+                locked = x.locked;
+            }
+            return dw::fs::AttrValues{{"load", load}, {"exec", exec}, {"locked", locked}};
+        };
+        // An ADFS directory with a one-character name (e.g. $.F) may stand for a DFS directory letter: ask whether its
+        // files should go into DFS directory F (F.NAME) rather than $. Other folders: their files go where theirs would.
+        h.dirHook = [this](const dw::TransferItem &d, const dw::fs::Path &) {
+            dw::xfer::DirChoice ch;
+            if (!d.hostPath.isEmpty()) return ch;
+            const XItem x = asX(d);
+            if (!(x.src == PaneAdfs && x.name.size() == 1 && x.name[0] != '$' && dw::dfs::validDir(x.name[0]))) return ch;
+            bool keep = m_run.letterPolicy == 1;
+            if (m_run.letterPolicy == 0) {
                 QMessageBox mb(QMessageBox::Question, "DFS directory letter",
                                QString("'%1' is a single-letter directory.\n\n"
                                        "Put its files in DFS directory %1 (%1.NAME)? If not, they go into $.")
@@ -562,23 +693,63 @@ void MainWindow::importXDfs(int side, const XItem &x, ImportCtx &c, QChar keepDi
                                    QMessageBox::Cancel, this);
                 mb.setDefaultButton(QMessageBox::Yes);
                 int b = mb.exec();
-                if (b == QMessageBox::Cancel) { c.cancelled = true; return; }
+                if (b == QMessageBox::Cancel) { ch.action = dw::xfer::DirChoice::Cancel; return ch; }
                 keep = b == QMessageBox::Yes || b == QMessageBox::YesToAll;
-                if (b == QMessageBox::YesToAll) c.letterPolicy = 1;
-                if (b == QMessageBox::NoToAll) c.letterPolicy = 2;
+                if (b == QMessageBox::YesToAll) m_run.letterPolicy = 1;
+                if (b == QMessageBox::NoToAll) m_run.letterPolicy = 2;
             }
-            keepDir = keep ? x.name[0] : QChar();
-        }
-        for (const XItem &k : x.kids) { if (c.cancelled) return; importXDfs(side, k, c, keepDir); }
-        return;
+            ch.action = dw::xfer::DirChoice::Into;
+            ch.prefix = QString(LetterMark) + (keep ? x.name[0] : QChar('$'));
+            return ch;
+        };
     }
-    QChar dir = (x.src == PaneDfs0 || x.src == PaneDfs1) ? x.dfsDir : keepDir.isNull() ? QChar('$') : keepDir;
-    QString name = dw::dfs::sanitizeName(x.name);
-    quint32 load = 0, exec = 0;
-    // DFS keeps 18 bits. Narrowed the same way for every file: a RISC OS stamp can't be told from an address for
-    // sure (docs/retro-files-format.md), so never zero one on a guess.
-    if (x.hasAddr) { load = x.load & 0x3FFFF; exec = x.exec & 0x3FFFF; }
-    dfsAddOne(side, dir, name, x.data, load, exec, x.locked, true, x.name, c);
+    return h;
+}
+
+// "File already exists": Yes, Yes to all, No, No to all, Cancel, No the default, in each pane's words.
+dw::xfer::Conflict MainWindow::askReplace(int mount, const dw::fs::Path &target, const dw::fs::Entry &existing,
+                                          const dw::TransferItem &incoming) {
+    const int pane = paneOf(mount);
+    const QString src = importSrc(incoming);
+    QString text;
+    if (pane == PaneDfs0 || pane == PaneDfs1) {
+        QChar d;
+        QString n;
+        dw::dfs::splitName(target.name(), &d, &n);
+        text = QString("'%1.%2' already exists on this disc%3.\nReplace it with\n%4 ?")
+                   .arg(QString(d), n, existing.attrs.value("locked").toBool() ? " and is LOCKED" : "", src);
+    } else if (pane == PaneDos) {
+        text = QString("'%1' already exists in the target directory%2.\nReplace it with\n%3 ?")
+                   .arg(target.name(), existing.attrs.value("readonly").toBool() ? " and is READ-ONLY" : "", src);
+    } else {
+        text = QString("'%1' already exists in the target directory%2.\nReplace it with\n%3 ?")
+                   .arg(target.name(), existing.attrs.value("locked").toBool() ? " and is LOCKED" : "", src);
+    }
+    auto b = QMessageBox::question(this, "File already exists", text,
+                                   QMessageBox::Yes | QMessageBox::YesToAll | QMessageBox::No | QMessageBox::NoToAll | QMessageBox::Cancel,
+                                   QMessageBox::No);
+    if (b == QMessageBox::Cancel) return dw::xfer::Conflict::Cancel;
+    if (b == QMessageBox::YesToAll) return dw::xfer::Conflict::ReplaceAll;
+    if (b == QMessageBox::NoToAll) return dw::xfer::Conflict::SkipAll;
+    return b == QMessageBox::Yes ? dw::xfer::Conflict::Replace : dw::xfer::Conflict::Skip;
+}
+
+// After an import (the kit has made the pane's rows again): the status line, and the problems in a box.
+void MainWindow::importSummary(const dw::xfer::ImportResult &r) {
+    if (m_run.refreshAll && m_run.pane != PaneAdfs) refreshTree();
+    QStringList problems = m_run.problems;
+    for (int i = m_run.readErrors; i < r.errors.size() - m_run.hooked; ++i) problems << r.errors[i].message;   // the session's own
+    QString msg = QString("Added %1 file(s) and %2 folder(s)").arg(r.added).arg(r.dirs);
+    if (r.replaced) msg += QString(", replaced %1").arg(r.replaced);
+    if (r.skipped) msg += QString(", skipped %1").arg(r.skipped);
+    msg += problems.isEmpty() ? ". Not saved yet - press Ctrl+S to write to the image."
+                              : QString(". %1 problem(s).").arg(problems.size());
+    statusBar()->showMessage(msg, 10000);
+    if (!problems.isEmpty()) {
+        QMessageBox box(QMessageBox::Warning, "Some items could not be added", msg, QMessageBox::Ok, this);
+        box.setDetailedText(problems.join("\n"));
+        box.exec();
+    }
 }
 
 // Files dragged from another copy of this program or from another tool, described by the retro-files JSON
@@ -588,23 +759,10 @@ void MainWindow::onRetroFilesDrop(int pane, quint32 dir, const QByteArray &json)
         QMessageBox::warning(this, "Read-only", "The destination is read-only, so nothing was copied.");
         return;
     }
-    QVector<XItem> items;
+    QVector<dw::TransferItem> items;
     QString err;
-    if (!RetroFiles::readJson(json, &items, &err)) { QMessageBox::warning(this, "Copy", err); return; }
-    ImportCtx c;
-    importX(pane, dir, items, c);
-    refreshTree();
-    updateUi();
-    importSummary(c, true);
-}
-
-void MainWindow::importX(int pane, quint32 dir, const QVector<XItem> &items, ImportCtx &c) {
-    for (const XItem &x : items) {
-        if (c.cancelled) return;
-        if (pane == PaneAdfs) importXAdfs(dir, x, c);
-        else if (pane == PaneDos) importXDos(dir, x, c);
-        else importXDfs(pane == PaneDfs1 ? 1 : 0, x, c);
-    }
+    if (!dw::xfer::readJson(json, &items, &err)) { QMessageBox::warning(this, "Copy", err); return; }
+    importAll(pane, dir, items, {}, false, true);
 }
 
 void MainWindow::onInternalDrop(int pane, quint32 dir, const QByteArray &payload) {
@@ -636,14 +794,10 @@ void MainWindow::onInternalDrop(int pane, quint32 dir, const QByteArray &payload
         QMessageBox::warning(this, "Read-only", "The destination is read-only, so nothing was copied.");
         return;
     }
-    QVector<XItem> items;
+    QVector<dw::TransferItem> items;
     QString err;
     if (!src->exportRefs(srcPane, refs, &items, &err)) { QMessageBox::warning(this, "Copy", err); return; }
-    ImportCtx c;
-    importX(pane, dir, items, c);
-    refreshTree();
-    updateUi();
-    importSummary(c, true);
+    importAll(pane, dir, items, {}, true, true);
 }
 
 // ================================================ copy and paste
@@ -652,12 +806,12 @@ void MainWindow::onInternalDrop(int pane, quint32 dir, const QByteArray &payload
 // the disc has changed or its window has closed since. Inside this program a paste uses that copy (the clipboard
 // carries a token naming it); for the desktop and other programs the clipboard offers the files, as a drag does
 // (text/uri-list, the retro-files JSON and GNOME's list), written to a temporary folder only when something asks.
-static QVector<XItem> &clipItems() { static QVector<XItem> v; return v; }
+static QVector<dw::TransferItem> &clipItems() { static QVector<dw::TransferItem> v; return v; }
 static QByteArray &clipToken() { static QByteArray t; return t; }
 
-static int countItems(const QVector<XItem> &v) {
+static int countItems(const QVector<dw::TransferItem> &v) {
     int n = 0;
-    for (const XItem &x : v) n += x.isDir ? countItems(x.kids) : 1;
+    for (const dw::TransferItem &x : v) n += x.isDir ? countItems(x.kids) : 1;
     return n;
 }
 
@@ -673,9 +827,7 @@ void MainWindow::copySelected() {
     bool ok = refItems(pane, refs, &picked, &err) && exportForCopy(picked, &copied, &err);
     QApplication::restoreOverrideCursor();
     if (!ok) { QMessageBox::warning(this, "Copy", err); return; }
-    QVector<int> panes;
-    for (const Item &i : picked) panes << paneOf(i.mount);
-    const QVector<XItem> items = xitemsFrom(copied, panes);
+    const QVector<dw::TransferItem> &items = copied;
     static int serial = 0;
     clipItems() = items;
     clipToken() = QByteArray::number(qint64(QCoreApplication::applicationPid())) + ":" + QByteArray::number(++serial);
@@ -733,12 +885,7 @@ void MainWindow::paste() {
 
 bool MainWindow::pasteItems(int pane, quint32 dir, const QMimeData *m) {
     if (m->hasFormat(DW_MIME_CLIP) && !clipToken().isEmpty() && m->data(DW_MIME_CLIP) == clipToken()) {
-        const QVector<XItem> items = clipItems();          // copied in this program: nothing written to the host
-        ImportCtx c;
-        importX(pane, dir, items, c);
-        refreshTree();
-        updateUi();
-        importSummary(c, true);
+        importAll(pane, dir, clipItems(), {}, true, true);   // copied in this program: nothing written to the host
         return true;
     }
     if (m->hasFormat(RetroFiles::MimeType)) {             // another copy of this program, or another tool

@@ -1416,11 +1416,8 @@ void MainWindow::addFolderDialog() {
     else importPaths({d}, targetDirForItem(m_tree->currentItem()));
 }
 
-bool MainWindow::isSidecar(const QString &p) const {
-    return m_optReadInf->isChecked() && p.endsWith(".inf", Qt::CaseInsensitive) &&
-           QFileInfo::exists(p.left(p.size() - 4));
-}
-
+// Add files, Add folder, host files dropped or pasted on the ADFS pane: read by the core's one host reader with this
+// program's .inf rule (acornHostRead, as acorndw put reads them), then the kit's import session (importAll).
 void MainWindow::importPaths(const QStringList &paths, quint32 dir) {
     if (!m_img.isOpen()) {
         if (!paths.isEmpty()) openImage(paths.first());
@@ -1430,123 +1427,7 @@ void MainWindow::importPaths(const QStringList &paths, quint32 dir) {
         QMessageBox::warning(this, "Read-only", "This image is read-only, so nothing can be added.");
         return;
     }
-    ImportCtx c;
-    for (const QString &p : paths) {
-        if (c.cancelled) break;
-        if (QFileInfo(p).isDir()) importDir(p, dir, c);
-        else if (!isSidecar(p)) importFile(p, dir, c);
-    }
-    refreshTree();
-    updateUi();
-
-    QString msg = QString("Added %1 file(s) and %2 folder(s)").arg(c.files).arg(c.dirs);
-    if (c.replaced) msg += QString(", replaced %1").arg(c.replaced);
-    if (c.skipped) msg += QString(", skipped %1").arg(c.skipped);
-    msg += c.errors.isEmpty() ? ". Not saved yet - press Ctrl+S to write to the image."
-                              : QString(". %1 problem(s).").arg(c.errors.size());
-    statusBar()->showMessage(msg, 10000);
-    if (!c.errors.isEmpty()) {
-        QMessageBox box(QMessageBox::Warning, "Some items could not be added", msg, QMessageBox::Ok, this);
-        box.setDetailedText(c.errors.join("\n"));
-        box.exec();
-    }
-}
-
-void MainWindow::importFile(const QString &path, quint32 dir, ImportCtx &c) {
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly)) {
-        c.errors << QString("%1: cannot read (%2)").arg(path, f.errorString());
-        return;
-    }
-    QByteArray data = f.readAll();
-    f.close();
-    QString name = sanitizeName(QFileInfo(path).fileName());
-    quint32 load = 0, exec = 0;
-    quint8 flags = FlagR | FlagW;
-    bool haveInf = false;
-    if (m_optReadInf->isChecked()) {
-        InfData inf;
-        if (readInf(path, &inf)) {
-            haveInf = true;
-            if (!inf.name.isEmpty()) name = sanitizeName(inf.name);
-            load = inf.load; exec = inf.exec; flags = inf.flags;
-            // "D.NAME": a file extracted from DFS. Its letter is placed as on a copy straight from the DFS disc.
-            if (!inf.dir.isNull() && dw::dfs::validDir(inf.dir) && !placeDfsLetter(inf.dir, path, &dir, &name, c)) return;
-        }
-    }
-    addOne(dir, name, data, load, exec, flags, haveInf, path, c);
-}
-
-void MainWindow::addOne(quint32 dir, QString name, const QByteArray &data, quint32 load, quint32 exec,
-                        quint8 flags, bool haveAttrs, const QString &src, ImportCtx &c) {
-    QString err;
-    Dir d;
-    if (!m_img.readDir(dir, &d, &err)) { c.errors << QString("%1: %2").arg(src, err); return; }
-    if (c.created.contains(keyFor(dir, name))) name = uniqueName(name, d, c, dir);   // e.g. truncation clash
-    int idx = d.indexOf(name);
-    bool replace = false;
-    if (idx >= 0) {
-        const Entry ex = d.entries[idx];
-        if (ex.isDir()) {
-            c.errors << QString("%1: a directory called '%2' already exists there").arg(src, name);
-            return;
-        }
-        int pol = c.policy;
-        if (pol == 0) {
-            auto b = QMessageBox::question(
-                this, "File already exists",
-                QString("'%1' already exists in the target directory%2.\nReplace it with\n%3 ?")
-                    .arg(name, ex.flag(Entry::L) ? " and is LOCKED" : "", src),
-                QMessageBox::Yes | QMessageBox::YesToAll | QMessageBox::No | QMessageBox::NoToAll | QMessageBox::Cancel,
-                QMessageBox::No);
-            if (b == QMessageBox::Cancel) { c.cancelled = true; return; }
-            if (b == QMessageBox::YesToAll) c.policy = pol = 1;
-            else if (b == QMessageBox::NoToAll) c.policy = pol = 2;
-            else pol = (b == QMessageBox::Yes) ? 1 : 2;
-        }
-        if (pol == 2) { c.skipped++; return; }
-        replace = true;
-        if (!haveAttrs) {       // keep the existing file's attributes and addresses
-            load = ex.load; exec = ex.exec;
-            flags = quint8((ex.flag(Entry::R) ? FlagR : 0) | (ex.flag(Entry::W) ? FlagW : 0) |
-                           (ex.flag(Entry::L) ? FlagL : 0) | (ex.flag(Entry::E) ? FlagE : 0));
-        }
-    }
-    if (!m_img.addFile(dir, name, data, load, exec, flags, replace, &err)) {
-        c.errors << QString("%1: %2").arg(src, err);
-        return;
-    }
-    c.created.insert(keyFor(dir, name));
-    if (replace) c.replaced++; else c.files++;
-}
-
-void MainWindow::importDir(const QString &path, quint32 parent, ImportCtx &c) {
-    QFileInfo fi(path);
-    QString name = sanitizeName(fi.fileName().isEmpty() ? QString("_") : fi.fileName());
-    QString err;
-    Dir d;
-    if (!m_img.readDir(parent, &d, &err)) { c.errors << QString("%1: %2").arg(path, err); return; }
-    if (c.created.contains(keyFor(parent, name))) name = uniqueName(name, d, c, parent);
-    int idx = d.indexOf(name);
-    quint32 sector = 0;
-    if (idx >= 0) {
-        if (!d.entries[idx].isDir()) {
-            c.errors << QString("%1: a file called '%2' already exists there").arg(path, name);
-            return;
-        }
-        sector = d.entries[idx].sin;           // merge into the existing directory
-    } else {
-        if (!m_img.makeDir(parent, name, &err, &sector)) { c.errors << QString("%1: %2").arg(path, err); return; }
-        c.dirs++;
-    }
-    c.created.insert(keyFor(parent, name));
-    const QFileInfoList list = QDir(path).entryInfoList(
-        QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks, QDir::Name | QDir::DirsFirst);
-    for (const QFileInfo &e : list) {
-        if (c.cancelled) return;
-        if (e.isDir()) importDir(e.absoluteFilePath(), sector, c);
-        else if (!isSidecar(e.absoluteFilePath())) importFile(e.absoluteFilePath(), sector, c);
-    }
+    hostImport(PaneAdfs, dir, paths, m_optReadInf->isChecked());
 }
 
 // ----------------------------------------------------------- new / delete / props
@@ -1672,11 +1553,6 @@ QString MainWindow::deleteItemError(const Item &item, const QString &err) const 
 // Properties, on the kit's pattern (5f): the selection is the rows of the pane in use, the dialogs are this program's
 // (the ADFS one here, the DOS one in mainwindow_dos.cpp) and say what changes; each entry is changed in its own
 // transaction and the ones that fail are listed. A DFS drive keeps its own code (dfsProps).
-void MainWindow::editProperties() {
-    if (dfsSide() >= 0) { dfsProps(); return; }
-    DiscWindow::editProperties();
-}
-
 QVector<dw::ui::DiscWindow::Item> MainWindow::propertiesItems() const {
     QVector<Item> v;
     for (QTreeWidgetItem *it : currentTree()->selectedItems()) {
@@ -1688,7 +1564,9 @@ QVector<dw::ui::DiscWindow::Item> MainWindow::propertiesItems() const {
 
 bool MainWindow::propertiesEditor(const QVector<Item> &items, PropertiesEdit *edit) {
     edit->eachOnItsOwn = true;
-    return paneOf(items[0].mount) == PaneDos ? dosProperties(items, edit) : adfsProperties(items, edit);
+    const int pane = paneOf(items[0].mount);
+    if (pane == PaneDfs0 || pane == PaneDfs1) return dfsProperties(items, edit);
+    return pane == PaneDos ? dosProperties(items, edit) : adfsProperties(items, edit);
 }
 
 bool MainWindow::adfsProperties(const QVector<Item> &items, PropertiesEdit *edit) {

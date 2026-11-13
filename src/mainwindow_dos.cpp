@@ -90,109 +90,13 @@ void MainWindow::onDosDropped(const QStringList &paths, QTreeWidgetItem *target)
         dosImportPaths(paths, dir);
 }
 
-void MainWindow::importSummary(const ImportCtx &c, bool) {
-    QString msg = QString("Added %1 file(s) and %2 folder(s)").arg(c.files).arg(c.dirs);
-    if (c.replaced) msg += QString(", replaced %1").arg(c.replaced);
-    if (c.skipped) msg += QString(", skipped %1").arg(c.skipped);
-    msg += c.errors.isEmpty() ? ". Not saved yet - press Ctrl+S to write to the image."
-                              : QString(". %1 problem(s).").arg(c.errors.size());
-    statusBar()->showMessage(msg, 10000);
-    if (!c.errors.isEmpty()) {
-        QMessageBox box(QMessageBox::Warning, "Some items could not be added", msg, QMessageBox::Ok, this);
-        box.setDetailedText(c.errors.join("\n"));
-        box.exec();
-    }
-}
-
 void MainWindow::dosImportPaths(const QStringList &paths, quint32 dir) {
     if (!m_dos.attached()) return;
     if (!dosEditable()) {
         QMessageBox::warning(this, "Read-only", "The DOS partition is read-only (image read-only, or the partition has errors).");
         return;
     }
-    ImportCtx c;
-    for (const QString &p : paths) {
-        if (c.cancelled) break;
-        if (QFileInfo(p).isDir()) dosImportDir(p, dir, c);
-        else dosImportFile(p, dir, c);
-    }
-    refreshDos();
-    updateUi();
-    importSummary(c, true);
-}
-
-void MainWindow::dosImportFile(const QString &path, quint32 dir, ImportCtx &c) {
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly)) {
-        c.errors << QString("%1: cannot read (%2)").arg(path, f.errorString());
-        return;
-    }
-    QByteArray data = f.readAll();
-    f.close();
-    dosAddOne(dir, dw::fat::Volume::fromHost(QFileInfo(path).fileName()), data, path, c);
-}
-
-void MainWindow::dosAddOne(quint32 dir, QString name, const QByteArray &data, const QString &src, ImportCtx &c,
-                           bool readOnly) {
-    QString err;
-    QVector<dw::fat::DEntry> L;
-    if (!m_dos.listDir(dir, &L, &err)) { c.errors << QString("%1: %2").arg(src, err); return; }
-    QString key = QString("D%1:%2").arg(dir).arg(name.toUpper());
-    if (c.created.contains(key)) { name = uniqueDosName(name, L, c, dir); key = QString("D%1:%2").arg(dir).arg(name.toUpper()); }
-    bool replace = false;
-    for (const dw::fat::DEntry &e : L) {
-        if (e.name.compare(name, Qt::CaseInsensitive) != 0) continue;
-        if (e.isDir()) { c.errors << QString("%1: a directory called '%2' already exists there").arg(src, name); return; }
-        int pol = c.policy;
-        if (pol == 0) {
-            auto b = QMessageBox::question(
-                this, "File already exists",
-                QString("'%1' already exists in the target directory%2.\nReplace it with\n%3 ?")
-                    .arg(name, (e.attr & dw::fat::AttrR) ? " and is READ-ONLY" : "", src),
-                QMessageBox::Yes | QMessageBox::YesToAll | QMessageBox::No | QMessageBox::NoToAll | QMessageBox::Cancel,
-                QMessageBox::No);
-            if (b == QMessageBox::Cancel) { c.cancelled = true; return; }
-            if (b == QMessageBox::YesToAll) c.policy = pol = 1;
-            else if (b == QMessageBox::NoToAll) c.policy = pol = 2;
-            else pol = (b == QMessageBox::Yes) ? 1 : 2;
-        }
-        if (pol == 2) { c.skipped++; return; }
-        replace = true;
-        break;
-    }
-    if (!m_dos.addFile(dir, name, data, replace, &err)) { c.errors << QString("%1: %2").arg(src, err); return; }
-    if (readOnly) m_dos.modify(dir, name, name, dw::fat::AttrA | dw::fat::AttrR, &err);      // locked/read-only in the source
-    c.created.insert(key);
-    if (replace) c.replaced++; else c.files++;
-}
-
-void MainWindow::dosImportDir(const QString &path, quint32 parent, ImportCtx &c) {
-    QString name = dw::fat::Volume::fromHost(QFileInfo(path).fileName().isEmpty() ? QString("_") : QFileInfo(path).fileName(), true);
-    QString err;
-    QVector<dw::fat::DEntry> L;
-    if (!m_dos.listDir(parent, &L, &err)) { c.errors << QString("%1: %2").arg(path, err); return; }
-    QString key = QString("D%1:%2").arg(parent).arg(name.toUpper());
-    if (c.created.contains(key)) { name = uniqueDosName(name, L, c, parent); key = QString("D%1:%2").arg(parent).arg(name.toUpper()); }
-    quint32 cluster = 0;
-    bool found = false;
-    for (const dw::fat::DEntry &e : L)
-        if (e.name.compare(name, Qt::CaseInsensitive) == 0) {
-            if (!e.isDir()) { c.errors << QString("%1: a file called '%2' already exists there").arg(path, name); return; }
-            cluster = e.cluster;
-            found = true;
-        }
-    if (!found) {
-        if (!m_dos.makeDir(parent, name, &err, &cluster)) { c.errors << QString("%1: %2").arg(path, err); return; }
-        c.dirs++;
-    }
-    c.created.insert(key);
-    const QFileInfoList list = QDir(path).entryInfoList(
-        QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks, QDir::Name | QDir::DirsFirst);
-    for (const QFileInfo &e : list) {
-        if (c.cancelled) return;
-        if (e.isDir()) dosImportDir(e.absoluteFilePath(), cluster, c);
-        else dosImportFile(e.absoluteFilePath(), cluster, c);
-    }
+    hostImport(PaneDos, dir, paths, false);            // DOS has never read .inf files: they are files like any other
 }
 
 // ------------------------------------------------ new dir / delete / properties

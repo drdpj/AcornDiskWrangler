@@ -43,17 +43,6 @@
 
 enum Roles { RoleParent = Qt::UserRole, RoleName, RoleIsDir, RoleSector, RoleIsRoot, RoleSide };   // RoleSide: DFS rows
 
-struct ImportCtx {
-    int files = 0, dirs = 0, replaced = 0, skipped = 0;
-    int policy = 0;                 // 0 = ask, 1 = replace all, 2 = skip all
-    int letterPolicy = 0;           // single-letter ADFS directory -> DFS: 0 = ask, 1 = keep letter, 2 = use $
-    bool cancelled = false;
-    QStringList errors;
-    QSet<QString> created;          // keys of names created/replaced during this import
-};
-
-inline QString keyFor(quint32 dir, const QString &name) { return QString::number(dir) + ":" + name.toUpper(); }
-
 inline QString fmtSectors(quint32 s) {
     double b = double(s) * Adfs::SectorSize;
     if (b >= 1024.0 * 1024.0) return QString("%1 MB").arg(b / (1024.0 * 1024.0), 0, 'f', 1);
@@ -89,37 +78,3 @@ struct XItem {
     QVector<XItem> kids;
 };
 
-inline QString uniqueName(const QString &base, const Adfs::Dir &d, const ImportCtx &c, quint32 dir) {
-    for (int i = 1; i < 1000; ++i) {
-        QString suf = "~" + QString::number(i);
-        QString n = base.left(Adfs::MaxNameLen - suf.size()) + suf;
-        if (d.indexOf(n) < 0 && !c.created.contains(keyFor(dir, n))) return n;
-    }
-    return base;
-}
-
-inline QString uniqueDosName(const QString &name, const QVector<dw::fat::DEntry> &L, const ImportCtx &c, quint32 dir) {
-    int dot = name.lastIndexOf('.');
-    QString base = dot < 0 ? name : name.left(dot), ext = dot < 0 ? QString() : name.mid(dot);
-    for (int i = 1; i < 1000; ++i) {
-        QString suf = "~" + QString::number(i);
-        QString n = base.left(8 - suf.size()) + suf + ext;
-        bool clash = c.created.contains(QString("D%1:%2").arg(dir).arg(n.toUpper()));
-        for (const dw::fat::DEntry &e : L) if (e.name.compare(n, Qt::CaseInsensitive) == 0) clash = true;
-        if (!clash) return n;
-    }
-    return name;
-}
-
-inline QString dfsKey(int side, QChar dir, const QString &name) {
-    return QString("F%1:%2.%3").arg(side).arg(QString(dir.toUpper())).arg(name.toUpper());
-}
-
-inline QString uniqueDfsName(const QString &base, QChar dir, const dw::dfs::Disc &d, const ImportCtx &c, int side) {
-    for (int i = 1; i < 100; ++i) {
-        QString suf = "~" + QString::number(i);
-        QString n = base.left(dw::dfs::MaxName - suf.size()) + suf;
-        if (d.indexOf(dir, n) < 0 && !c.created.contains(dfsKey(side, dir, n))) return n;
-    }
-    return base;
-}
