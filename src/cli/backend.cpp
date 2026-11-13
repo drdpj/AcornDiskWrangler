@@ -181,37 +181,13 @@ std::shared_ptr<dw::xfer::HostPolicy> Backend::hostPolicy(const GetOptions &o, Q
     return std::make_shared<RetroFiles::AcornPolicy>(o.sidecars != "none");
 }
 
-static bool readHostItems(const QStringList &paths, bool useInf, QVector<dw::TransferItem> *items, QString *err, int *exit) {
-    auto isSidecar = [&](const QString &p) {
-        return useInf && p.endsWith(".inf", Qt::CaseInsensitive) && QFileInfo::exists(p.left(p.size() - 4));
-    };
-    const HostFileFilter accept = [&](const QString &p, dw::TransferItem *it) {
-        if (isSidecar(p)) return false;
-        if (!useInf) return true;
-        InfData inf;
-        if (!readInf(p, &inf)) return true;
-        if (!inf.name.isEmpty()) it->name = inf.name;
-        if (!inf.dir.isNull() && dw::dfs::validDir(inf.dir)) { it->name = QString(inf.dir) + "." + it->name; it->sourceFs = "dfs"; }
-        else it->sourceFs = "adfs";
-        QJsonObject a;
-        a["load"] = RetroFiles::hex8(it->sourceFs == "dfs" ? dw::dfs::extendAddr(inf.load & 0x3FFFF) : inf.load);
-        a["exec"] = RetroFiles::hex8(it->sourceFs == "dfs" ? dw::dfs::extendAddr(inf.exec & 0x3FFFF) : inf.exec);
-        QString access;
-        if (inf.flags & Adfs::FlagL) access += 'L';
-        if (inf.flags & Adfs::FlagW) access += 'W';
-        if (inf.flags & Adfs::FlagR) access += 'R';
-        if (inf.flags & Adfs::FlagE) access += 'E';
-        a["access"] = access;
-        it->attrs["acorn"] = a;
-        return true;
-    };
-    return readHostTree(paths, accept, items, err, exit);
-}
-
-
 bool Backend::readHost(const QStringList &paths, const PutOptions &o, QVector<dw::TransferItem> *items, QStringList *, QString *err, int *exit) {
     if (o.sidecars != "inf" && o.sidecars != "none" && !o.sidecars.isEmpty()) { *err = "--sidecars is inf or none"; *exit = ExitUsage; return false; }
-    return readHostItems(paths, o.sidecars != "none", items, err, exit);
+    QVector<dw::xfer::HostReadError> errors;
+    const QVector<dw::TransferItem> got = dw::xfer::readHost(paths, acornHostRead(o.sidecars != "none"), &errors);
+    if (hostReadFailed(errors, err, exit)) return false;      // the first file that can't be read, or isn't there
+    *items += got;
+    return true;
 }
 
 void Backend::configureTarget(dw::fs::Volume *v, const ImportOptions &o) {

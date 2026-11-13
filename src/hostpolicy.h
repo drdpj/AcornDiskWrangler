@@ -24,6 +24,7 @@
 #include <QString>
 #include <QStringList>
 #include <QVector>
+#include <diskwrangler/xfer/hostread.h>
 #include <diskwrangler/xfer/retrofiles.h>
 #include <diskwrangler/xfer/transferitem.h>
 
@@ -38,6 +39,15 @@ struct InfData {
     quint8 flags = Adfs::FlagR | Adfs::FlagW;
 };
 bool readInf(const QString &hostPath, InfData *out);
+
+// How both of this program's readers of host files (the window's Add files, drops and pastes, and acorndw put) use the
+// core's one host reader (dw::xfer::readHost, step 5l). With .inf files read (Tools > Read .inf files, acorndw's
+// --sidecars=inf): a file's sidecar (NAME.inf beside NAME) is not a file of its own, and a file with one takes its
+// name and attributes from it: "D.NAME" gives a DFS item (sourceFs "dfs", name "D.NAME", so it is placed by the DFS
+// letter rules), anything else an ADFS item; load, exec and access go in the "acorn" attributes. Without: plain
+// host files. No size limit.
+bool isSidecar(const QString &hostPath, bool useInf);
+dw::xfer::HostReadOptions acornHostRead(bool useInf);
 
 namespace RetroFiles {
 

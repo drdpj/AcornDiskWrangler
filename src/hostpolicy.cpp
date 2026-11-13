@@ -41,6 +41,35 @@ bool readInf(const QString &hostPath, InfData *out) {
     return true;
 }
 
+bool isSidecar(const QString &p, bool useInf) {
+    return useInf && p.endsWith(".inf", Qt::CaseInsensitive) && QFileInfo::exists(p.left(p.size() - 4));
+}
+
+dw::xfer::HostReadOptions acornHostRead(bool useInf) {
+    dw::xfer::HostReadOptions o;
+    o.fileHook = [useInf](const QString &p, bool, dw::TransferItem *it) {
+        if (isSidecar(p, useInf)) return false;
+        if (!useInf) return true;
+        InfData inf;
+        if (!readInf(p, &inf)) return true;
+        if (!inf.name.isEmpty()) it->name = inf.name;
+        if (!inf.dir.isNull() && dw::dfs::validDir(inf.dir)) { it->name = QString(inf.dir) + "." + it->name; it->sourceFs = "dfs"; }
+        else it->sourceFs = "adfs";
+        QJsonObject a;
+        a["load"] = RetroFiles::hex8(it->sourceFs == "dfs" ? dw::dfs::extendAddr(inf.load & 0x3FFFF) : inf.load);
+        a["exec"] = RetroFiles::hex8(it->sourceFs == "dfs" ? dw::dfs::extendAddr(inf.exec & 0x3FFFF) : inf.exec);
+        QString access;
+        if (inf.flags & Adfs::FlagL) access += 'L';
+        if (inf.flags & Adfs::FlagW) access += 'W';
+        if (inf.flags & Adfs::FlagR) access += 'R';
+        if (inf.flags & Adfs::FlagE) access += 'E';
+        a["access"] = access;
+        it->attrs["acorn"] = a;
+        return true;
+    };
+    return o;
+}
+
 namespace RetroFiles {
 
 QString hex8(quint32 v) { return QString("%1").arg(v, 8, 16, QChar('0')).toUpper(); }
