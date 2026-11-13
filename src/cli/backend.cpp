@@ -138,20 +138,11 @@ OpenOutcome Backend::open(const QString &path, const OpenOptions &o) {
     return out;
 }
 
-struct Preset { const char *id; NewDisc::Type type; };
-static const Preset presets[] = {
-    {"adfs-s", NewDisc::AdfsS}, {"adfs-m", NewDisc::AdfsM}, {"adfs-l", NewDisc::AdfsL},
-    {"dfs-ss40", NewDisc::DfsSs40}, {"dfs-ss80", NewDisc::DfsSs80}, {"dfs-ds40", NewDisc::DfsDs40}, {"dfs-ds80", NewDisc::DfsDs80},
-    {"wat-ss40", NewDisc::WatSs40}, {"wat-ss80", NewDisc::WatSs80}, {"wat-ds40", NewDisc::WatDs40}, {"wat-ds80", NewDisc::WatDs80},
-    {"dos-800", NewDisc::Acorn800}, {"dos-640", NewDisc::Acorn640},
-    {"pc-360", NewDisc::Pc360}, {"pc-720", NewDisc::Pc720}, {"pc-1200", NewDisc::Pc1200}, {"pc-1440", NewDisc::Pc1440}};
-
 QJsonArray Backend::formats() const {
     QJsonArray a;
-    for (const Preset &p : presets) {
-        const NewDisc::TypeInfo &t = NewDisc::info(p.type);
+    for (const NewDisc::TypeInfo &t : NewDisc::types()) {          // the presets in the registry, in this program's order
         QJsonObject o;
-        o["id"] = p.id;
+        o["id"] = t.id;
         o["name"] = t.name;
         o["suffix"] = t.suffix;
         o["doubleSided"] = t.doubleSided;
@@ -163,11 +154,11 @@ QJsonArray Backend::formats() const {
 }
 
 bool Backend::create(const QString &file, const NewOptions &n, QString *err, int *exit) {
-    const Preset *pr = nullptr;
-    for (const Preset &p : presets) if (n.format == p.id) pr = &p;
+    const NewDisc::TypeInfo *pr = nullptr;
+    for (const NewDisc::TypeInfo &t : NewDisc::types()) if (n.format == t.id) pr = &t;
     if (!pr) { *err = QString("unknown format '%1' (acorndw new --list)").arg(n.format); *exit = ExitUsage; return false; }
     if (!n.container.isEmpty() && n.container != "raw") { *err = "acorndw makes raw images only: make one, then 'convert --container=" + n.container + "'"; *exit = ExitUnsupported; return false; }
-    const NewDisc::TypeInfo &t = NewDisc::info(pr->type);
+    const NewDisc::TypeInfo &t = *pr;
     if (n.sides == "sequential" && !t.doubleSided) { *err = "--sides is for the double-sided formats"; *exit = ExitUsage; return false; }
     if (n.title.size() > t.titleMax) { *err = QString("a %1 is at most %2 characters").arg(t.titleWhat).arg(t.titleMax); *exit = ExitUsage; return false; }
     if (pr->type == NewDisc::Acorn640 && n.dosboot.isEmpty()) { *err = "dos-640 needs --dosboot=FILE (Acorn's boot code can't be built in)"; *exit = ExitUsage; return false; }

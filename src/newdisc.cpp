@@ -21,6 +21,10 @@
 #include <diskwrangler/app/clock.h>
 #include <QSaveFile>
 #include <QDateTime>
+#include <deque>
+#include <diskwrangler/fs/dfs/dfs.h>
+#include <diskwrangler/fs/fat/fat.h>
+#include <diskwrangler/fs/presets.h>
 
 #include "adfs.h"
 #include "dfs.h"
@@ -31,26 +35,81 @@ using namespace Adfs;
 
 namespace NewDisc {
 
-const QVector<TypeInfo> &types() {
-    static const QVector<TypeInfo> t = {
-        {AdfsS, "ADFS S - 160K, 40 track, single-sided", "ads", false, 10, "Disc name"},
-        {AdfsM, "ADFS M - 320K, 80 track, single-sided", "adm", false, 10, "Disc name"},
-        {AdfsL, "ADFS L - 640K, 80 track, double-sided", "adl", true, 10, "Disc name"},
-        {DfsSs40, "DFS - 100K, 40 track, single-sided (.ssd)", "ssd", false, 12, "Disc title"},
-        {DfsSs80, "DFS - 200K, 80 track, single-sided (.ssd)", "ssd", false, 12, "Disc title"},
-        {DfsDs40, "DFS - 2 x 100K, 40 track, double-sided (.dsd)", "dsd", true, 12, "Disc title"},
-        {DfsDs80, "DFS - 2 x 200K, 80 track, double-sided (.dsd)", "dsd", true, 12, "Disc title"},
-        {WatSs40, "Watford DFS 62-file - 100K, 40 track, single-sided (.ssd)", "ssd", false, 12, "Disc title"},
-        {WatSs80, "Watford DFS 62-file - 200K, 80 track, single-sided (.ssd)", "ssd", false, 12, "Disc title"},
-        {WatDs40, "Watford DFS 62-file - 2 x 100K, 40 track, double-sided (.dsd)", "dsd", true, 12, "Disc title"},
-        {WatDs80, "Watford DFS 62-file - 2 x 200K, 80 track, double-sided (.dsd)", "dsd", true, 12, "Disc title"},
-        {Acorn800, "Acorn DOS Plus 800K", "img", true, 11, "Volume label"},
-        {Acorn640, "Acorn DOS Plus 640K (ADFS-compatible, with DOSBOOT)", "adl", true, 11, "Volume label"},
-        {Pc360, "PC 360K - 40 track, double-sided", "img", false, 11, "Volume label"},
-        {Pc720, "PC 720K - 80 track, double-sided", "img", false, 11, "Volume label"},
-        {Pc1200, "PC 1.2M - 80 track, double-sided, high density", "img", false, 11, "Volume label"},
-        {Pc1440, "PC 1.44M - 80 track, double-sided, high density", "img", false, 11, "Volume label"},
+// This program's own presets: ADFS, and the DOS Plus 640K disc (an ADFS disc too, made around Acorn's DOSBOOT).
+static void addOwnPresets(dw::fs::PresetRegistry &r) {
+    struct P { const char *id, *name, *suffix; int cyls, heads; };
+    static const P adfs[] = {
+        {"adfs-s", "ADFS S - 160K, 40 track, single-sided", "ads", 40, 1},
+        {"adfs-m", "ADFS M - 320K, 80 track, single-sided", "adm", 80, 1},
+        {"adfs-l", "ADFS L - 640K, 80 track, double-sided", "adl", 80, 2},
     };
+    for (const P &a : adfs) {
+        dw::fs::Preset p;
+        p.id = a.id;
+        p.name = a.name;
+        p.fsId = "adfs";
+        p.source = "acorn";
+        p.cylinders = a.cyls;
+        p.heads = a.heads;
+        p.sectors = 16;
+        p.sectorSize = 256;
+        p.bytes = quint64(a.cyls) * quint64(a.heads) * 16 * 256;
+        p.containers = QStringList{"raw", "imd", "edsk", "dsk"};
+        p.suffix = a.suffix;
+        p.doubleSided = p.sideOrder = a.heads == 2;
+        p.titleWhat = "Disc name";
+        p.titleMax = 10;
+        r.add(p);
+    }
+    dw::fs::Preset h;
+    h.id = "dos-640";
+    h.name = "Acorn DOS Plus 640K (ADFS-compatible, with DOSBOOT)";
+    h.fsId = "fat";
+    h.source = "acorn";
+    h.cylinders = 80;
+    h.heads = 2;
+    h.sectors = 16;
+    h.sectorSize = 256;
+    h.bytes = 655360;
+    h.containers = QStringList{"raw", "imd", "edsk", "dsk"};
+    h.suffix = "adl";
+    h.doubleSided = h.sideOrder = true;
+    h.titleWhat = "Volume label";
+    h.titleMax = 11;
+    h.notes = "An ADFS disc whose boot track holds DOSBOOT, with the DOS Plus filesystem after it; the boot code is "
+              "copied from an existing DOS Plus 640K disc or a DOSBOOT file";
+    h.extra["needsDosboot"] = true;
+    r.add(h);
+}
+
+void addPresets(dw::fs::PresetRegistry &r) {
+    addOwnPresets(r);
+    dw::dfs::addPresets(r);
+    dw::fat::addPresets(r);
+}
+
+// What this program offers, in its order, and the type create() makes for each.
+static const struct { Type type; const char *id; } offered[] = {
+    {AdfsS, "adfs-s"}, {AdfsM, "adfs-m"}, {AdfsL, "adfs-l"},
+    {DfsSs40, "dfs-ss40"}, {DfsSs80, "dfs-ss80"}, {DfsDs40, "dfs-ds40"}, {DfsDs80, "dfs-ds80"},
+    {WatSs40, "wat-ss40"}, {WatSs80, "wat-ss80"}, {WatDs40, "wat-ds40"}, {WatDs80, "wat-ds80"},
+    {Acorn800, "dos-800"}, {Acorn640, "dos-640"},
+    {Pc360, "pc-360"}, {Pc720, "pc-720"}, {Pc1200, "pc-1200"}, {Pc1440, "pc-1440"}};
+
+const QVector<TypeInfo> &types() {
+    static const QVector<TypeInfo> t = [] {
+        dw::fs::PresetRegistry &r = dw::fs::presets();
+        addPresets(r);
+        static std::deque<QByteArray> text;             // what the TypeInfos' strings point at, for the program's life
+        auto keep = [](const QString &s) { text.push_back(s.toUtf8()); return text.back().constData(); };
+        QVector<TypeInfo> v;
+        for (const auto &o : offered) {
+            const dw::fs::Preset *p = r.find(QString::fromLatin1(o.id));
+            if (!p) continue;
+            v.append({o.type, keep(p->name), keep(p->suffix), p->sideOrder, p->titleMax, keep(p->titleWhat), keep(p->id)});
+        }
+        return v;
+    }();
     return t;
 }
 

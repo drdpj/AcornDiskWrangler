@@ -16,10 +16,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 // newdisc.h - create blank disc images of every supported format.
+//
+// The formats offered are presets in the core's registry (dw::fs::presets(), <diskwrangler/fs/presets.h>): the DFS
+// module adds DFS and Watford DFS, the FAT module Acorn DOS Plus 800K and the PC floppies, and addPresets() below this
+// program's own (ADFS S, M, L and the DOS Plus 640K hybrid). types() is this program's list, in its own order, read
+// from the registry; making the blank disc stays here (create()).
 #pragma once
 
 #include <QString>
 #include <QVector>
+
+namespace dw { namespace fs { class PresetRegistry; } }
 
 namespace NewDisc {
 
@@ -33,9 +40,14 @@ struct TypeInfo {
     bool doubleSided;           // has a side order to choose (Acorn double-sided formats; PC floppies are always interleaved)
     int titleMax;               // longest disc title / volume label
     const char *titleWhat;      // what the title is called on this format
+    const char *id;             // the preset's id (acorndw new --format)
 };
 
-const QVector<TypeInfo> &types();
+// Adds this program's presets (ADFS S, M, L; DOS Plus 640K) and the DFS and FAT modules' to r. Adding them again
+// changes nothing. types() does it for the program's registry the first time it is asked.
+void addPresets(dw::fs::PresetRegistry &r);
+
+const QVector<TypeInfo> &types();       // every format offered, in this program's order (the New image dialog, new --list)
 const TypeInfo &info(Type t);
 
 // Writes a blank, valid image of the given type to path (replacing any file there). Double-sided formats are
