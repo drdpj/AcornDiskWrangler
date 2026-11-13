@@ -42,6 +42,10 @@ Any floppy above can also be in an **ImageDisk** (`.imd`), **DSK** or extended D
 (`.td0`) file instead of a plain sector dump: it opens the same way and saves back in the same kind of file
 (TeleDisk files can only be read).
 
+**File > Save As** writes any floppy as an ImageDisk, DSK, extended DSK or raw sector copy, whatever kind it was
+opened as (a TeleDisk file included); the file type chosen in the dialog decides the kind, not the name you type.
+A hard disc is saved as a same-kind copy.
+
 The format is worked out from the disc's contents, then its name and size. **File > New disc image** makes a blank
 disc of any of these types. A new DOS Plus 640K disc needs Acorn's DOSBOOT boot code, which isn't included: point
 it at an existing Master 512 disc image or a DOSBOOT file.
@@ -58,7 +62,11 @@ it at an existing Master 512 disc image or a DOSBOOT file.
   same way, as their `.inf` keeps the letter.
 * **Add files** by dropping files or folders from your file manager onto the tree (onto a directory row to put
   them there), or by pasting files copied there. On ADFS and DFS discs `.inf` sidecar files are read, so load/exec
-  addresses and attributes come through (Tools > *Read .inf sidecar files when adding*, on by default).
+  addresses and attributes come through (Tools > *Read .inf sidecar files when adding*, on by default). The
+  window and `acorndw put` read host files the same way, so a file or folder added in one is read just as in the
+  other; a file that can't be read or is too large is reported and the rest are still added.
+* **Discs that belong to CP/M Disk Wrangler.** If you open a disc the other program owns and it can't be found,
+  the message has a **Locate...** button: pick the program once and it is remembered for next time.
 * **Extract files** by dragging them out, by copying and pasting them into another program, or with Extract
   (Ctrl+E). A tool that supports retro-files receives their addresses and attributes too. `.inf` sidecars are
   written if Tools > *Write .inf sidecar files when extracting* is on.
