@@ -17,7 +17,6 @@
  */
 #include "backend.h"
 
-#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>

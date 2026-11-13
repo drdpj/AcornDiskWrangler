@@ -140,8 +140,6 @@ bool readJson(const QByteArray &json, QVector<XItem> *out, QString *err) {
 
 QString dragDirPrefix() { return QDir::temp().filePath("acorndiskwrangler-drag-"); }
 
-QString newDragDir(QString *err) { return dw::xfer::newDragDir(dragDirPrefix(), err); }
-
 int cleanStale(qint64 maxAgeSecs) { return dw::xfer::cleanStale(dragDirPrefix(), maxAgeSecs); }
 
 // ------------------------------------------------------------------------------ the drag data

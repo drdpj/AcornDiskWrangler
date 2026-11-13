@@ -534,16 +534,6 @@ bool Image::checkAdfs(QString *err) const {
     return checkEditable(err);
 }
 
-bool Image::readFileBytes(quint32 sin, quint32 fileLen, quint64 off, quint32 len, QByteArray *out, QString *err) const {
-    if (off + len > fileLen) { *err = "read beyond the end of the file"; return false; }
-    if (len == 0) { out->clear(); return true; }
-    quint64 first = off / SectorSize, last = (off + len - 1) / SectorSize;
-    if (quint64(sin) + last >= m_map.total) { *err = "read beyond the end of the disc"; return false; }
-    QByteArray s = readSectors(sin + quint32(first), quint32(last - first + 1));
-    *out = s.mid(int(off - first * SectorSize), int(len));
-    return true;
-}
-
 bool Image::writeFileBytes(quint32 sin, quint32 fileLen, quint64 off, const QByteArray &data, QString *err) {
     if (!checkEditable(err)) return false;
     if (data.isEmpty()) return true;

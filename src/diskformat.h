@@ -63,8 +63,6 @@ dw::fs::Verdict detectCandidates(const QString &path, int forceSequential = -1, 
 DiskInfo diskInfo(const dw::fs::Candidate &c);
 // The best candidate's DiskInfo (Unknown if none): what the program opens when it doesn't have to ask.
 DiskInfo detectDisk(const QString &path, int forceSequential = -1);
-// Human-readable side order, e.g. "interleaved" or "sequential (all of side 0, then side 1)".
-QString sideOrderName(bool sequential);
 
 // The physical shape of a floppy of this kind, for writing it into an ImageDisk, DSK or extended DSK file (and
 // reading such a file back as a raw one): sector size, sectors per track, cylinders, heads, the first sector ID (ADFS and

@@ -61,9 +61,9 @@ QByteArray makeJson(const QJsonArray &items, const QString &hostDir, const QStri
 // MainWindow::importX. Items from a filesystem this program doesn't know become plain host files.
 bool readJson(const QByteArray &json, QVector<XItem> *out, QString *err);
 
-// Temporary folders for drags: one per drag, kept until the program exits (a drop target may still be
-// copying when the drag returns). cleanStale() removes ones left behind by a crash, older than maxAgeSecs.
-QString newDragDir(QString *err);
+// Temporary folders for drags (the core's DragOutMime makes one per drag, kept until the program exits: a drop
+// target may still be copying when the drag returns). cleanStale() removes ones left behind by a crash, older than
+// maxAgeSecs.
 QString dragDirPrefix();                     // e.g. /tmp/acorndiskwrangler-drag-
 int cleanStale(qint64 maxAgeSecs = 24 * 3600);
 

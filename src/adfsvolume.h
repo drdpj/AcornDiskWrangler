@@ -110,7 +110,6 @@ public:
     Image &image() { return m_img; }
     const Image &image() const { return m_img; }
     const DiskInfo &info() const { return m_info; }
-    void setSides(const SideLayout &s) { m_info.sides = s; }      // the file's side order (save() keeps it after a conversion)
     // The checked save: every mount checked first (command line), or, with the window's rules, the volumes the
     // changes touch (DOS Plus by its region, DFS by any change; ADFS is always checked by Image::commit). Either way
     // the copy that replaces the file is read again and its DOS and DFS volumes checked, if the changes touched them.

@@ -27,10 +27,6 @@ using dw::fs::Candidate;
 using dw::fs::ProbeContext;
 using dw::fs::Tier;
 
-QString sideOrderName(bool sequential) {
-    return sequential ? "sequential (all of side 0, then side 1)" : "interleaved (sides alternate track by track)";
-}
-
 static SideLayout geometry(quint32 trackBytes, quint32 cylinders, bool sequential, bool sideFirst) {
     SideLayout s;
     s.trackBytes = trackBytes;

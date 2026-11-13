@@ -189,9 +189,7 @@ public:
 
     // The whole disc in its own numbering: what DFS and DOS read and write through (and the container under it).
     dw::device::Linear &linear() { return m_lin; }
-    // Byte-range access inside a file that occupies [sin, sin+ceil(fileLen/256)) (used for the DOS partition).
-    // Reads see staged changes; writes are staged like everything else.
-    bool readFileBytes(quint32 sin, quint32 fileLen, quint64 off, quint32 len, QByteArray *out, QString *err) const;
+    // Byte-range write inside a file that occupies [sin, sin+ceil(fileLen/256)), staged like everything else.
     bool writeFileBytes(quint32 sin, quint32 fileLen, quint64 off, const QByteArray &data, QString *err);
     bool pendingTouches(quint32 startSector, quint32 count) const;
     // Extra checks run by commit() before anything is written; non-empty result vetoes the save.
