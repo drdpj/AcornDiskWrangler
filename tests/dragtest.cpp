@@ -23,11 +23,15 @@
 // (nothing written); a drop from "another process" goes through the JSON and keeps the attributes; a drop back
 // onto its own pane is refused; a read-only image can be dragged from; readJson refuses unsafe lists;
 // cleanStale. The JSON and files of each drag are left in <outdir>/drag-* for tests/retrofilescheck.py.
+// Step 5l: the window and acorndw put place host files whose .inf names a DFS letter in the same directories.
 #include "mainwindow.h"
 #include "dragout.h"
 #include "newdisc.h"
+#include "cli/backend.h"
+#include <diskwrangler/cli/cli.h>
 #include <diskwrangler/xfer/mime.h>
 #include <QApplication>
+#include <QCryptographicHash>
 #include <QDir>
 #include <QDirIterator>
 #include <QDragEnterEvent>
@@ -41,6 +45,7 @@
 #include <QTimer>
 #include <QTimeZone>
 #include <cstdio>
+#include <functional>
 #include <utime.h>
 using namespace Adfs;
 static int fails = 0;
@@ -493,6 +498,51 @@ int main(int argc,char**argv){
       CHECK(w.openImage(ro)); pump(); CHECK(!w.image().editable());
       auto* m=mimeFor(w,w.tree(),{find(w.tree(),"Elite")}); CHECK(m); if(m){ CHECK(!m->urls().isEmpty()); CHECK(m->state()->errors.isEmpty());
       QJsonObject j=jsonOf(m); CHECK(slurp(QUrl(j["base"].toString()).toLocalFile()+"/Elite")==elite); delete m; } }
+
+    // ---- step 5l: host files whose .inf names a DFS letter, dropped on the window and put by acorndw: the same discs
+    printf("== the window and acorndw put place .inf-lettered host files alike\n");
+    {   const QString hl=out+"/lettered";
+        auto put=[](const QString& p,const QByteArray& b){ QDir().mkpath(QFileInfo(p).absolutePath()); QFile f(p); f.open(QIODevice::WriteOnly); f.write(b); };
+        put(hl+"/game",rnd(700,21)); put(hl+"/game.inf","P.GAME 00001900 00008023 000002BC 03\n");
+        put(hl+"/low",rnd(90,22)); put(hl+"/low.inf","q.LOW FFFF1900 FFFF8023 0000005A 08\n");
+        put(hl+"/hat",rnd(40,23)); put(hl+"/hat.inf","^.HAT 00000E00 00000E00 00000028 03\n");
+        put(hl+"/top",rnd(30,24)); put(hl+"/top.inf","$.TOP 00001900 00001900 0000001E 03\n");
+        put(hl+"/adfsf",rnd(50,25)); put(hl+"/adfsf.inf","AdfsF 12345678 9ABCDEF0 00000032 0B\n");
+        put(hl+"/a.txt","plain: never directory a");
+        put(hl+"/Sub/deep",rnd(60,26)); put(hl+"/Sub/deep.inf","P.DEEP 00003000 00003000 0000003C 03\n");
+        auto listing=[](Image& im)->QStringList{ QStringList l; QString er;
+            std::function<void(quint32,const QString&)> walk=[&](quint32 sec,const QString& at){ Dir d; if(!im.readDir(sec,&d,&er)) { l<<at+" unreadable"; return; }
+                for(const Entry& x:d.entries){ const QString p=at+"."+x.name();
+                    if(x.isDir()){ l<<p+" D "+x.attrString(); walk(x.sin,p); continue; }
+                    QByteArray b; im.readFile(x,&b,&er);
+                    l<<QString("%1 %2 %3 %4 %5 %6").arg(p).arg(x.load,8,16,QChar('0')).arg(x.exec,8,16,QChar('0')).arg(x.attrString()).arg(x.length)
+                           .arg(QString(QCryptographicHash::hash(b,QCryptographicHash::Md5).toHex())); } };
+            walk(RootSector,"$"); return l; };
+        for(int flat=0;flat<2;++flat){
+            QSettings().setValue("dfsLetterDirs",!flat);
+            const QString gw=out+QString("/letters-gui%1.adl").arg(flat), cl=out+QString("/letters-cli%1.adl").arg(flat);
+            CHECK(NewDisc::create(gw,NewDisc::AdfsL,"L",false,&e)); QFile::remove(cl); CHECK(QFile::copy(gw,cl));
+            { MainWindow w; w.show(); CHECK(w.openImage(gw)); pump(); w.tabs()->setCurrentWidget(w.tree()); pump();
+              if(!flat) answer({QMessageBox::Ok});                       // the ^.HAT warning ("Some items could not be added")
+              dropPaths(w.tree(),{hl}); CHECK(flat || g_answered==1); CHECK(w.save()); }
+            AcornCli::Backend backend;
+            dw::cli::AppInfo info; info.tool="acorndw"; info.program.name="Acorn Disk Wrangler"; info.program.id="acorndiskwrangler";
+            info.backend=&backend; info.options=QStringList{"sides","sidecars","title","dosboot","to-sides"};
+            QList<QByteArray> args{"acorndw","put",QFile::encodeName(cl),QFile::encodeName(hl),"/",flat?"--letters=flatten":"--letters=dirs","--quiet"};
+            QVector<char*> av; for(QByteArray& a:args) av<<a.data();
+            CHECK(dw::runCli(av.size(),av.data(),info)==0);
+            Image a,b; CHECK(a.open(gw,&e,0,detectDisk(gw).sides)); CHECK(b.open(cl,&e,0,detectDisk(cl).sides));
+            const QStringList la=listing(a), lb=listing(b);
+            CHECK(la==lb && la.size()>=8);
+            if(la!=lb) for(int i=0;i<qMax(la.size(),lb.size());++i) if(la.value(i)!=lb.value(i)) printf("  window [%s]  acorndw [%s]\n",qPrintable(la.value(i)),qPrintable(lb.value(i)));
+            const QString j=la.join("\n");
+            if(!flat){ CHECK(j.contains("$.lettered.P D") && j.contains("$.lettered.P.GAME 00001900") && j.contains("$.lettered.q D") &&
+                             j.contains("$.lettered.q.LOW ffff1900") && j.contains("$.lettered.X_HAT ") && j.contains("$.lettered.TOP ") && j.contains("$.lettered.Sub.P.DEEP")); }
+            else { CHECK(j.contains("$.lettered.GAME 00001900") && j.contains("$.lettered.LOW ") && j.contains("$.lettered.HAT ") && !j.contains("$.lettered.P D")); }
+            CHECK(!j.contains("$.lettered.a D") && j.contains("$.lettered.AdfsF 12345678 9abcdef0"));   // a.txt is a plain name; no letter, no directory
+        }
+        QSettings().setValue("dfsLetterDirs",true);
+    }
 
     // ---- stale folders from a crash are removed, current ones kept
     { QString old=RetroFiles::dragDirPrefix()+"testold"; QDir().mkpath(old);
