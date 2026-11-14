@@ -57,8 +57,9 @@ void writeHost(const QVector<XItem> &items, const QString &hostDir, bool writeIn
 // The JSON document for files written by writeHost.
 QByteArray makeJson(const QJsonArray &items, const QString &hostDir, const QString &imageName, int srcPane);
 
-// Reads a JSON document (from any program) and the files it lists, into an XItem tree ready for
-// MainWindow::importX. Items from a filesystem this program doesn't know become plain host files.
+// Reads a JSON document (from any program) and the files it lists, into an XItem tree (kept for the tests and CP/M
+// Disk Wrangler's interop_adw; the window reads drops with the core's dw::xfer::readJson). Items from a filesystem
+// this program doesn't know become plain host files.
 bool readJson(const QByteArray &json, QVector<XItem> *out, QString *err);
 
 // Temporary folders for drags (the core's DragOutMime makes one per drag, kept until the program exits: a drop

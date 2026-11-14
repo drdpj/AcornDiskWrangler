@@ -17,7 +17,7 @@
  */
 // hostpolicy.h - how this program's items become host files, and host files become items (QtCore only: the
 // command-line program uses it too). The .inf sidecar reader, the policy Extract to host and drag-out write with, and
-// readHostItems, which reads host files and folders the way Add files reads them.
+// acornHostRead, how the core's one host reader reads host files and folders for Add files and acorndw put.
 #pragma once
 
 #include <QJsonValue>
