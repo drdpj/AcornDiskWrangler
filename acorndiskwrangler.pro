@@ -32,7 +32,7 @@ QMAKE_TARGET_DESCRIPTION = Acorn Disk Wrangler
 QMAKE_TARGET_COPYRIGHT = Copyright (C) 2026 Daniel Jameson. Licensed under the GNU GPL v3 or later.
 SOURCES += src/main.cpp src/mainwindow.cpp src/mainwindow_dos.cpp src/mainwindow_dfs.cpp src/viewer.cpp src/viewtext.cpp \
            src/diskformat.cpp src/adfs.cpp src/adfsvolume.cpp src/icon.cpp src/newdisc.cpp src/dragout.cpp src/hostpolicy.cpp
-HEADERS += src/icon.h src/mainwindow.h src/mainwindow_p.h src/viewer.h src/viewtext.h src/dosfs.h src/dfs.h src/diskformat.h src/adfs.h src/adfsvolume.h src/newdisc.h src/dragout.h src/hostpolicy.h
+HEADERS += src/icon.h src/mainwindow.h src/mainwindow_p.h src/viewer.h src/viewtext.h src/diskformat.h src/adfs.h src/adfsvolume.h src/newdisc.h src/dragout.h src/hostpolicy.h
 RESOURCES += src/licences.qrc                      # Help > Licences: LICENSE, notices, the LGPL for Qt
 exists(licences-bundled.qrc): RESOURCES += licences-bundled.qrc   # a release build's library licences (ci/)
 !include(core/diskwranglercore.pri): error("core/ is empty: run 'git submodule update --init'")

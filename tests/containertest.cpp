@@ -40,10 +40,11 @@
 #include <functional>
 
 #include "adfs.h"
-#include "dfs.h"
+#include <diskwrangler/fs/dfs/dfs.h>
 #include "diskformat.h"
-#include "dosfs.h"
+#include <diskwrangler/fs/fat/fat.h>
 #include "mainwindow.h"
+#include "windowhelp.h"
 
 using namespace Adfs;
 using dw::device::Container;
@@ -102,11 +103,11 @@ static bool openLike(Image &img, const QString &path, DiskInfo *info, QString *e
     return ok;
 }
 
-static bool attachDos(Dos::Volume &v, Image &img, const DiskInfo &info, QString *err) {
+static bool attachDos(dw::fat::Volume &v, Image &img, const DiskInfo &info, QString *err) {
     const quint32 len = quint32(img.fullSize());
     switch (info.kind) {
-    case DiskInfo::AdfsDosHybrid: return v.attachFormat(&img, 0, len, Dos::FmtAcorn640, err);
-    case DiskInfo::DosAcorn800: return v.attachFormat(&img, 0, len, Dos::FmtAcorn800, err);
+    case DiskInfo::AdfsDosHybrid: return v.attachFormat(&img, 0, len, dw::fat::FmtAcorn640, err);
+    case DiskInfo::DosAcorn800: return v.attachFormat(&img, 0, len, dw::fat::FmtAcorn800, err);
     case DiskInfo::DosPc: return info.dosFromTable ? v.attachFormat(&img, 0, len, info.dosFormat, err) : v.attach(&img, 0, len, err);
     default: return false;
     }
@@ -134,22 +135,22 @@ static QStringList listing(Image &img, const DiskInfo &info) {
     }
     if (info.kind == DiskInfo::Dfs)
         for (int s = 0; s < (info.dfs.doubleSided ? 2 : 1); ++s) {
-            Dfs::Disc d;
+            dw::dfs::Disc d;
             if (!d.attach(&img, s, info.dfs, &err)) { out << QString("drive %1: %2").arg(s * 2).arg(err); continue; }
             out << QString("drive %1 title %2 boot %3").arg(s * 2).arg(d.title()).arg(d.bootOption());
-            for (const Dfs::File &f : d.files()) {
+            for (const dw::dfs::File &f : d.files()) {
                 QByteArray b;
                 d.readFile(f, &b, &err);
                 out << QString("%1:%2 %3 %4").arg(s * 2).arg(f.fullName()).arg(f.load, 6, 16, QChar('0')).arg(sum(b));
             }
         }
-    Dos::Volume v;
+    dw::fat::Volume v;
     if (attachDos(v, img, info, &err)) {
         out << "dos label " + v.label();
         std::function<void(quint32, const QString &, int)> walk = [&](quint32 dir, const QString &where, int depth) {
-            QVector<Dos::DEntry> L;
+            QVector<dw::fat::DEntry> L;
             if (depth > 8 || !v.listDir(dir, &L, &err)) return;
-            for (const Dos::DEntry &e : L) {
+            for (const dw::fat::DEntry &e : L) {
                 if (e.name == "." || e.name == "..") continue;
                 if (e.isDir()) { out << where + "\\" + e.name + "\\"; walk(e.cluster, where + "\\" + e.name, depth + 1); continue; }
                 QByteArray b;
@@ -184,13 +185,13 @@ static bool change(const QString &path, QString *err) {
         if (!root.entries.isEmpty() && !root.entries.first().isDir() && !img.deleteEntry(RootSector, root.entries.first().name(), err)) return false;
     } else if (info.kind == DiskInfo::Dfs) {
         for (int s = 0; s < (info.dfs.doubleSided ? 2 : 1); ++s) {
-            Dfs::Disc d;
+            dw::dfs::Disc d;
             if (!d.attach(&img, s, info.dfs, err)) return false;
             if (!d.addFile('C', QString("SIDE%1").arg(s), data, 0x1900, 0x8023, false, true, err)) return false;
             if (!d.setBootOption(3, err)) return false;
         }
     } else {
-        Dos::Volume v;
+        dw::fat::Volume v;
         if (!attachDos(v, img, info, err)) return false;
         if (!v.addFile(0, "CTEST.TXT", data, true, err)) return false;
     }
@@ -257,13 +258,13 @@ static void oneImage(const QString &work, const QString &rawPath, const QString 
     // in the main window (before the change below, while the raw image is as it was)
     auto tabsOf = [](MainWindow &w) {
         QStringList t;
-        for (int i = 0; i < w.tabs()->count(); ++i) t << w.tabs()->tabText(i);
+        for (int i = 0; i < w.tabWidget()->count(); ++i) t << w.tabWidget()->tabText(i);
         return t;
     };
     QStringList rawTabs;
     {
         MainWindow w;
-        CHECK(w.openImage(r), "main window opens the raw image");
+        CHECK(w.openFile(r), "main window opens the raw image");
         rawTabs = tabsOf(w);
     }
     for (const Copy &c0 : all) {
@@ -272,12 +273,12 @@ static void oneImage(const QString &work, const QString &rawPath, const QString 
         QFile::remove(c.path);
         QFile::copy(c0.path, c.path);
         MainWindow w;
-        CHECK(w.openImage(c.path) && w.image().containerKind() == c.kind, "main window opens the " + dw::device::kindName(c.kind));
+        CHECK(w.openFile(c.path) && w.document()->image().containerKind() == c.kind, "main window opens the " + dw::device::kindName(c.kind));
         CHECK(tabsOf(w) == rawTabs, "  with the same panes: " + tabsOf(w).join(", "));
-        CHECK(!w.readWithSideOrder(true) && !w.convertSideOrder(true, false) && !w.image().dirty(), "  Tools > Side order does nothing");
-        const bool dos = w.info().kind == DiskInfo::AdfsDosHybrid || w.info().kind == DiskInfo::DosPc || w.info().kind == DiskInfo::DosAcorn800;
+        CHECK(!w.readWithSideOrder(true) && !w.convertSideOrder(true, false) && !w.document()->image().dirty(), "  Tools > Side order does nothing");
+        const bool dos = w.document()->info().kind == DiskInfo::AdfsDosHybrid || w.document()->info().kind == DiskInfo::DosPc || w.document()->info().kind == DiskInfo::DosAcorn800;
         if (dos) continue;                               // DOS discs have no boot option to change here
-        auto toDfs = [](MainWindow &m) { if (m.info().kind == DiskInfo::Dfs) { m.tabs()->setCurrentWidget(m.dfsTree()); m.dfsTree()->setCurrentItem(m.dfsRoot(0)); } };
+        auto toDfs = [](MainWindow &m) { if (m.document()->info().kind == DiskInfo::Dfs) { m.tabWidget()->setCurrentWidget(wt::dfsTree(m)); wt::dfsTree(m)->setCurrentItem(m.dfsRoot(0)); } };
         toDfs(w);
         if (c.kind == Kind::Td0) {
             g_lastBox.clear();
@@ -285,11 +286,11 @@ static void oneImage(const QString &work, const QString &rawPath, const QString 
             continue;
         }
         const int was = w.bootOption(), to = was == 1 ? 2 : 1;
-        CHECK(w.setBootOption(to) && w.image().dirty() && w.save() && !w.image().dirty(), "  a change saves");
+        CHECK(w.setBootOption(to) && w.document()->image().dirty() && w.save() && !w.document()->image().dirty(), "  a change saves");
         MainWindow again;
-        again.openImage(c.path);
+        again.openFile(c.path);
         toDfs(again);
-        CHECK(again.bootOption() == to && again.image().containerKind() == c.kind, "  and is there when opened again");
+        CHECK(again.bootOption() == to && again.document()->image().containerKind() == c.kind, "  and is there when opened again");
     }
 
     // the same change everywhere

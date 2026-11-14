@@ -125,10 +125,7 @@ typedef dw::fs::Report Report;
 // A double-sided floppy's two orderings - how the disc numbers its sectors (sideFirst) and how the image file stores
 // its tracks (sequential) - are DiskWranglerCore's dw::device::SideOrder (core/diskwrangler/device/sideorder.h).
 // Image reads and writes through a dw::device::Linear with that order, so ADFS, DFS and DOS only ever see the disc in
-// its own numbering. (These names stay for the tests.)
-using SideLayout = dw::device::SideOrder;
-using dw::device::layoutFile;
-using dw::device::reorderSides;
+// its own numbering.
 
 // A blank old-map ADFS image of totalSectors sectors (640 = S, 1280 = M, 2560 = L, or any size).
 // With allFree == false the free space map lists nothing free ("disc full"), as a hybrid disc needs.
@@ -147,14 +144,14 @@ public:
 
     // forceFullSize (if non-zero) fixes the disc size instead of trusting the ADFS map, and tolerates a map that
     // claims more sectors than the file holds (Acorn DOS Plus hybrid discs do exactly that).
-    bool open(const QString &path, QString *err, quint64 forceFullSize = 0, const SideLayout &sides = SideLayout());
+    bool open(const QString &path, QString *err, quint64 forceFullSize = 0, const dw::device::SideOrder &sides = dw::device::SideOrder());
     // A non-ADFS container (DFS, PC FAT floppy, Acorn DOS disc): no ADFS map is read or checked.
     // The image is treated as fullSize bytes long even if the file is shorter.
-    bool openRaw(const QString &path, quint64 fullSize, QString *err, const SideLayout &sides = SideLayout());
-    // Side order of a double-sided floppy (see SideLayout). The file's current order is sideLayout().sequential;
+    bool openRaw(const QString &path, quint64 fullSize, QString *err, const dw::device::SideOrder &sides = dw::device::SideOrder());
+    // Side order of a double-sided floppy (see dw::device::SideOrder). The file's current order is sideLayout().sequential;
     // setConvertOnSave stages a rewrite of the whole file in the given order, done by commit() (revert() drops it).
     // Only a raw file has a side order of its own: in the other containers every track says where it is.
-    const SideLayout &sideLayout() const { return m_sides; }
+    const dw::device::SideOrder &sideLayout() const { return m_sides; }
     bool setConvertOnSave(bool toSequential, QString *err);
     bool moveToCopy(const QString &dest, QString *err);   // copy the file to dest and work on that from now on
     bool convertPending() const { return m_convert; }
@@ -221,7 +218,7 @@ public:
     bool replaceEntry(quint32 parent, const QString &oldName, const Entry &updated, QString *err);
 
 private:
-    bool openContainer(const QString &path, const SideLayout &sides, QString *err);
+    bool openContainer(const QString &path, const dw::device::SideOrder &sides, QString *err);
     void makeLinear();
     QByteArray readOnDisk(quint32 start, quint32 count) const;   // the file as it is now, nothing staged
     QByteArray readSectors(quint32 start, quint32 count) const;
@@ -247,7 +244,7 @@ private:
     bool m_editable = false;
     FsMap m_map;
     QByteArray m_orig;            // sectors 0-1 as they were on disk when opened / last saved
-    SideLayout m_sides;           // how the file is laid out now
+    dw::device::SideOrder m_sides;           // how the file is laid out now
     bool m_convert = false;       // rewrite the file in the other side order on the next commit
     Report m_openReport;
     QString m_stageError;         // the first staged write that failed during the current change

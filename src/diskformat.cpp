@@ -27,8 +27,8 @@ using dw::fs::Candidate;
 using dw::fs::ProbeContext;
 using dw::fs::Tier;
 
-static SideLayout geometry(quint32 trackBytes, quint32 cylinders, bool sequential, bool sideFirst) {
-    SideLayout s;
+static dw::device::SideOrder geometry(quint32 trackBytes, quint32 cylinders, bool sequential, bool sideFirst) {
+    dw::device::SideOrder s;
     s.trackBytes = trackBytes;
     s.cylinders = cylinders;
     s.sequential = sequential;
@@ -60,7 +60,7 @@ static Candidate candidate(const QString &fsId, const QString &name, Tier tier, 
 // ADFS subdirectories, DOS subdirectory "." / ".." entries and FAT chains (dw::fat::sideScore). Track 0 side 0 (boot
 // sector, ADFS map, DFS catalogue of side 0) is in the same place in both orders, so it proves nothing.
 
-static bool adfsConsistent(const QString &path, quint64 full, const SideLayout &sl) {
+static bool adfsConsistent(const QString &path, quint64 full, const dw::device::SideOrder &sl) {
     Image img;
     QString e;
     return img.open(path, &e, full, sl) && img.openReport().ok();

@@ -37,8 +37,8 @@
 #include <diskwrangler/fs/dfs/inf.h>
 #include <diskwrangler/fs/volume.h>
 #include "adfs.h"
-#include "dfs.h"
-#include "dosfs.h"
+#include <diskwrangler/fs/dfs/dfs.h>
+#include <diskwrangler/fs/fat/fat.h>
 #include "hostpolicy.h"
 
 enum Roles { RoleParent = Qt::UserRole, RoleName, RoleIsDir, RoleSector, RoleIsRoot, RoleSide };   // RoleSide: DFS rows
@@ -60,21 +60,5 @@ struct DragRef {
     bool isDir = false;
     int mount = -1;             // the kit's address of the row, filled in where the row is known (refsFor)
     dw::fs::Path path;
-};
-
-// A file or directory read out of one kind of disc, ready to be written into any other kind.
-struct XItem {
-    QString name;               // name in the source (ADFS name, DOS "NAME.EXT", DFS name without directory)
-    QChar dfsDir = '$';         // DFS directory letter (DFS sources only)
-    bool isDir = false;
-    QByteArray data;
-    quint32 load = 0, exec = 0;
-    bool hasAddr = false;       // load/exec are meaningful (ADFS and DFS sources)
-    bool locked = false;        // ADFS L / DFS locked / DOS read-only
-    quint8 adfsFlags = 0;       // Adfs::FlagR.. bits (ADFS sources)
-    int src = PaneAdfs;         // which kind of disc it came from
-    quint8 dosAttr = 0;         // FAT attribute bits (DOS sources)
-    QDateTime when;             // the date the source records, as shown in the tool (invalid if none); local, no zone
-    QVector<XItem> kids;
 };
 

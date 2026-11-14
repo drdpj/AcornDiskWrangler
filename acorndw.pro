@@ -18,7 +18,7 @@ unix:!macx {
     INSTALLS += target
 }
 SOURCES += src/cli/main.cpp src/cli/backend.cpp src/diskformat.cpp src/adfs.cpp src/adfsvolume.cpp src/newdisc.cpp src/hostpolicy.cpp
-HEADERS += src/cli/backend.h src/diskformat.h src/adfs.h src/adfsvolume.h src/newdisc.h src/hostpolicy.h src/dfs.h src/dosfs.h
+HEADERS += src/cli/backend.h src/diskformat.h src/adfs.h src/adfsvolume.h src/newdisc.h src/hostpolicy.h
 !exists(core/diskwrangler/cli/commands.cpp): error("core/ is empty or too old: run 'git submodule update --init'")
 INCLUDEPATH += core
 include(core/diskwrangler-dfs.pri)

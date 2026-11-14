@@ -194,21 +194,21 @@ int main(int argc, char **argv) {
             QString out;
             CHECK(cli(sidesOpt + cargs, &out), pr.name + " acorndw " + cargs.join(' ') + ": " + out);
             MainWindow w; w.resize(900, 600); w.show();
-            CHECK(w.openImage(src, force), pr.name + ": the window opens it");
+            CHECK(w.openFile(src, force), pr.name + ": the window opens it");
             pump();
             auto *doc = static_cast<Adfs::OpenedDisc *>(w.document());
             CHECK(stageHello(doc->disc(), [&](int m) { return w.writable(m); }, &err), pr.name + ": stage: " + err);
             w.refresh();
-            CHECK(w.image().dirty(), pr.name + ": a change is staged");
+            CHECK(w.document()->image().dirty(), pr.name + ": a change is staged");
             saveAs(w, gui, k.filter);
             CHECK(g_offered.size() == 4 && g_offered[0].startsWith("ImageDisk") && g_offered[3].startsWith("Raw image"),
                   pr.name + ": the four kinds offered: " + g_offered.join(" | "));
             CHECK(g_startFilter.startsWith("Raw image") && QFileInfo(g_suggested).fileName() == "src-" + k.opt + "-copy." + pr.suffix,
                   pr.name + ": starts on the image's own kind and name: " + g_startFilter + ", " + g_suggested + " (want src-" + k.opt + "-copy." + pr.suffix + ")");
             CHECK(slurp(gui) == slurp(cl) && !slurp(gui).isEmpty(), pr.name + " -> " + k.opt + ": the bytes acorndw convert gives");
-            CHECK(QFileInfo(w.image().path()).absoluteFilePath() == gui && w.image().containerKind() == k.kind && !w.image().dirty(),
-                  pr.name + " -> " + k.opt + ": the window shows the copy: " + w.image().path());
-            CHECK(w.writable(0) || w.info().kind == DiskInfo::AdfsDosHybrid, pr.name + " -> " + k.opt + ": the copy can be changed: " + w.readOnlyReason(0));
+            CHECK(QFileInfo(w.document()->image().path()).absoluteFilePath() == gui && w.document()->image().containerKind() == k.kind && !w.document()->image().dirty(),
+                  pr.name + " -> " + k.opt + ": the window shows the copy: " + w.document()->image().path());
+            CHECK(w.writable(0) || w.document()->info().kind == DiskInfo::AdfsDosHybrid, pr.name + " -> " + k.opt + ": the copy can be changed: " + w.readOnlyReason(0));
             CHECK(hasHello(doc->disc()), pr.name + " -> " + k.opt + ": the change is in the copy");
             CHECK(slurp(src) == slurp(base), pr.name + " -> " + k.opt + ": the original is untouched");
             CHECK(what(gui, k.kind == Kind::Raw ? force : -1) == kindOfBase, pr.name + " -> " + k.opt + ": detected as " + what(gui));
@@ -222,11 +222,11 @@ int main(int argc, char **argv) {
             const QString gui = dir + "/fromimd-gui-" + k.opt + "." + k.ext, cl = dir + "/fromimd-cli-" + k.opt + "." + k.ext;
             CHECK(cli({"convert", imd, cl, "--container=" + k.opt}), pr.name + ": acorndw convert from ImageDisk to " + k.opt);
             MainWindow w; w.show();
-            CHECK(w.openImage(imd), pr.name + ": the window opens the ImageDisk copy");
+            CHECK(w.openFile(imd), pr.name + ": the window opens the ImageDisk copy");
             saveAs(w, gui, k.filter);
             CHECK(g_startFilter.startsWith("ImageDisk") && QFileInfo(g_suggested).fileName() == "in-copy.imd", pr.name + ": starts on ImageDisk: " + g_suggested);
             CHECK(slurp(gui) == slurp(cl) && !slurp(gui).isEmpty(), pr.name + ": ImageDisk -> " + k.opt + ": the bytes acorndw convert gives");
-            CHECK(w.image().containerKind() == k.kind, pr.name + ": ImageDisk -> " + k.opt + ": the window shows the copy");
+            CHECK(w.document()->image().containerKind() == k.kind, pr.name + ": ImageDisk -> " + k.opt + ": the window shows the copy");
             ++saved;
         }
     }
@@ -258,7 +258,7 @@ int main(int argc, char **argv) {
     {
         const QString p = work + "/doc/hd.dat";
         MainWindow w; w.show();
-        CHECK(w.openImage(p), "the hard disc opens");
+        CHECK(w.openFile(p), "the hard disc opens");
         saveAs(w, QString(), QString());
         CHECK(g_offered == QStringList({"Disc image (*.dat)", "All files (*)"}), "a hard disc: the old dialog: " + g_offered.join(" | "));
         CHECK(QFileInfo(g_suggested).fileName() == "hd-copy.dat", "and its suggested name: " + g_suggested);
@@ -271,7 +271,7 @@ int main(int argc, char **argv) {
         NewDisc::create(p, NewDisc::AdfsL, "OWN", false, &err);
         const QByteArray before = slurp(p);
         MainWindow w; w.show();
-        CHECK(w.openImage(p), "opens");
+        CHECK(w.openFile(p), "opens");
         QString box;
         whenModal<QMessageBox>([&box](QMessageBox *m) {          // the file dialog's own "already exists": replace it
             if (QAbstractButton *yes = m->button(QMessageBox::Yes)) yes->click();
@@ -280,7 +280,7 @@ int main(int argc, char **argv) {
         saveAs(w, p, "ImageDisk");
         pump();
         CHECK(box == "Save as: That is the image's own file. Choose another name for the ImageDisk (.IMD).", "refused: " + box);
-        CHECK(slurp(p) == before && w.image().path() == p && w.image().containerKind() == Kind::Raw, "and nothing changed");
+        CHECK(slurp(p) == before && w.document()->image().path() == p && w.document()->image().containerKind() == Kind::Raw, "and nothing changed");
     }
 
     // TeleDisk: read-only; Save As offers only the writable kinds, starting on ImageDisk, and the copy can be changed
@@ -295,7 +295,7 @@ int main(int argc, char **argv) {
             MainWindow w; w.show();
             QString box;
             whenModal<QMessageBox>([&box](QMessageBox *m) { box = m->windowTitle(); m->accept(); }, "no read-only notice");
-            CHECK(w.openImage(fi.absoluteFilePath()), "opens " + fi.fileName());
+            CHECK(w.openFile(fi.absoluteFilePath()), "opens " + fi.fileName());
             pump();
             CHECK(box == "Read-only" && !w.writable(0), fi.fileName() + ": read-only, and says so: " + box);
             saveAs(w, gui, "ImageDisk");
@@ -303,7 +303,7 @@ int main(int argc, char **argv) {
             CHECK(g_startFilter.startsWith("ImageDisk") && QFileInfo(g_suggested).fileName() == fi.completeBaseName() + ".imd",
                   fi.fileName() + ": starts on ImageDisk, " + g_suggested);
             CHECK(slurp(gui) == slurp(cl) && !slurp(gui).isEmpty(), fi.fileName() + " -> imd: the bytes acorndw convert gives");
-            CHECK(w.image().containerKind() == Kind::Imd && w.image().editable(), fi.fileName() + ": the window shows the ImageDisk copy, writable");
+            CHECK(w.document()->image().containerKind() == Kind::Imd && w.document()->image().editable(), fi.fileName() + ": the window shows the ImageDisk copy, writable");
             ++td0s;
         }
     printf("%d copies saved from %d presets, %d TeleDisk files; %d checks\n", saved, int(presets.size()), td0s, checks);

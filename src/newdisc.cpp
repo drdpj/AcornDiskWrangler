@@ -27,9 +27,9 @@
 #include <diskwrangler/fs/presets.h>
 
 #include "adfs.h"
-#include "dfs.h"
+#include <diskwrangler/fs/dfs/dfs.h>
 #include "diskformat.h"
-#include "dosfs.h"
+#include <diskwrangler/fs/fat/fat.h>
 
 using namespace Adfs;
 
@@ -222,7 +222,7 @@ bool create(const QString &path, Type t, const QString &titleIn, bool sequential
     if (!ti.doubleSided) sequential = false;
 
     QByteArray img;                 // the disc in its own sector numbering
-    SideLayout sides;
+    dw::device::SideOrder sides;
     DiskInfo::Kind kind = DiskInfo::Unknown;
     dw::fat::Format fmt = dw::fat::FmtPc720;
     bool dosLabel = false;
@@ -287,7 +287,7 @@ bool create(const QString &path, Type t, const QString &titleIn, bool sequential
     }
     }
     sides.sequential = sequential;
-    QByteArray file = layoutFile(img, sides);
+    QByteArray file = dw::device::layoutFile(img, sides);
 
     QSaveFile out(path);
     if (!out.open(QIODevice::WriteOnly) || out.write(file) != file.size() || !out.commit()) {

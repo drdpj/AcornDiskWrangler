@@ -22,6 +22,7 @@
 // as <outdir>/<image file name>_<tab>.png, at a wide (1300px) and at the default window size, so
 // both the column stretch and the narrow-window case can be checked.
 #include "mainwindow.h"
+#include "windowhelp.h"
 #include <QApplication>
 #include <QDialog>
 #include <QDragEnterEvent>
@@ -37,7 +38,7 @@
 
 static void pump() { for (int i = 0; i < 5; ++i) QCoreApplication::processEvents(); }
 static void dropFiles(MainWindow &w, QTreeWidget *tree, const QStringList &paths) {
-    w.tabs()->setCurrentWidget(tree);
+    w.tabWidget()->setCurrentWidget(tree);
     QMimeData m; QList<QUrl> u; for (auto &p : paths) u << QUrl::fromLocalFile(p); m.setUrls(u);
     QPoint pt(5, tree->viewport()->height() - 5);
     QDragEnterEvent en(pt, Qt::CopyAction, &m, Qt::LeftButton, Qt::NoModifier); QApplication::sendEvent(tree->viewport(), &en);
@@ -46,7 +47,7 @@ static void dropFiles(MainWindow &w, QTreeWidget *tree, const QStringList &paths
     pump();
 }
 static void shoot(MainWindow &w, QWidget *tab, const QString &file) {
-    w.tabs()->setCurrentWidget(tab); pump();
+    w.tabWidget()->setCurrentWidget(tab); pump();
     w.grab().save(file); printf("wrote %s\n", qPrintable(file));
 }
 static QString slug(QString t) {
@@ -107,25 +108,25 @@ int main(int argc, char **argv) {
     if (argc < 3) { printf("usage: screenshot <outdir> <dsd> [<image> ...]\n"); return 2; }
     QString out = argv[1];
     MainWindow a; a.resize(1300, 560); a.show();
-    a.openImage(argv[2]); pump();
-    dropFiles(a, a.dfsTree(), {"/tmp/drop/proj/hello.txt", "/tmp/drop/proj/hello.txt.inf", "/tmp/drop/proj/prog.bas", "/tmp/drop/proj/prog.bas.inf", "/tmp/drop/proj/test.bas", "/tmp/drop/proj/sub"});
-    shoot(a, a.dfsTree(), out + "/dfs.png");
+    a.openFile(argv[2]); pump();
+    dropFiles(a, wt::dfsTree(a), {"/tmp/drop/proj/hello.txt", "/tmp/drop/proj/hello.txt.inf", "/tmp/drop/proj/prog.bas", "/tmp/drop/proj/prog.bas.inf", "/tmp/drop/proj/test.bas", "/tmp/drop/proj/sub"});
+    shoot(a, wt::dfsTree(a), out + "/dfs.png");
     // the dialogs, for the first image. A DFS disc's files are in the DFS tab, not tree() (the ADFS tab), so the
     // first file row is selected in the visible tab
     bool dialogsOk = true;
-    selectFirstFile(qobject_cast<QTreeWidget *>(a.tabs()->currentWidget()));
+    selectFirstFile(qobject_cast<QTreeWidget *>(a.tabWidget()->currentWidget()));
     for (const char *slot : {"newImageDialog", "editProperties", "viewSelected", "bootOptionDialog", "checkImage", "about"})
         dialogsOk = dialogShot(a, slot, out) && dialogsOk;
     for (int i = 3; i < argc; ++i) {
         MainWindow w; w.resize(1300, 560); w.show();
-        w.openImage(argv[i]); pump();
+        w.openFile(argv[i]); pump();
         QString base = out + "/" + QFileInfo(argv[i]).fileName();
-        for (int t = 0; t < w.tabs()->count(); ++t)
-            shoot(w, w.tabs()->widget(t), base + "_" + slug(w.tabs()->tabText(t)) + ".png");
+        for (int t = 0; t < w.tabWidget()->count(); ++t)
+            shoot(w, w.tabWidget()->widget(t), base + "_" + slug(w.tabWidget()->tabText(t)) + ".png");
         MainWindow n; n.show();                  // default size, clamped to the minimum width
-        n.openImage(argv[i]); pump();
-        for (int t = 0; t < n.tabs()->count(); ++t)
-            shoot(n, n.tabs()->widget(t), base + "_" + slug(n.tabs()->tabText(t)) + "_narrow.png");
+        n.openFile(argv[i]); pump();
+        for (int t = 0; t < n.tabWidget()->count(); ++t)
+            shoot(n, n.tabWidget()->widget(t), base + "_" + slug(n.tabWidget()->tabText(t)) + "_narrow.png");
     }
     return dialogsOk ? 0 : 1;
 }

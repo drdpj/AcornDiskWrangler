@@ -26,7 +26,6 @@
 #include "adfs.h"
 #include "adfsvolume.h"
 #include "diskformat.h"
-#include "dosfs.h"
 #include "mainwindow_p.h"
 #include "dragout.h"
 #include <functional>
@@ -86,37 +85,29 @@ private:
 // disc's name and boot option (volumeEditor) and Check disc (showCheck); and (step 5l) every import on the kit's import
 // session (importItems, with this program's hooks: its names, attributes, DFS letter rules, questions and summary),
 // host files read by the core's one host reader, and a DFS drive's Properties (and its letter mover) on the kit's
-// Properties hooks. Every public function and slot a test calls stays, forwarding where the kit now does the work.
+// Properties hooks. The tests reach the window through the kit (document(), pane(group), openFile), not through forwards.
 class MainWindow : public dw::ui::DiscWindow {
     Q_OBJECT
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
     static MainWindow *byId(quint64 id);
-    static QList<MainWindow *> windows();                // every main window, oldest first (the kit's DiscWindow::all())
 
-    dw::app::Document *document() const override { return const_cast<Adfs::OpenedDisc *>(&m_doc); }
+    // The document, typed: the image, the DFS discs of the two sides (dfs(side)), the FAT volume (dos()), the reading (info()).
+    Adfs::OpenedDisc *document() const override { return const_cast<Adfs::OpenedDisc *>(&m_doc); }
     dw::app::AppInfo appInfo() const override;
 
-    const DiskInfo &info() const { return m_doc.info(); }
-    DropTree *dfsTree() { return m_dfsTree; }            // both sides of a DFS disc
     QTreeWidgetItem *dfsRoot(int side) const;           // that side's root row ("Drive 0", "Drive 2"), or nullptr
-    dw::dfs::Disc &dfs(int side) { return m_doc.dfs(side); }
     int dfsSide() const;            // the DFS tab is showing: the side of the selection (or current row), else -1
     int dfsTargetSide(QTreeWidgetItem *it) const;       // the side a DFS row belongs to (0 for none)
     // Edit > Properties with several DFS files and a directory letter: see mainwindow_dfs.cpp
     int dfsMoveSelected(QChar letter, bool moveOthers, QStringList *clashes, QStringList *errors);
-    void refreshDfs();
-    bool exportRefs(int pane, const QVector<DragRef> &refs, QVector<XItem> *out, QString *err);
-    bool exportRefs(int pane, const QVector<DragRef> &refs, QVector<dw::TransferItem> *out, QString *err);   // a drag's items, for the kit
     bool paneEditable(int pane) const;
     bool isHardDisc() const;                    // an ADFS disc bigger than any floppy (over 640K)
     static MainWindow *openInNewWindow(const QString &path);   // nullptr (and no window) if it can't be opened
 
-    // The kit's open pipeline (openFile; step 5j). forceSequential: -1 = detect the side order (the format's usual
-    // order, interleaved, when the contents can't tell), 0 / 1 = read an Acorn double-sided image as interleaved /
-    // sequential.
-    bool openImage(const QString &path, int forceSequential = -1) { return openFile(path, forceSequential); }
+    // (Opening is the kit's openFile(path, forceSequential): -1 = detect the side order (the format's usual order,
+    // interleaved, when the contents can't tell), 0 / 1 = read an Acorn double-sided image as interleaved / sequential.)
     // Tools > Side order: re-read the image in the given order (nothing is written), or stage a rewrite of the file
     // in the other order (done on Save). confirm = false skips the explanation box (tests).
     bool readWithSideOrder(bool sequential);
@@ -124,15 +115,7 @@ public:
     // Boot option of the disc in the current pane (ADFS floppy or hard disc, or one DFS side): -1 if it has none.
     int bootOption() const;
     bool setBootOption(int opt);                     // staged like any edit; shows a message on failure
-    void importPaths(const QStringList &paths, quint32 dirSector);
-    Adfs::Image &image() { return m_doc.image(); }
-    DropTree *tree() { return m_tree; }
-    void refreshTree();                         // every pane (the kit's refresh)
-    void refreshDos();
     bool save() override;
-    dw::fat::Volume &dos() { return m_doc.dos(); }
-    DropTree *dosTree() { return m_dosTree; }
-    QTabWidget *tabs() { return tabWidget(); }
     bool dosEditable() const { return m_img.editable() && m_doc.dosOk(); }
     bool writeInfOnExtract() const;
     bool dosActive() const;
@@ -205,6 +188,11 @@ private slots:
     void onDropped(const QStringList &paths, QTreeWidgetItem *target);
 
 private:
+    friend class DropTree;
+    struct XItem;                                       // a disc's file as the import hooks read it (mainwindow_dfs.cpp)
+    bool exportRefs(int pane, const QVector<DragRef> &refs, QVector<dw::TransferItem> *out, QString *err);   // a drag's items, for the kit
+    void refreshDfs();
+    void importPaths(const QStringList &paths, quint32 dirSector);
     struct Sel {
         quint32 parent;
         QString name;

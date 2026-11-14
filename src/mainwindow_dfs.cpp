@@ -390,35 +390,6 @@ bool MainWindow::exportRefs(int pane, const QVector<DragRef> &refs, QVector<dw::
     return exportForCopy(items, out, err);
 }
 
-// The program's own kind of item (what a paste into a disc reads), made from the core's.
-static QVector<XItem> xitemsFrom(const QVector<dw::TransferItem> &t, const QVector<int> &panes) {
-    QVector<XItem> v;
-    for (int i = 0; i < t.size(); ++i) {
-        XItem x = RetroFiles::fromTransfer(t[i]);
-        x.when = t[i].when;
-        if (panes[i] == PaneDfs0 || panes[i] == PaneDfs1) {
-            x.src = panes[i];
-            if (x.dfsDir == '$' && t[i].name.size() >= 3 && t[i].name[1] == '.' && t[i].name[0] != '$') {   // a letter the disc shouldn't have
-                x.dfsDir = t[i].name[0];
-                x.name = t[i].name.mid(2);
-            }
-        }
-        v.append(x);
-    }
-    return v;
-}
-
-bool MainWindow::exportRefs(int pane, const QVector<DragRef> &refs, QVector<XItem> *out, QString *err) {
-    out->clear();
-    QVector<Item> items;
-    QVector<dw::TransferItem> t;
-    if (!refItems(pane, refs, &items, err) || !exportForCopy(items, &t, err)) return false;
-    QVector<int> panes;
-    for (const Item &i : items) panes << paneOf(i.mount);
-    *out = xitemsFrom(t, panes);
-    return true;
-}
-
 // ================================================ importing, on the kit's import session (step 5l)
 //
 // Every import ends in importAll, which runs the kit's DiscWindow::importItems (an ImportSession: the core's Importer,
@@ -429,11 +400,55 @@ bool MainWindow::exportRefs(int pane, const QVector<DragRef> &refs, QVector<XIte
 // of the item: hostPath set = a host file (its .inf, if any, read again for the numbers, as Add files always did),
 // otherwise a file of a disc, read as the old code read it (asX). m_run holds what one import needs besides.
 
-// The item as this program's copy code reads it: RetroFiles::fromTransfer, and for a DFS file copied in this program
-// (a drop from one of its windows, its clipboard) the letter put back when it is one the disc shouldn't have.
-XItem MainWindow::asX(const dw::TransferItem &t) const {
-    XItem x = RetroFiles::fromTransfer(t);
+// A file or directory of a disc as the import hooks read it: the attributes of whichever family the core's item has
+// ("acorn" for ADFS and DFS, "fat"), the DFS letter taken off its name.
+struct MainWindow::XItem {
+    QString name;               // name in the source (ADFS name, DOS "NAME.EXT", DFS name without directory)
+    QChar dfsDir = '$';         // DFS directory letter (DFS sources only)
+    bool isDir = false;
+    QByteArray data;
+    quint32 load = 0, exec = 0;
+    bool hasAddr = false;       // load/exec are meaningful (ADFS and DFS sources)
+    bool locked = false;        // ADFS L / DFS locked / DOS read-only
+    quint8 adfsFlags = 0;       // Adfs::FlagR.. bits (ADFS sources)
+    int src = PaneAdfs;         // which kind of disc it came from
+    quint8 dosAttr = 0;         // FAT attribute bits (DOS sources)
+    QDateTime when;             // the date the source records (invalid if none)
+};
+
+// The item as this program's copy code reads it, and for a DFS file copied in this program (a drop from one of its
+// windows, its clipboard) the letter put back when it is one the disc shouldn't have.
+MainWindow::XItem MainWindow::asX(const dw::TransferItem &t) const {
+    XItem x;
+    x.isDir = t.isDir;
+    x.name = t.name;
+    x.data = t.data;
     x.when = t.when;
+    const QString &fs = t.sourceFs;
+    x.src = fs == "adfs" ? PaneAdfs : fs == "dfs" ? PaneDfs0 : PaneDos;      // anything else: plain host files
+    const QJsonObject acorn = t.attrs.value("acorn");
+    const QString access = acorn["access"].toString();
+    if (x.src == PaneAdfs || x.src == PaneDfs0) {
+        x.hasAddr = !x.isDir && RetroFiles::parseHex(acorn["load"], &x.load) && RetroFiles::parseHex(acorn["exec"], &x.exec);
+        x.locked = access.contains('L');       // case-sensitive: lower case letters are public access
+        x.adfsFlags = quint8((access.contains('R') ? Adfs::FlagR : 0) | (access.contains('W') ? Adfs::FlagW : 0) |
+                             (access.contains('L') ? Adfs::FlagL : 0) | (access.contains('E') ? Adfs::FlagE : 0));
+        if (x.src == PaneDfs0) {                // "D.NAME": the directory is part of a DFS name
+            if (x.name.size() >= 3 && x.name[1] == '.' && dw::dfs::validDir(x.name[0])) {
+                x.dfsDir = x.name[0];
+                x.name = x.name.mid(2);
+            } else {
+                x.dfsDir = '$';
+            }
+        }
+    } else {
+        const QJsonObject fat = t.attrs.value("fat");
+        x.locked = fat["readonly"].toBool() || access.contains('L');
+        for (auto ns = t.attrs.begin(); ns != t.attrs.end(); ++ns)          // any namespace's "readonly" (e.g. cpm)
+            if (ns.value()["readonly"].toBool()) x.locked = true;
+        x.dosAttr = quint8((x.locked ? dw::fat::AttrR : 0) | (fat["hidden"].toBool() ? dw::fat::AttrH : 0) |
+                           (fat["system"].toBool() ? dw::fat::AttrS : 0) | (fat["archive"].toBool() ? dw::fat::AttrA : 0));
+    }
     if (m_run.internal && t.sourceFs == "dfs") {
         x.src = PaneDfs0;
         if (x.dfsDir == '$' && t.name.size() >= 3 && t.name[1] == '.' && t.name[0] != '$') {
@@ -736,7 +751,7 @@ dw::xfer::Conflict MainWindow::askReplace(int mount, const dw::fs::Path &target,
 
 // After an import (the kit has made the pane's rows again): the status line, and the problems in a box.
 void MainWindow::importSummary(const dw::xfer::ImportResult &r) {
-    if (m_run.refreshAll && m_run.pane != PaneAdfs) refreshTree();
+    if (m_run.refreshAll && m_run.pane != PaneAdfs) refresh();
     QStringList problems = m_run.problems;
     for (int i = m_run.readErrors; i < r.errors.size() - m_run.hooked; ++i) problems << r.errors[i].message;   // the session's own
     QString msg = QString("Added %1 file(s) and %2 folder(s)").arg(r.added).arg(r.dirs);
@@ -831,8 +846,8 @@ void MainWindow::copySelected() {
     static int serial = 0;
     clipItems() = items;
     clipToken() = QByteArray::number(qint64(QCoreApplication::applicationPid())) + ":" + QByteArray::number(++serial);
-    auto *m = new RetroFiles::DragOutMime([copied](QVector<dw::TransferItem> *out, QString *) { *out = copied; return true; },
-                                          writeInfOnExtract(), QFileInfo(m_img.path()).fileName(), pane);
+    auto *m = new dw::DragOutMime([copied](QVector<dw::TransferItem> *out, QString *) { *out = copied; return true; },
+                                  RetroFiles::dragSpec(writeInfOnExtract(), QFileInfo(m_img.path()).fileName(), pane));
     m->setForClipboard(true);
     m->setData(DW_MIME_CLIP, clipToken());
     QApplication::clipboard()->setMimeData(m);

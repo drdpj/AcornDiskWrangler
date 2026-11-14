@@ -24,8 +24,10 @@
 #include <diskwrangler/device/container.h>
 #include <diskwrangler/fs/detection.h>
 
-#include "dfs.h"
-#include "dosfs.h"
+#include <diskwrangler/fs/dfs/dfs.h>
+#include <diskwrangler/fs/fat/fat.h>
+
+#include "adfs.h"
 
 struct DiskInfo {
     enum Kind {
@@ -48,7 +50,7 @@ struct DiskInfo {
     // Acorn double-sided floppies (ADFS L, DFS .dsd, DOS Plus 800K / 640K): geometry and the side order of the FILE
     // (open the Image with this). PC FAT floppies are always interleaved and get no layout. For DFS the Image does
     // the side translation, so dfs.interleaved is always true once a layout is set.
-    Adfs::SideLayout sides;
+    dw::device::SideOrder sides;
     bool sidesConfirmed = true;     // false: both orders looked valid (e.g. a blank disc), so the usual order (interleaved) was used
     bool sidesForced = false;       // the order was given by the caller, not detected
     QStringList notes;

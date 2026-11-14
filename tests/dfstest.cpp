@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "adfs.h"
-#include "dfs.h"
+#include <diskwrangler/fs/dfs/dfs.h>
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QFile>
@@ -26,18 +26,18 @@ static int fails=0;
 #define CHECK(c) do{ if(!(c)){printf("FAIL line %d: %s\n",__LINE__,#c);++fails;} }while(0)
 static QByteArray rnd(int n,int seed){ QByteArray b(n,0); quint32 s=seed*2654435761u+1; for(int i=0;i<n;i++){ s=s*1664525u+1013904223u; b[i]=char(s>>24);} return b; }
 static void dump(const Report&r){ for(auto&s:r.errors) printf("  ERR  %s\n",qPrintable(s)); for(auto&s:r.warnings) printf("  WARN %s\n",qPrintable(s)); for(auto&s:r.info) printf("  INFO %s\n",qPrintable(s)); }
-static void listing(Dfs::Disc& d){
-    for(const Dfs::File& f: d.files()){ QByteArray b; QString e; d.readFile(f,&b,&e);
+static void listing(dw::dfs::Disc& d){
+    for(const dw::dfs::File& f: d.files()){ QByteArray b; QString e; d.readFile(f,&b,&e);
         printf("LIST %d %c.%s %u %u %u %u %d %s\n",d.side(),f.dir.toLatin1(),qPrintable(f.name),f.start,f.length,f.load,f.exec,f.locked,qPrintable(QCryptographicHash::hash(b,QCryptographicHash::Sha1).toHex())); }
 }
 int main(int argc,char**argv){
     QCoreApplication app(argc,argv);
     QString path=argv[1]; bool dsd=QString(argv[2])=="dsd"; quint32 sec=atoi(argv[3]);   // sectors per side
     quint64 full = quint64(sec)*256*(dsd?2:1);
-    Dfs::Layout lay; lay.doubleSided=dsd; lay.interleaved=true; lay.sectorsPerSide=sec;
+    dw::dfs::Layout lay; lay.doubleSided=dsd; lay.interleaved=true; lay.sectorsPerSide=sec;
     Image img; QString err; CHECK(img.openRaw(path,full,&err)); CHECK(img.editable());
     printf("file size %llu full %llu needsPadding=%d\n",(unsigned long long)img.fileSize(),(unsigned long long)img.fullSize(),img.needsPadding());
-    Dfs::Disc d0,d1; CHECK(d0.attach(&img,0,lay,&err)); if(dsd) CHECK(d1.attach(&img,1,lay,&err));
+    dw::dfs::Disc d0,d1; CHECK(d0.attach(&img,0,lay,&err)); if(dsd) CHECK(d1.attach(&img,1,lay,&err));
     printf("title0='%s' sectors=%u free=%u\n",qPrintable(d0.title()),d0.sectors(),d0.freeSectors());
     CHECK(d0.check().ok());
     CHECK(d0.addFile('$',"BOOT",rnd(300,1),0x1900,0x8023,false,false,&err));
@@ -60,7 +60,7 @@ int main(int argc,char**argv){
     CHECK(img.commit(&err,false,nullptr)); printf("commit: %s\n",qPrintable(err));
     CHECK(QFile(path).size()==qint64(full)); CHECK(!img.needsPadding());
     img.close();
-    CHECK(img.openRaw(path,full,&err)); Dfs::Disc e0,e1; CHECK(e0.attach(&img,0,lay,&err)); CHECK(e0.check().ok()); listing(e0);
+    CHECK(img.openRaw(path,full,&err)); dw::dfs::Disc e0,e1; CHECK(e0.attach(&img,0,lay,&err)); CHECK(e0.check().ok()); listing(e0);
     if(dsd){ CHECK(e1.attach(&img,1,lay,&err)); CHECK(e1.check().ok()); listing(e1); printf("title1='%s'\n",qPrintable(e1.title())); }
     printf("title0='%s'\n",qPrintable(e0.title()));
     printf("%s (%d failures)\n",fails?"FAILED":"ALL OK",fails); return fails?1:0;

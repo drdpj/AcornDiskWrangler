@@ -31,7 +31,7 @@ if(APPLE)                      # the .app's icon (Finder, Dock before it starts)
     set_source_files_properties(${ACORNDISKWRANGLER_ICNS} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 endif()
 add_executable(acorndiskwrangler MACOSX_BUNDLE ${ACORNDISKWRANGLER_RC} ${ACORNDISKWRANGLER_ICNS} src/main.cpp src/licences.qrc src/mainwindow.cpp src/mainwindow_dos.cpp src/mainwindow_dfs.cpp src/diskformat.cpp src/viewer.cpp src/viewtext.cpp src/adfs.cpp src/adfsvolume.cpp src/icon.cpp src/newdisc.cpp src/dragout.cpp src/hostpolicy.cpp
-    src/icon.h src/mainwindow.h src/mainwindow_p.h src/viewer.h src/viewtext.h src/dosfs.h src/dfs.h src/diskformat.h src/adfs.h src/adfsvolume.h src/newdisc.h src/dragout.h src/hostpolicy.h)
+    src/icon.h src/mainwindow.h src/mainwindow_p.h src/viewer.h src/viewtext.h src/diskformat.h src/adfs.h src/adfsvolume.h src/newdisc.h src/dragout.h src/hostpolicy.h)
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/licences-bundled.qrc)   # a release build's library licences (ci/)
     target_sources(acorndiskwrangler PRIVATE licences-bundled.qrc)
 endif()
@@ -48,7 +48,7 @@ set_target_properties(acorndiskwrangler PROPERTIES
 install(TARGETS acorndiskwrangler RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} BUNDLE DESTINATION .)
 # acorndw: the command-line program (QtCore only; no window, no display). Built beside the GUI program.
 add_executable(acorndw src/cli/main.cpp src/cli/backend.cpp src/diskformat.cpp src/adfs.cpp src/adfsvolume.cpp src/newdisc.cpp src/hostpolicy.cpp
-    src/cli/backend.h src/diskformat.h src/adfs.h src/adfsvolume.h src/newdisc.h src/hostpolicy.h src/dfs.h src/dosfs.h)
+    src/cli/backend.h src/diskformat.h src/adfs.h src/adfsvolume.h src/newdisc.h src/hostpolicy.h)
 target_compile_definitions(acorndw PRIVATE APP_VERSION="${APP_VERSION}")
 target_link_libraries(acorndw DiskWrangler::Cli DiskWrangler::Dfs DiskWrangler::Fat Qt${QT_VERSION_MAJOR}::Core)
 if(WIN32)

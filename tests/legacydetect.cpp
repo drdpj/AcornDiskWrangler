@@ -42,8 +42,8 @@ static QString kb(quint64 bytes) {
 }
 
 
-static SideLayout geometry(quint32 trackBytes, quint32 cylinders, bool sequential, bool sideFirst) {
-    SideLayout s;
+static dw::device::SideOrder geometry(quint32 trackBytes, quint32 cylinders, bool sequential, bool sideFirst) {
+    dw::device::SideOrder s;
     s.trackBytes = trackBytes;
     s.cylinders = cylinders;
     s.sequential = sequential;
@@ -56,7 +56,7 @@ static SideLayout geometry(quint32 trackBytes, quint32 cylinders, bool sequentia
 // line up: ADFS subdirectories, DOS subdirectory "." / ".." entries and FAT chains. Track 0 side 0 (boot sector,
 // ADFS map, DFS catalogue of side 0) is in the same place in both orders, so it proves nothing.
 
-static bool adfsConsistent(const QString &path, quint64 full, const SideLayout &sl) {
+static bool adfsConsistent(const QString &path, quint64 full, const dw::device::SideOrder &sl) {
     Image img;
     QString e;
     return img.open(path, &e, full, sl) && img.openReport().ok();
@@ -66,20 +66,20 @@ static bool adfsConsistent(const QString &path, quint64 full, const SideLayout &
 // in the FAT but in no file). The FAT itself is on track 0 in every format, so in the wrong order it still says
 // what is in use while the directories that should account for it read as garbage or as empty (a 1.44M disc's
 // root directory is entirely on side 1 of cylinder 0). fmt < 0: geometry from the boot sector BPB.
-static int dosScore(const QString &path, quint64 full, const SideLayout &sl, int fmt) {
+static int dosScore(const QString &path, quint64 full, const dw::device::SideOrder &sl, int fmt) {
     Image img;
     QString e;
     if (!img.openRaw(path, full, &e, sl)) return -1;
-    Dos::Volume v;
-    bool ok = fmt < 0 ? v.attach(&img, 0, quint32(full), &e) : v.attachFormat(&img, 0, quint32(full), Dos::Format(fmt), &e);
+    dw::fat::Volume v;
+    bool ok = fmt < 0 ? v.attach(&img, 0, quint32(full), &e) : v.attachFormat(&img, 0, quint32(full), dw::fat::Format(fmt), &e);
     if (!ok || !v.check().ok()) return -1;
     std::function<bool(quint32, int)> walk = [&](quint32 dir, int depth) -> bool {
         if (depth > 16) return true;
-        QVector<Dos::DEntry> L;
+        QVector<dw::fat::DEntry> L;
         if (!v.listDir(dir, &L, &e)) return false;
-        for (const Dos::DEntry &x : L) {
+        for (const dw::fat::DEntry &x : L) {
             if (!x.isDir() || x.name == "." || x.name == "..") continue;
-            QVector<Dos::DEntry> C;
+            QVector<dw::fat::DEntry> C;
             if (!v.listDir(x.cluster, &C, &e)) return false;
             if (C.size() < 2 || C[0].name != "." || !C[0].isDir() || C[0].cluster != x.cluster ||
                 C[1].name != ".." || !C[1].isDir() || C[1].cluster != dir)
@@ -159,7 +159,7 @@ static DiskInfo detectIn(const dw::device::Container &f, const QString &path, in
             // map, so don't test that.) The FAT must start with its media signature: an all-zero area would otherwise
             // "validate" as an empty DOS volume and turn every blank ADFS L floppy into a hybrid. DOS Plus puts its FAT
             // at logical sector 16 = side 0, cylinder 1: file track 2 if interleaved, file track 1 if sequential.
-            Dos::Params hp = Dos::Volume::standard(Dos::FmtAcorn640);
+            dw::fat::Params hp = dw::fat::Volume::standard(dw::fat::FmtAcorn640);
             auto fatSig = [&](quint64 off) {
                 QByteArray s = rdAt(f, off, 3);
                 return quint8(s[0]) == hp.media && quint8(s[1]) == 0xFF && quint8(s[2]) == 0xFF;
@@ -168,11 +168,11 @@ static DiskInfo detectIn(const dw::device::Container &f, const QString &path, in
             if (size == 655360)
                 for (int sq = 0; sq < 2; ++sq)
                     if ((force < 0 || force == sq) && fatSig(sq ? 4096 : 8192))
-                        hyb[sq] = dosScore(path, 655360, geometry(4096, 80, sq, true), Dos::FmtAcorn640) >= 0;
+                        hyb[sq] = dosScore(path, 655360, geometry(4096, 80, sq, true), dw::fat::FmtAcorn640) >= 0;
             if (hyb[0] || hyb[1]) {
                 info.kind = DiskInfo::AdfsDosHybrid;
                 info.description = "Acorn 640K hybrid (ADFS catalogue + DOS Plus FAT)";
-                info.dosFormat = Dos::FmtAcorn640;
+                info.dosFormat = dw::fat::FmtAcorn640;
                 info.fullSize = 655360;
                 if (force >= 0) info.sides.sequential = force == 1;
                 else decide(info, hyb[0], hyb[1]);
@@ -206,18 +206,18 @@ static DiskInfo detectIn(const dw::device::Container &f, const QString &path, in
     auto dosSides = [&](quint64 full, int fmt) {
         if (!info.sides.doubleSided()) return;
         if (force >= 0) { info.sides.sequential = force == 1; return; }
-        SideLayout il = info.sides, sq = info.sides;
+        dw::device::SideOrder il = info.sides, sq = info.sides;
         il.sequential = false;
         sq.sequential = true;
         decideDos(info, dosScore(path, full, il, fmt), dosScore(path, full, sq, fmt));
     };
-    struct Std { quint64 size; Dos::Format fmt; const char *name; };
-    static const Std stds[] = {{368640, Dos::FmtPc360, "PC 360K FAT floppy"}, {737280, Dos::FmtPc720, "PC 720K FAT floppy"},
-                               {1228800, Dos::FmtPc1200, "PC 1.2M FAT floppy"}, {1474560, Dos::FmtPc1440, "PC 1.44M FAT floppy"}};
+    struct Std { quint64 size; dw::fat::Format fmt; const char *name; };
+    static const Std stds[] = {{368640, dw::fat::FmtPc360, "PC 360K FAT floppy"}, {737280, dw::fat::FmtPc720, "PC 720K FAT floppy"},
+                               {1228800, dw::fat::FmtPc1200, "PC 1.2M FAT floppy"}, {1474560, dw::fat::FmtPc1440, "PC 1.44M FAT floppy"}};
 
     // ---- PC FAT: boot sector BPB
-    Dos::Params p;
-    if (Dos::Volume::readBpb(s01, &p) && Dos::Volume::plausible(p) && quint64(p.total) * p.bps <= 64ull * 1024 * 1024 &&
+    dw::fat::Params p;
+    if (dw::fat::Volume::readBpb(s01, &p) && dw::fat::Volume::plausible(p) && quint64(p.total) * p.bps <= 64ull * 1024 * 1024 &&
         quint8(s01[0]) != 0) {
         info.kind = DiskInfo::DosPc;
         info.fullSize = qMax(size, quint64(p.total) * p.bps);
@@ -233,7 +233,7 @@ static DiskInfo detectIn(const dw::device::Container &f, const QString &path, in
     for (const Std &s : stds) {
         if (size < s.size) continue;
         QByteArray fat = rdAt(f, 512, 3);
-        if (size == s.size && quint8(fat[0]) == Dos::Volume::standard(s.fmt).media && quint8(fat[1]) == 0xFF && quint8(fat[2]) == 0xFF) {
+        if (size == s.size && quint8(fat[0]) == dw::fat::Volume::standard(s.fmt).media && quint8(fat[1]) == 0xFF && quint8(fat[2]) == 0xFF) {
             info.kind = DiskInfo::DosPc;
             info.dosFormat = s.fmt;
             info.dosFromTable = true;
@@ -248,11 +248,11 @@ static DiskInfo detectIn(const dw::device::Container &f, const QString &path, in
         QByteArray fat = rdAt(f, 0, 3);
         if (quint8(fat[0]) == 0xFD && quint8(fat[1]) == 0xFF && quint8(fat[2]) == 0xFF) {
             info.kind = DiskInfo::DosAcorn800;
-            info.dosFormat = Dos::FmtAcorn800;
+            info.dosFormat = dw::fat::FmtAcorn800;
             info.dosFromTable = true;
             info.description = "Acorn DOS Plus 800K floppy";
             info.sides = geometry(5120, 80, false, false);      // numbered sector, side, track
-            dosSides(819200, int(Dos::FmtAcorn800));
+            dosSides(819200, int(dw::fat::FmtAcorn800));
             describeSides(info);
             return info;
         }
@@ -282,8 +282,8 @@ static DiskInfo detectIn(const dw::device::Container &f, const QString &path, in
     // A Watford 62-file disc may lower the first catalogue's disc size (see docs/disc-formats.md): its true size,
     // which places side 1 of a sequential image, is the larger of the two catalogues' claims.
     quint32 sec = 0;
-    bool watford = Dfs::watfordCatalogue(rdAt(f, 0, 1024), &sec);
-    if (watford || Dfs::plausibleCatalogue(rdAt(f, 0, 256), rdAt(f, 256, 256), &sec)) {
+    bool watford = dw::dfs::watfordCatalogue(rdAt(f, 0, 1024), &sec);
+    if (watford || dw::dfs::plausibleCatalogue(rdAt(f, 0, 256), rdAt(f, 256, 256), &sec)) {
         // Acorn's CP/M writes a catalogue holding one locked file, $.CPMDISC, from sector 2 to the end of side 0, so
         // that DFS leaves the disc alone (seen on a real Acorn Z80 disc). The disc is CP/M: editing it as DFS (or
         // writing on side 1, which has no catalogue) would destroy it, so it is not opened here.
@@ -294,9 +294,9 @@ static DiskInfo detectIn(const dw::device::Container &f, const QString &path, in
             return info;
         }
         int hint = suffix == "dsd" ? 2 : (suffix == "ssd" ? 1 : 0);
-        bool il = Dfs::plausibleCatalogue(rdAt(f, 10 * 256, 256), rdAt(f, 11 * 256, 256), nullptr);
+        bool il = dw::dfs::plausibleCatalogue(rdAt(f, 10 * 256, 256), rdAt(f, 11 * 256, 256), nullptr);
         bool seq = size >= quint64(sec) * 256 + 512 &&
-                   Dfs::plausibleCatalogue(rdAt(f, quint64(sec) * 256, 256), rdAt(f, quint64(sec) * 256 + 256, 256), nullptr);
+                   dw::dfs::plausibleCatalogue(rdAt(f, quint64(sec) * 256, 256), rdAt(f, quint64(sec) * 256 + 256, 256), nullptr);
         bool dsd = hint == 2 || (hint == 0 && (il || seq) && size > quint64(sec) * 256);
         info.kind = DiskInfo::Dfs;
         info.dfs.sectorsPerSide = sec;

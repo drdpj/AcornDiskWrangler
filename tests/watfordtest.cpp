@@ -22,7 +22,7 @@
 // leaves it byte-identical and that edits keep every other file and the disc's own conventions. The independent
 // reader for these discs is tests/sidecheck.py (sidetest makes every Watford type too).
 #include "adfs.h"
-#include "dfs.h"
+#include <diskwrangler/fs/dfs/dfs.h>
 #include "diskformat.h"
 #include "newdisc.h"
 #include <QCoreApplication>
@@ -37,7 +37,7 @@ static QByteArray rnd(int n, int seed) { QByteArray b(n, 0); quint32 s = seed * 
 static QByteArray slurp(const QString &p) { QFile f(p); f.open(QIODevice::ReadOnly); return f.readAll(); }
 static void spit(const QString &p, const QByteArray &b) { QFile f(p); f.open(QIODevice::WriteOnly); f.write(b); }
 
-struct Opened { DiskInfo info; Image img; Dfs::Disc d[2]; bool ok = false; };
+struct Opened { DiskInfo info; Image img; dw::dfs::Disc d[2]; bool ok = false; };
 static bool openIt(Opened &o, const QString &path) {
     o.info = detectDisk(path);
     QString e;
@@ -51,7 +51,7 @@ static Files contents(Opened &o) {
     Files m;
     for (int s = 0; s < 2; ++s) {
         if (!o.d[s].attached()) continue;
-        for (const Dfs::File &f : o.d[s].files()) {
+        for (const dw::dfs::File &f : o.d[s].files()) {
             QByteArray b; QString e; CHECK(o.d[s].readFile(f, &b, &e));
             m[QString("%1:%2 %3 %4 %5").arg(s).arg(f.fullName()).arg(f.load, 0, 16).arg(f.exec, 0, 16).arg(int(f.locked))] = b;
         }
@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
         quint32 sec = (t == NewDisc::WatSs40 || t == NewDisc::WatDs40) ? 400 : 800;
         int sides = ti.doubleSided ? 2 : 1;
         for (int s = 0; s < sides; ++s) {
-            Dfs::Disc &d = o.d[s];
+            dw::dfs::Disc &d = o.d[s];
             CHECK(d.watford()); CHECK(d.maxFiles() == 62); CHECK(d.title() == "WATFORD"); CHECK(d.sectors() == sec);
             CHECK(d.freeSectors() == sec - 4);          // sectors 0-3 are catalogue
             for (int i = 0; i < 62; ++i)
@@ -103,7 +103,7 @@ int main(int argc, char **argv) {
             CHECK(d.files().size() == 62);
             CHECK(!d.addFile('$', "ONEMORE", rnd(10, 1), 0, 0, false, false, &e)); printf("  63rd file: %s\n", qPrintable(e));
             CHECK(d.files().size() == 62);
-            for (const Dfs::File &f : d.files()) CHECK(f.start >= 4);
+            for (const dw::dfs::File &f : d.files()) CHECK(f.start >= 4);
             Report r = d.check(); for (auto &x : r.errors) printf("  ERR %s\n", qPrintable(x)); CHECK(r.ok() && r.warnings.isEmpty());
         }
         Files before = contents(o);
@@ -147,7 +147,7 @@ int main(int argc, char **argv) {
         QString p = out + "/place.ssd"; CHECK(NewDisc::create(p, NewDisc::WatSs80, "", false, &e));
         Opened o; CHECK(openIt(o, p));
         if (o.ok) {
-            Dfs::Disc &d = o.d[0];
+            dw::dfs::Disc &d = o.d[0];
             for (int i = 0; i < 40; ++i) CHECK(d.addFile('$', QString("P%1").arg(i), rnd(256, i), 0, 0, false, false, &e));   // P0 at 4 ... P39 at 43
             CHECK(o.img.commit(&e, false, nullptr));
             QByteArray t0 = track0(p, 0); CHECK(count1(t0) == 31); CHECK(count2(t0) == 9); watfordRules(t0, 800);
@@ -190,7 +190,7 @@ int main(int argc, char **argv) {
         QString p = out + "/move.ssd"; CHECK(NewDisc::create(p, NewDisc::WatSs80, "", false, &e));
         Opened o; CHECK(openIt(o, p));
         if (o.ok) {
-            Dfs::Disc &d = o.d[0];
+            dw::dfs::Disc &d = o.d[0];
             for (int i = 0; i < 62; ++i) CHECK(d.addFile('$', QString("M%1").arg(i), rnd(256, i), 0, 0, false, false, &e));   // M0 at 4 ... M61 at 65
             CHECK(d.remove('$', "M0", &e));            // first catalogue now 30
             CHECK(d.remove('$', "M50", &e)); CHECK(d.remove('$', "M51", &e));      // a two-sector hole at 54-55
@@ -265,7 +265,7 @@ int main(int argc, char **argv) {
                 QByteArray t0 = track0(p, 0);
                 quint32 was1 = cat1Size(t0), was3 = cat3Size(t0);
                 // rename a file of each catalogue, then add one and delete it again
-                const Dfs::File top = o2.d[0].files().first(), bottom = o2.d[0].files().last();
+                const dw::dfs::File top = o2.d[0].files().first(), bottom = o2.d[0].files().last();
                 CHECK(o2.d[0].modify(top.dir, top.name, top.dir, "RENAMED", top.locked, top.load, top.exec, &e));
                 CHECK(o2.d[0].modify(bottom.dir, bottom.name, bottom.dir, "RENAME2", bottom.locked, bottom.load, bottom.exec, &e));
                 CHECK(o2.d[0].modify(top.dir, "RENAMED", top.dir, top.name, top.locked, top.load, top.exec, &e));

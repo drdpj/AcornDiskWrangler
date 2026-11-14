@@ -25,6 +25,7 @@
 // It caught a bug the offscreen tests can't: on X11 the target fetches the files after QDrag::exec() returns, so the
 // drag must not be deleted when exec() returns.
 #include "mainwindow.h"
+#include "windowhelp.h"
 #include "newdisc.h"
 #include <QApplication>
 #include <QDragEnterEvent>
@@ -69,10 +70,10 @@ int main(int argc, char **argv) {
     for (int sc = 0; sc < 3; ++sc) {
         QString log = dir + QString("/log%1.txt").arg(sc); QFile::remove(log);
         QProcess ex; ex.start(argv[0], {"explorer", sc == 2 ? "0" : "1", log}); wait(1500);
-        MainWindow w; w.setGeometry(20, 50, 600, 400); w.show(); w.openImage(adl); wait(800);
-        QTreeWidgetItem *it = findItemNamed(w.tree(), "Elite"); w.tree()->setCurrentItem(it); it->setSelected(true);
-        QPoint p = w.tree()->viewport()->mapToGlobal(w.tree()->visualItemRect(it).center());
-        QString msg; QObject::connect(w.tree(), &DropTree::dragOutFinished, [&](int f, int, const QStringList &) { msg = QString("\"Dragged out %1 file(s)\"").arg(f); });
+        MainWindow w; w.setGeometry(20, 50, 600, 400); w.show(); w.openFile(adl); wait(800);
+        QTreeWidgetItem *it = findItemNamed(wt::adfsTree(w), "Elite"); wt::adfsTree(w)->setCurrentItem(it); it->setSelected(true);
+        QPoint p = wt::adfsTree(w)->viewport()->mapToGlobal(wt::adfsTree(w)->visualItemRect(it).center());
+        QString msg; QObject::connect(wt::adfsTree(w), &DropTree::dragOutFinished, [&](int f, int, const QStringList &) { msg = QString("\"Dragged out %1 file(s)\"").arg(f); });
         // press on the row and move the real pointer: the tree starts the drag itself, as for a person
         QString path = QString("xdotool mousemove %1 %2 mousedown 1; sleep 0.3; xdotool mousemove %3 %4; sleep 0.3; ").arg(p.x()).arg(p.y()).arg(p.x() + 30).arg(p.y() + 5) +
                        "xdotool mousemove 850 200; sleep 0.5; xdotool mousemove 860 210; sleep 0.5; " +

@@ -58,12 +58,12 @@ int main(int argc, char *argv[]) {
     for (int i = 1; i < argc; ++i) {
         QString p = QString::fromLocal8Bit(argv[i]);
         if (i == 1) {
-            w.openImage(p);
+            w.openFile(p);
         } else {                       // further images each get their own window
             auto *x = new MainWindow;
             x->setAttribute(Qt::WA_DeleteOnClose);
             x->show();
-            x->openImage(p);
+            x->openFile(p);
         }
     }
     return app.exec();

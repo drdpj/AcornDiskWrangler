@@ -28,10 +28,11 @@
 // a made-up DOSBOOT file is used. Also drives MainWindow (offscreen): the usual order for a blank disc (nothing is
 // remembered), Read as, Convert + Save, and PC floppies having no side order.
 #include "mainwindow.h"
+#include "windowhelp.h"
 #include "adfs.h"
-#include "dfs.h"
+#include <diskwrangler/fs/dfs/dfs.h>
 #include "diskformat.h"
-#include "dosfs.h"
+#include <diskwrangler/fs/fat/fat.h>
 #include "newdisc.h"
 #include <QApplication>
 #include <QDir>
@@ -57,7 +58,7 @@ static void spit(const QString &p, const QByteArray &d){ QDir().mkpath(QFileInfo
 typedef QMap<QString, QByteArray> Files;
 
 struct Opened {
-    Image img; DiskInfo info; Dos::Volume dos; Dfs::Disc dfs[2]; bool ok = false; QString err;
+    Image img; DiskInfo info; dw::fat::Volume dos; dw::dfs::Disc dfs[2]; bool ok = false; QString err;
 };
 // open the way MainWindow does; force = -1 detect, 0/1 = read as interleaved/sequential
 static bool openAs(Opened &o, const QString &path, int force = -1) {
@@ -68,8 +69,8 @@ static bool openAs(Opened &o, const QString &path, int force = -1) {
     if (!o.ok) return false;
     quint32 len = quint32(o.info.fullSize);
     switch (o.info.kind) {
-    case DiskInfo::AdfsDosHybrid: o.img.setAdfsLocked(true); o.ok = o.dos.attachFormat(&o.img, 0, len, Dos::FmtAcorn640, &o.err); break;
-    case DiskInfo::DosAcorn800: o.ok = o.dos.attachFormat(&o.img, 0, len, Dos::FmtAcorn800, &o.err); break;
+    case DiskInfo::AdfsDosHybrid: o.img.setAdfsLocked(true); o.ok = o.dos.attachFormat(&o.img, 0, len, dw::fat::FmtAcorn640, &o.err); break;
+    case DiskInfo::DosAcorn800: o.ok = o.dos.attachFormat(&o.img, 0, len, dw::fat::FmtAcorn800, &o.err); break;
     case DiskInfo::DosPc: o.ok = o.info.dosFromTable ? o.dos.attachFormat(&o.img, 0, len, o.info.dosFormat, &o.err) : o.dos.attach(&o.img, 0, len, &o.err); break;
     case DiskInfo::Dfs:
         for (int s = 0; s < (o.info.dfs.doubleSided ? 2 : 1); ++s) o.ok = o.ok && o.dfs[s].attach(&o.img, s, o.info.dfs, &o.err);
@@ -96,8 +97,8 @@ static bool readAll(Opened &o, Files *out) {
     }
     if (o.dos.attached()) {
         std::function<void(quint32, QString, int)> walk = [&](quint32 cl, QString path, int depth) {
-            QVector<Dos::DEntry> L; if (depth > 10 || !o.dos.listDir(cl, &L, &e)) { good = false; return; }
-            for (const Dos::DEntry &x : L) {
+            QVector<dw::fat::DEntry> L; if (depth > 10 || !o.dos.listDir(cl, &L, &e)) { good = false; return; }
+            for (const dw::fat::DEntry &x : L) {
                 if (x.name == "." || x.name == "..") continue;
                 if (x.isDir()) { walk(x.cluster, path + "\\" + x.name, depth + 1); continue; }
                 QByteArray b; if (!o.dos.readFile(x, &b, &e)) { good = false; continue; }
@@ -108,7 +109,7 @@ static bool readAll(Opened &o, Files *out) {
     }
     for (int s = 0; s < 2; ++s)
         if (o.dfs[s].attached())
-            for (const Dfs::File &f : o.dfs[s].files()) {
+            for (const dw::dfs::File &f : o.dfs[s].files()) {
                 QByteArray b; if (!o.dfs[s].readFile(f, &b, &e)) { good = false; continue; }
                 (*out)[QString("dfs%1:").arg(s) + f.fullName()] = b;
             }
@@ -184,7 +185,7 @@ static void roundTrip(const QString &path, const Files &want, const char *what) 
     CHECK(convert(path, !seq));
     QByteArray after = slurp(path);
     CHECK(after.size() == before.size());
-    CHECK(after == (seq ? reorderSides(before, d0.sides, false) : reorderSides(before, d0.sides, true)));
+    CHECK(after == (seq ? dw::device::reorderSides(before, d0.sides, false) : dw::device::reorderSides(before, d0.sides, true)));
     DiskInfo d1 = detectDisk(path);
     printf("  %s converted: %s | sides %s%s\n", what, qPrintable(d1.description), d1.sides.sequential ? "sequential" : "interleaved",
            d1.sidesConfirmed ? "" : " (unconfirmed)");
@@ -203,8 +204,8 @@ int main(int argc, char **argv) {
     QDir().mkpath(out);
 
     // ---- reorderSides is a pure permutation and its own inverse
-    { SideLayout l; l.trackBytes = 512; l.cylinders = 4; QByteArray x = rnd(4096, 99);
-      QByteArray s = reorderSides(x, l, true); CHECK(s != x); CHECK(reorderSides(s, l, false) == x);
+    { dw::device::SideOrder l; l.trackBytes = 512; l.cylinders = 4; QByteArray x = rnd(4096, 99);
+      QByteArray s = dw::device::reorderSides(x, l, true); CHECK(s != x); CHECK(dw::device::reorderSides(s, l, false) == x);
       CHECK(s.mid(0, 512) == x.mid(0, 512)); CHECK(s.mid(4 * 512, 512) == x.mid(512, 512)); }   // side 1 cyl 0 moves to file track 4
 
     // DOSBOOT for new 640K discs: from the real hybrid if given, else made up
@@ -320,7 +321,7 @@ int main(int argc, char **argv) {
         for (const QString &p : {a, b}) {
             DiskInfo d = detectDisk(p); CHECK(d.kind == DiskInfo::AdfsDosHybrid); CHECK(d.sidesConfirmed);
             Opened o; CHECK(openAs(o, p)); CHECK(o.img.openReport().ok()); CHECK(o.dos.check().ok()); CHECK(o.dos.label() == "NEWDISC");
-            QVector<Dos::DEntry> L; CHECK(o.dos.listDir(0, &L, &e)); CHECK(L.isEmpty());             // no DOS files
+            QVector<dw::fat::DEntry> L; CHECK(o.dos.listDir(0, &L, &e)); CHECK(L.isEmpty());             // no DOS files
         }
         CHECK(detectDisk(b).sides.sequential);
     }
@@ -352,26 +353,26 @@ int main(int argc, char **argv) {
         QString p = out + "/gui_blank800.img";
         QString e; CHECK(NewDisc::create(p, NewDisc::Acorn800, "", true, &e));
         CHECK(!detectDisk(p).sidesConfirmed);                    // blank FAT: can't be told
-        MainWindow w; CHECK(w.openImage(p)); CHECK(!w.image().sideLayout().sequential);      // usual order: interleaved
-        CHECK(w.readWithSideOrder(true)); CHECK(w.image().sideLayout().sequential);
-        { MainWindow again; CHECK(again.openImage(p)); CHECK(!again.image().sideLayout().sequential); }   // not remembered
+        MainWindow w; CHECK(w.openFile(p)); CHECK(!w.document()->image().sideLayout().sequential);      // usual order: interleaved
+        CHECK(w.readWithSideOrder(true)); CHECK(w.document()->image().sideLayout().sequential);
+        { MainWindow again; CHECK(again.openFile(p)); CHECK(!again.document()->image().sideLayout().sequential); }   // not remembered
         QByteArray before = slurp(p);
-        CHECK(w.convertSideOrder(false, false)); CHECK(w.image().dirty()); CHECK(w.image().convertPending());
-        w.image().revert(); CHECK(!w.image().dirty());            // revert drops it
+        CHECK(w.convertSideOrder(false, false)); CHECK(w.document()->image().dirty()); CHECK(w.document()->image().convertPending());
+        w.document()->image().revert(); CHECK(!w.document()->image().dirty());            // revert drops it
         CHECK(w.convertSideOrder(false, false)); CHECK(w.save());
-        CHECK(!w.image().dirty()); CHECK(!w.image().sideLayout().sequential);
-        CHECK(slurp(p) == reorderSides(before, w.image().sideLayout(), false));
+        CHECK(!w.document()->image().dirty()); CHECK(!w.document()->image().sideLayout().sequential);
+        CHECK(slurp(p) == dw::device::reorderSides(before, w.document()->image().sideLayout(), false));
         // a filled sequential ADFS L is detected as sequential
         QString q = out + "/gui_l.adl";
         CHECK(NewDisc::create(q, NewDisc::AdfsL, "GUI", true, &e)); fill(q, true, 4242);
-        MainWindow x; CHECK(x.openImage(q)); CHECK(x.image().sideLayout().sequential); CHECK(x.image().openReport().ok());
-        CHECK(x.tree()->topLevelItemCount() == 1);
+        MainWindow x; CHECK(x.openFile(q)); CHECK(x.document()->image().sideLayout().sequential); CHECK(x.document()->image().openReport().ok());
+        CHECK(wt::adfsTree(x)->topLevelItemCount() == 1);
         // PC floppies are always interleaved: no side order, nothing to convert, a "sequential" request is ignored
         QString pc = out + "/gui_pc.img";
         CHECK(NewDisc::create(pc, NewDisc::Pc1440, "", true, &e));
         CHECK(!detectDisk(pc).sides.doubleSided());
-        MainWindow y; CHECK(y.openImage(pc)); CHECK(!y.image().sideLayout().doubleSided());
-        CHECK(!y.convertSideOrder(true, false)); CHECK(!y.readWithSideOrder(true)); CHECK(!y.image().dirty());
+        MainWindow y; CHECK(y.openFile(pc)); CHECK(!y.document()->image().sideLayout().doubleSided());
+        CHECK(!y.convertSideOrder(true, false)); CHECK(!y.readWithSideOrder(true)); CHECK(!y.document()->image().dirty());
     }
     QSettings().clear();
     printf(fails ? "FAILED (%d failures)\n" : "ALL OK (%d failures)\n", fails);

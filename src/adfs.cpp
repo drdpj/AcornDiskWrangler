@@ -361,7 +361,7 @@ QByteArray makeBlankImage(quint32 totalSectors, const QString &title, bool allFr
 
 // ------------------------------------------------------------------ Image
 
-bool Image::openContainer(const QString &path, const SideLayout &sides, QString *err) {
+bool Image::openContainer(const QString &path, const dw::device::SideOrder &sides, QString *err) {
     close();
     if (!m_c.open(path, err)) return false;
     m_c.setRawPadding(0, 0);                    // a short raw file reads as zeros beyond its end
@@ -392,7 +392,7 @@ void Image::makeLinear() {
 
 quint64 Image::fileSize() const { return isRawFile() ? quint64(m_c.rawFileSize()) : quint64(m_c.storedSize()); }
 
-bool Image::open(const QString &path, QString *err, quint64 forceFullSize, const SideLayout &sides) {
+bool Image::open(const QString &path, QString *err, quint64 forceFullSize, const dw::device::SideOrder &sides) {
     if (!openContainer(path, sides, err)) return false;
     m_isAdfs = true;
     m_adfsLocked = false;
@@ -423,7 +423,7 @@ bool Image::open(const QString &path, QString *err, quint64 forceFullSize, const
     return true;
 }
 
-bool Image::openRaw(const QString &path, quint64 fullSize, QString *err, const SideLayout &sides) {
+bool Image::openRaw(const QString &path, quint64 fullSize, QString *err, const dw::device::SideOrder &sides) {
     if (!openContainer(path, sides, err)) return false;
     m_isAdfs = false;
     m_adfsLocked = false;
@@ -439,7 +439,7 @@ bool Image::openRaw(const QString &path, quint64 fullSize, QString *err, const S
 void Image::close() {
     m_lin = dw::device::Linear();
     m_c.close();
-    m_sides = SideLayout();
+    m_sides = dw::device::SideOrder();
     m_convert = false;
     m_map = FsMap();
     m_isAdfs = true;
@@ -897,11 +897,11 @@ bool Image::commit(QString *err, bool makeBackup, Report *post) {
     // Changing the side order: the whole disc (everything staged included) is laid out again in the other order and
     // staged over the file. Track 0 side 0 is first in both orders.
     Snapshot before = snapshot();
-    SideLayout after = m_sides;
+    dw::device::SideOrder after = m_sides;
     if (m_convert) {
         after.sequential = !m_sides.sequential;
         QByteArray disc = readSectors(0, quint32((m_fullSize + SectorSize - 1) / SectorSize));
-        QByteArray file = layoutFile(disc, after);
+        QByteArray file = dw::device::layoutFile(disc, after);
         file.truncate(int(m_fullSize));
         QString e;
         if (!m_c.writeStored(0, file, &e)) { restore(before); *err = "Could not change the side order: " + e + "\nNOTHING was written."; return false; }

@@ -173,12 +173,12 @@ QMimeData *DropTree::makeMime(const QList<QTreeWidgetItem *> &items) const {
     // the files themselves, for the host or another program: exported from the window when (if) they're asked for
     QPointer<MainWindow> win = MainWindow::byId(m_owner);
     int pane = m_pane;
-    RetroFiles::DragOutMime::Exporter exporter = [win, pane, refs](QVector<dw::TransferItem> *out, QString *err) {
+    dw::DragOutMime::Exporter exporter = [win, pane, refs](QVector<dw::TransferItem> *out, QString *err) {
         if (!win) { *err = "the disc's window was closed during the drag"; return false; }
         return win->exportRefs(pane, refs, out, err);
     };
-    auto *m = new RetroFiles::DragOutMime(exporter, win && win->writeInfOnExtract(),
-                                          win ? QFileInfo(win->image().path()).fileName() : QString(), m_pane);
+    auto *m = new dw::DragOutMime(exporter, RetroFiles::dragSpec(win && win->writeInfOnExtract(),
+                                  win ? QFileInfo(win->document()->image().path()).fileName() : QString(), m_pane));
     m->setData(DW_MIME_ITEMS, payload);
     m->setData(DW_MIME_SOURCE, sourceTag(m_owner, m_pane));
     m_lastDrag = m->state();
@@ -190,7 +190,7 @@ bool DropTree::acceptable(const QMimeData *m) const {
     if (fromThisProcess(m)) {                    // items from another tree (but not dropped back onto their own)
         if (m->data(DW_MIME_SOURCE) != sourceTag(m_owner, m_pane)) return true;
         MainWindow *w = MainWindow::byId(m_owner);  // within the DFS tree: from one side to the other
-        return w && (m_pane == PaneDfs0 || m_pane == PaneDfs1) && w->dfs(0).attached() && w->dfs(1).attached();
+        return w && (m_pane == PaneDfs0 || m_pane == PaneDfs1) && w->document()->dfs(0).attached() && w->document()->dfs(1).attached();
     }
     return m->hasFormat(RetroFiles::MimeType) || m->hasUrls();
 }
@@ -215,7 +215,7 @@ void DropTree::dropEvent(QDropEvent *e) {
         return;
     }
     MainWindow *win = MainWindow::byId(m_owner);
-    bool empty = win && !win->image().isOpen();  // an empty window opens dropped files, so it wants them as files
+    bool empty = win && !win->document()->image().isOpen();  // an empty window opens dropped files, so it wants them as files
     if (!empty && e->mimeData()->hasFormat(RetroFiles::MimeType)) {   // another copy of this program, or another tool
         QByteArray json = e->mimeData()->data(RetroFiles::MimeType);
         if (!json.isEmpty()) {
@@ -241,9 +241,10 @@ static QString hex8(quint32 v) { return QString("%1").arg(v, 8, 16, QChar('0')).
 
 // ================================================================== MainWindow
 
-QList<MainWindow *> MainWindow::windows() {
+// Every main window, oldest first (the kit's list of its windows, the ones that are this program's).
+static QList<MainWindow *> allWindows() {
     QList<MainWindow *> l;
-    for (dw::ui::DiscWindow *w : DiscWindow::all())
+    for (dw::ui::DiscWindow *w : dw::ui::DiscWindow::all())
         if (auto *m = qobject_cast<MainWindow *>(w)) l << m;
     return l;
 }
@@ -325,7 +326,7 @@ dw::ui::PaneLayout MainWindow::paneLayout(const QString &group) const {
 QString MainWindow::paneTitle(const QString &group) const {
     if (group == "ADFS") return m_img.adfsLocked() ? "ADFS (read-only)" : "ADFS";
     if (group == "DFS") return "DFS";
-    switch (info().kind) {
+    switch (m_doc.info().kind) {
     case DiskInfo::AdfsDosHybrid: return "DOS Plus (640K hybrid)";
     case DiskInfo::DosAcorn800: return "DOS Plus (800K)";
     case DiskInfo::DosPc: return "PC FAT";
@@ -564,13 +565,13 @@ bool MainWindow::openDocument(const QString &path, const dw::fs::Verdict &, cons
     QString err;
     if (!m_doc.open(path, info, &err)) {        // the document: the image and its mounts (an unknown disc as ADFS)
         QMessageBox::critical(this, "Cannot open image", err);
-        refreshTree(); updateUi();
+        refresh(); updateUi();
         return false;
     }
     m_opened = info;
     m_sidesHow = info.sides.doubleSided() ? sidesHow : QString();
     AppSettings().setValue("lastDir", QFileInfo(path).absolutePath());
-    refreshTree();
+    refresh();
     if (m_dos.attached()) {
         Report dr = m_dos.check();
         m_doc.setDosOk(dr.ok());
@@ -579,8 +580,8 @@ bool MainWindow::openDocument(const QString &path, const dw::fs::Verdict &, cons
                        "The DOS filesystem has structural errors, so it can be browsed but not changed.", dr, true);
     }
     for (int s = 0; s < 2; ++s)
-        if (dfs(s).attached()) {
-            Report dr = dfs(s).check();
+        if (m_doc.dfs(s).attached()) {
+            Report dr = m_doc.dfs(s).check();
             m_doc.setDfsOk(s, dr.ok());
             if (!dr.ok())
                 showReport(QString("DFS drive %1 has errors").arg(s * 2),
@@ -775,7 +776,7 @@ void MainWindow::saveAsDialog() {
         QMessageBox::warning(this, "Save as", "That is the image's own file. Choose another name for the " + dw::device::kindName(kind) + ".");
         return;
     }
-    for (MainWindow *w : windows())
+    for (MainWindow *w : allWindows())
         if (w != this && w->m_img.isOpen() && QFileInfo(w->m_img.path()).absoluteFilePath() == abs) {
             QMessageBox::warning(this, "Save as", "That file is open in another window."); return; }
     QString err;
@@ -791,7 +792,7 @@ void MainWindow::saveAsDialog() {
     if (!m_img.dirty() || !m_img.editable()) {          // nothing to write, or opened read-only: copy, then open the copy
         if (!QFile::exists(p) || QFile::remove(p)) QFile::copy(m_img.path(), p);
         QFile(p).setPermissions(QFile(p).permissions() | QFile::WriteOwner);
-        openImage(p);
+        openFile(p);
         return;
     }
     if (!m_img.moveToCopy(p, &err)) { QMessageBox::warning(this, "Save as", err); return; }
@@ -876,7 +877,7 @@ void MainWindow::newImageDialog() {
     if (path.isEmpty()) return;
     if (QFileInfo(path).suffix().isEmpty()) path += "." + ext;
     QString abs = QFileInfo(path).absoluteFilePath();
-    for (MainWindow *w : windows())
+    for (MainWindow *w : allWindows())
         if (w->m_img.isOpen() && QFileInfo(w->m_img.path()).absoluteFilePath() == abs) {
             QMessageBox::warning(this, "New disc image", "That file is open in another window. Close it first, or choose another name.");
             return;
@@ -901,10 +902,10 @@ bool MainWindow::save() {
     if (converting && !m_doc.convertPending()) m_sidesHow.clear();   // the file's side order changed (the document has it)
     if (!ok) {
         QMessageBox::critical(this, "Save failed", err);
-        refreshTree(); updateUi();
+        refresh(); updateUi();
         return false;
     }
-    refreshTree(); updateUi();
+    refresh(); updateUi();
     statusBar()->showMessage("Saved. Free space map and directories re-checked: OK.", 6000);
     return true;
 }
@@ -913,7 +914,7 @@ void MainWindow::revert() {
     if (!m_img.dirty()) return;
     if (QMessageBox::question(this, "Revert", "Discard all unsaved changes?") != QMessageBox::Yes) return;
     m_doc.revert();
-    refreshTree(); updateUi();
+    refresh(); updateUi();
 }
 
 void MainWindow::showReport(const QString &title, const QString &headline, const Report &r, bool warn) {
@@ -968,7 +969,7 @@ void MainWindow::showCheck(const dw::fs::Report &, const QVector<dw::fs::Report>
         r.info += dr.info;
     }
     for (int s = 0; s < 2; ++s)
-        if (dfs(s).attached()) {
+        if (m_doc.dfs(s).attached()) {
             const Report dr = of(s ? PaneDfs1 : PaneDfs0);
             for (const QString &e : dr.errors) r.errors << QString("DFS drive %1: %2").arg(s * 2).arg(e);
             for (const QString &e : dr.warnings) r.warnings << QString("DFS drive %1: %2").arg(s * 2).arg(e);
@@ -994,7 +995,6 @@ void MainWindow::refresh() {
     DiscWindow::refresh();
 }
 
-void MainWindow::refreshTree() { refresh(); }
 
 // After a change (Delete): an ADFS change can move or remove $.DOS.DRIVE_C, so every pane is made again; a DOS or DFS
 // change only its own pane, the others left as they are (their selection and current row too), as always.
@@ -1010,7 +1010,6 @@ void MainWindow::refreshChanged(const QVector<int> &mounts) {
     updateUi();
 }
 
-void MainWindow::refreshDos() { refreshPane(m_dosTree); }
 
 void MainWindow::refreshPane(DropTree *t) {
     clearRowCache();
@@ -1268,7 +1267,7 @@ void MainWindow::updateActions() {
     m_actRename->setEnabled(canEdit && !ct->selectedItems().isEmpty());
     m_actRenameVol->setEnabled(canEdit);
     m_actBootOpt->setEnabled(canEdit && !dosPane);
-    const Adfs::SideLayout &sl = m_img.sideLayout();
+    const dw::device::SideOrder &sl = m_img.sideLayout();
     bool twoSides = has && sl.doubleSided() && m_img.isRawFile();     // ImageDisk, DSK: each track says where it is
     m_actReadIl->setEnabled(twoSides);
     m_actReadSeq->setEnabled(twoSides);
@@ -1300,11 +1299,11 @@ QStringList MainWindow::statusVariants() const {
                      .arg(Adfs::bootOptionName(m_doc.dfs(k).bootOption()).mid(4));
     } else if (m_img.isAdfs()) {
         s = QString("%1 - %2 free of %3 (largest block %4), boot %5")
-                .arg(info().description.isEmpty() ? QString("ADFS") : info().description,
+                .arg(m_doc.info().description.isEmpty() ? QString("ADFS") : m_doc.info().description,
                      fmtSectors(m_img.freeSectors()), fmtSectors(m_img.totalSectors()), fmtSectors(m_img.largestFreeRun()))
                 .arg(Adfs::bootOptionName(m_img.bootOption()).mid(4));
     }
-    const Adfs::SideLayout &sl = m_img.sideLayout();
+    const dw::device::SideOrder &sl = m_img.sideLayout();
     if (sl.doubleSided() && m_img.isRawFile()) {
         s += QString("  -  sides %1").arg(sl.sequential ? "sequential" : "interleaved");
         if (m_img.convertPending()) s += QString(", %1 when saved").arg(sl.sequential ? "interleaved" : "sequential");
@@ -1332,14 +1331,14 @@ void MainWindow::onDropped(const QStringList &paths, QTreeWidgetItem *target) {
 }
 
 bool MainWindow::isHardDisc() const {
-    return m_img.isOpen() && info().kind == DiskInfo::Adfs && m_img.fullSize() > 655360;
+    return m_img.isOpen() && m_doc.info().kind == DiskInfo::Adfs && m_img.fullSize() > 655360;
 }
 
 MainWindow *MainWindow::openInNewWindow(const QString &path) {
     auto *w = new MainWindow;
     w->setAttribute(Qt::WA_DeleteOnClose);
     w->show();
-    if (w->openImage(path)) return w;
+    if (w->openFile(path)) return w;
     w->close();
     return nullptr;
 }
@@ -1420,7 +1419,7 @@ void MainWindow::addFolderDialog() {
 // program's .inf rule (acornHostRead, as acorndw put reads them), then the kit's import session (importAll).
 void MainWindow::importPaths(const QStringList &paths, quint32 dir) {
     if (!m_img.isOpen()) {
-        if (!paths.isEmpty()) openImage(paths.first());
+        if (!paths.isEmpty()) openFile(paths.first());
         return;
     }
     if (!m_img.editable()) {
@@ -1457,7 +1456,7 @@ void MainWindow::newDirectory() {
         QMessageBox::warning(this, "Cannot create directory", err);
         return;
     }
-    if (dos) refreshDos(); else refreshTree();
+    if (dos) refreshPane(m_dosTree); else refresh();
     updateUi();
 }
 

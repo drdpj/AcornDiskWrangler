@@ -188,11 +188,11 @@ int main(int argc, char **argv) {
         CHECK(openIt(o, p, &err), "open: " + err);
         CHECK(labels(o.disc()) == QStringList({"ADFS:adfs", "DOS:fat"}), labels(o.disc()).join(", "));
         auto *fv = static_cast<dw::fat::FsVolume *>(o.disc().volume(1));
-        QVector<Dos::DEntry> L;
+        QVector<dw::fat::DEntry> L;
         QVector<dw::fs::Entry> l;
         fv->fat()->listDir(0, &L, &err);
         int real = 0;
-        for (const Dos::DEntry &x : L) real += x.name != "." && x.name != ".." && (x.attr & 0x08) == 0;
+        for (const dw::fat::DEntry &x : L) real += x.name != "." && x.name != ".." && (x.attr & 0x08) == 0;
         CHECK(fv->list(Path(), &l, &err) && l.size() == real, QString("DRIVE_C's root: %1 entries").arg(l.size()));
         CHECK(o.disc().validateAll().ok(), "every mount checks out");
         const QString before = tree(o.disc().volume(0)) + tree(fv);

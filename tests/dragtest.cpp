@@ -25,11 +25,13 @@
 // cleanStale. The JSON and files of each drag are left in <outdir>/drag-* for tests/retrofilescheck.py.
 // Step 5l: the window and acorndw put place host files whose .inf names a DFS letter in the same directories.
 #include "mainwindow.h"
+#include "windowhelp.h"
 #include "dragout.h"
 #include "newdisc.h"
 #include "cli/backend.h"
 #include <diskwrangler/cli/cli.h>
 #include <diskwrangler/xfer/mime.h>
+#include <diskwrangler/xfer/retrofiles.h>
 #include <QApplication>
 #include <QCryptographicHash>
 #include <QDir>
@@ -102,13 +104,13 @@ static void dropPaths(QTreeWidget* tree,const QStringList& paths){
     for(int i=0;i<10;++i) pump();
 }
 static QList<MainWindow*> newWindows(const QList<MainWindow*>& before){
-    QList<MainWindow*> n; for(MainWindow* w:MainWindow::windows()) if(!before.contains(w)) n<<w; return n;
+    QList<MainWindow*> n; for(MainWindow* w:wt::windows()) if(!before.contains(w)) n<<w; return n;
 }
 static void closeAll(const QList<MainWindow*>& l){ for(MainWindow* w:l) w->close(); pump(); }
 static int dragDirs(){ QFileInfo p(RetroFiles::dragDirPrefix()); return QDir(p.absolutePath()).entryList({p.fileName()+"*"},QDir::Dirs|QDir::NoDotAndDotDot).size(); }
-static RetroFiles::DragOutMime* mimeFor(MainWindow& w, DropTree* t, QList<QTreeWidgetItem*> items){
-    w.tabs()->setCurrentWidget(t); pump();
-    return qobject_cast<RetroFiles::DragOutMime*>(t->makeMime(items));
+static dw::DragOutMime* mimeFor(MainWindow& w, DropTree* t, QList<QTreeWidgetItem*> items){
+    w.tabWidget()->setCurrentWidget(t); pump();
+    return qobject_cast<dw::DragOutMime*>(t->makeMime(items));
 }
 static QJsonObject jsonOf(QMimeData* m){ return QJsonDocument::fromJson(m->data(RetroFiles::MimeType)).object(); }
 static QJsonObject itemAt(const QJsonObject& j,const QString& path){ for(auto v:j["items"].toArray()) if(v.toObject()["path"].toString()==path) return v.toObject(); return QJsonObject(); }
@@ -160,18 +162,18 @@ int main(int argc,char**argv){
       CHECK(im.commit(&e,false,nullptr)); }
     QString dsd=out+"/src.dsd"; CHECK(NewDisc::create(dsd,NewDisc::DfsDs40,"",false,&e));
     QByteArray boot=rnd(300,6), aboot=rnd(1234,7);
-    { DiskInfo i=detectDisk(dsd); Image im; CHECK(im.openRaw(dsd,i.fullSize,&e,i.sides)); Dfs::Disc d; CHECK(d.attach(&im,0,i.dfs,&e));
+    { DiskInfo i=detectDisk(dsd); Image im; CHECK(im.openRaw(dsd,i.fullSize,&e,i.sides)); dw::dfs::Disc d; CHECK(d.attach(&im,0,i.dfs,&e));
       CHECK(d.addFile('$',"BOOT",boot,0x31900,0x38023,false,false,&e)); CHECK(d.addFile('A',"BOOT",aboot,0x1100,0x1200,true,false,&e)); CHECK(im.commit(&e,false,nullptr)); }
     QString pc=out+"/src.img"; CHECK(NewDisc::create(pc,NewDisc::Pc720,"",false,&e));
     QByteArray readme=rnd(4000,8), xbin=rnd(9000,9);
-    { Image im; CHECK(im.openRaw(pc,737280,&e)); Dos::Volume v; CHECK(v.attach(&im,0,737280,&e));
+    { Image im; CHECK(im.openRaw(pc,737280,&e)); dw::fat::Volume v; CHECK(v.attach(&im,0,737280,&e));
       CHECK(v.addFile(0,"README.TXT",readme,false,&e)); quint32 sub=0; CHECK(v.makeDir(0,"SUB",&e,&sub)); CHECK(v.addFile(sub,"X.BIN",xbin,false,&e));
-      CHECK(v.modify(sub,"X.BIN","X.BIN",Dos::AttrR|Dos::AttrH|Dos::AttrS,&e)); CHECK(im.commit(&e,false,nullptr)); }
+      CHECK(v.modify(sub,"X.BIN","X.BIN",dw::fat::AttrR|dw::fat::AttrH|dw::fat::AttrS,&e)); CHECK(im.commit(&e,false,nullptr)); }
 
     // ---- ADFS: lazy, files, names, .inf, dates, JSON
     printf("== ADFS drag out\n");
-    { MainWindow w; w.show(); CHECK(w.openImage(adl)); pump();
-      DropTree* t=w.tree(); auto* games=find(t,"Games"); auto* gElite=games?findIn(games,"Elite"):nullptr;
+    { MainWindow w; w.show(); CHECK(w.openFile(adl)); pump();
+      DropTree* t=wt::adfsTree(w); auto* games=find(t,"Games"); auto* gElite=games?findIn(games,"Elite"):nullptr;
       QList<QTreeWidgetItem*> sel={find(t,"Elite"),find(t,"Aux"),find(t,"Text"),games};
       for(auto* x:sel) CHECK(x);
       int before=dragDirs();
@@ -211,15 +213,15 @@ int main(int argc,char**argv){
       keep(m1,out,"clash"); delete m1;
       // .inf off: none on the host
       QSettings().setValue("writeInf",false);
-      { MainWindow w2; w2.show(); CHECK(w2.openImage(adl)); pump(); auto* m2=mimeFor(w2,w2.tree(),{find(w2.tree(),"Elite")});
+      { MainWindow w2; w2.show(); CHECK(w2.openFile(adl)); pump(); auto* m2=mimeFor(w2,wt::adfsTree(w2),{find(wt::adfsTree(w2),"Elite")});
         QStringList n2; for(auto&u:m2->urls()) n2<<QFileInfo(u.toLocalFile()).fileName(); CHECK(n2==QStringList({"Elite"})); delete m2; }
       QSettings().setValue("writeInf",true);
     }
 
     // ---- DFS and DOS drag out
     printf("== DFS and DOS drag out\n");
-    { MainWindow w; w.show(); CHECK(w.openImage(dsd)); pump();
-      auto* m=mimeFor(w,w.dfsTree(),{find(w.dfsTree(),"$.BOOT"),find(w.dfsTree(),"A.BOOT")});
+    { MainWindow w; w.show(); CHECK(w.openFile(dsd)); pump();
+      auto* m=mimeFor(w,wt::dfsTree(w),{find(wt::dfsTree(w),"$.BOOT"),find(wt::dfsTree(w),"A.BOOT")});
       QStringList n; for(auto&u:m->urls()) n<<QFileInfo(u.toLocalFile()).fileName(); n.sort();
       CHECK(n==QStringList({"A.BOOT","A.BOOT.inf","BOOT","BOOT.inf"}));
       QJsonObject j=jsonOf(m); QString base=QUrl(j["base"].toString()).toLocalFile();
@@ -231,8 +233,8 @@ int main(int argc,char**argv){
       CHECK(itemAt(j,"BOOT")["attributes"].toObject()["acorn"].toObject()["exec"].toString()=="FFFF8023");
       CHECK(j["source"].toObject()["filesystem"].toString()=="dfs");
       keep(m,out,"dfs"); delete m; }
-    { MainWindow w; w.show(); CHECK(w.openImage(pc)); pump();
-      auto* m=mimeFor(w,w.dosTree(),{find(w.dosTree(),"README.TXT"),find(w.dosTree(),"SUB")});
+    { MainWindow w; w.show(); CHECK(w.openFile(pc)); pump();
+      auto* m=mimeFor(w,wt::dosTree(w),{find(wt::dosTree(w),"README.TXT"),find(wt::dosTree(w),"SUB")});
       QStringList n; for(auto&u:m->urls()) n<<QFileInfo(u.toLocalFile()).fileName(); n.sort();
       CHECK(n==QStringList({"README.TXT","SUB"}));                                       // no .inf for DOS files
       QJsonObject j=jsonOf(m); QString base=QUrl(j["base"].toString()).toLocalFile();
@@ -249,37 +251,37 @@ int main(int argc,char**argv){
       QString dst2=out+"/dst2.adl"; CHECK(NewDisc::create(dst2,NewDisc::AdfsL,"DST2",false,&e));
       QString ddsd=out+"/dst.dsd"; CHECK(NewDisc::create(ddsd,NewDisc::DfsDs40,"",false,&e));
       QString dpc=out+"/dst.img"; CHECK(NewDisc::create(dpc,NewDisc::Pc720,"",false,&e));
-      MainWindow s; s.show(); CHECK(s.openImage(adl)); pump();
-      MainWindow d; d.show(); CHECK(d.openImage(dst)); pump();
+      MainWindow s; s.show(); CHECK(s.openFile(adl)); pump();
+      MainWindow d; d.show(); CHECK(d.openFile(dst)); pump();
       int before=dragDirs();
-      auto* m=mimeFor(s,s.tree(),{find(s.tree(),"Elite"),find(s.tree(),"Games")});
-      d.tabs()->setCurrentWidget(d.tree()); sendDrop(d.tree(),m);
+      auto* m=mimeFor(s,wt::adfsTree(s),{find(wt::adfsTree(s),"Elite"),find(wt::adfsTree(s),"Games")});
+      d.tabWidget()->setCurrentWidget(wt::adfsTree(d)); sendDrop(wt::adfsTree(d),m);
       CHECK(!m->state()->extracted); CHECK(dragDirs()==before);                           // copied directly
-      { Dir r; CHECK(d.image().readDir(RootSector,&r,&e)); CHECK(r.indexOf("Elite")>=0 && r.indexOf("Games")>=0); }
+      { Dir r; CHECK(d.document()->image().readDir(RootSector,&r,&e)); CHECK(r.indexOf("Elite")>=0 && r.indexOf("Games")>=0); }
       // back onto its own pane: refused, nothing written
-      s.tabs()->setCurrentWidget(s.tree()); sendDrop(s.tree(),m); CHECK(!s.image().dirty()); CHECK(!m->state()->extracted);
+      s.tabWidget()->setCurrentWidget(wt::adfsTree(s)); sendDrop(wt::adfsTree(s),m); CHECK(!s.document()->image().dirty()); CHECK(!m->state()->extracted);
       // the same drag arriving from another process: through the JSON, attributes kept
       QMimeData* f=asForeign(m); CHECK(m->state()->extracted);
-      MainWindow d2; d2.show(); CHECK(d2.openImage(dst2)); pump(); d2.tabs()->setCurrentWidget(d2.tree()); sendDrop(d2.tree(),f);
-      { Dir r; CHECK(d2.image().readDir(RootSector,&r,&e)); int i=r.indexOf("Elite"); CHECK(i>=0);
+      MainWindow d2; d2.show(); CHECK(d2.openFile(dst2)); pump(); d2.tabWidget()->setCurrentWidget(wt::adfsTree(d2)); sendDrop(wt::adfsTree(d2),f);
+      { Dir r; CHECK(d2.document()->image().readDir(RootSector,&r,&e)); int i=r.indexOf("Elite"); CHECK(i>=0);
         if(i>=0){ const Entry& x=r.entries[i]; CHECK(x.load==0xFFFF1900u && x.exec==0xFFFF8023u); CHECK(x.flag(Entry::L)&&x.flag(Entry::W)&&x.flag(Entry::R)&&!x.flag(Entry::E));
-          QByteArray b; CHECK(d2.image().readFile(x,&b,&e)); CHECK(b==elite); }
+          QByteArray b; CHECK(d2.document()->image().readFile(x,&b,&e)); CHECK(b==elite); }
         int g=r.indexOf("Games"); CHECK(g>=0);
-        if(g>=0){ Dir gd; CHECK(d2.image().readDir(r.entries[g].sin,&gd,&e)); int k=gd.indexOf("Elite"); CHECK(k>=0);
+        if(g>=0){ Dir gd; CHECK(d2.document()->image().readDir(r.entries[g].sin,&gd,&e)); int k=gd.indexOf("Elite"); CHECK(k>=0);
           if(k>=0){ CHECK(gd.entries[k].flag(Entry::E)); CHECK(gd.entries[k].load==0x3000); } CHECK(gd.indexOf("Deep")>=0); }
         CHECK(r.indexOf("Elite_inf")<0 && r.indexOf("Elite/inf")<0); }                  // the sidecars were not imported
       delete f; delete m;
       // DFS -> DFS and DOS -> DOS from "another process"
-      MainWindow sd; sd.show(); CHECK(sd.openImage(dsd)); pump();
-      auto* m2=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"A.BOOT")}); QMimeData* f2=asForeign(m2);
-      MainWindow dd; dd.show(); CHECK(dd.openImage(ddsd)); pump(); dd.tabs()->setCurrentWidget(dd.dfsTree()); pump(); sendDropOn(dd.dfsTree(),dd.dfsRoot(1),f2);
-      { int i=dd.dfs(1).indexOf('A',"BOOT"); CHECK(i>=0); if(i>=0){ const Dfs::File& x=dd.dfs(1).files()[i]; CHECK(x.locked); CHECK(x.load==0x1100 && x.exec==0x1200); } }
+      MainWindow sd; sd.show(); CHECK(sd.openFile(dsd)); pump();
+      auto* m2=mimeFor(sd,wt::dfsTree(sd),{find(wt::dfsTree(sd),"A.BOOT")}); QMimeData* f2=asForeign(m2);
+      MainWindow dd; dd.show(); CHECK(dd.openFile(ddsd)); pump(); dd.tabWidget()->setCurrentWidget(wt::dfsTree(dd)); pump(); sendDropOn(wt::dfsTree(dd),dd.dfsRoot(1),f2);
+      { int i=dd.document()->dfs(1).indexOf('A',"BOOT"); CHECK(i>=0); if(i>=0){ const dw::dfs::File& x=dd.document()->dfs(1).files()[i]; CHECK(x.locked); CHECK(x.load==0x1100 && x.exec==0x1200); } }
       delete f2; delete m2;
-      MainWindow sp; sp.show(); CHECK(sp.openImage(pc)); pump();
-      auto* m3=mimeFor(sp,sp.dosTree(),{find(sp.dosTree(),"SUB")}); QMimeData* f3=asForeign(m3);
-      MainWindow dp; dp.show(); CHECK(dp.openImage(dpc)); pump(); dp.tabs()->setCurrentWidget(dp.dosTree()); pump(); sendDrop(dp.dosTree(),f3);
-      { QVector<Dos::DEntry> L; CHECK(dp.dos().listDir(0,&L,&e)); quint32 sub=0; for(auto&x:L) if(x.name=="SUB") sub=x.cluster; CHECK(sub);
-        QVector<Dos::DEntry> S; CHECK(dp.dos().listDir(sub,&S,&e)); bool ok=false; for(auto&x:S) if(x.name=="X.BIN"){ ok=true; CHECK(x.attr&Dos::AttrR); QByteArray b; CHECK(dp.dos().readFile(x,&b,&e)); CHECK(b==xbin);} CHECK(ok); }
+      MainWindow sp; sp.show(); CHECK(sp.openFile(pc)); pump();
+      auto* m3=mimeFor(sp,wt::dosTree(sp),{find(wt::dosTree(sp),"SUB")}); QMimeData* f3=asForeign(m3);
+      MainWindow dp; dp.show(); CHECK(dp.openFile(dpc)); pump(); dp.tabWidget()->setCurrentWidget(wt::dosTree(dp)); pump(); sendDrop(wt::dosTree(dp),f3);
+      { QVector<dw::fat::DEntry> L; CHECK(dp.document()->dos().listDir(0,&L,&e)); quint32 sub=0; for(auto&x:L) if(x.name=="SUB") sub=x.cluster; CHECK(sub);
+        QVector<dw::fat::DEntry> S; CHECK(dp.document()->dos().listDir(sub,&S,&e)); bool ok=false; for(auto&x:S) if(x.name=="X.BIN"){ ok=true; CHECK(x.attr&dw::fat::AttrR); QByteArray b; CHECK(dp.document()->dos().readFile(x,&b,&e)); CHECK(b==xbin);} CHECK(ok); }
       delete f3; delete m3;
 
       // DFS -> ADFS: a file in directory A goes into a subdirectory A of wherever it is dropped
@@ -289,84 +291,84 @@ int main(int argc,char**argv){
       auto adfsFile=[&](Image& im,quint32 dir,const QString& n,Entry* out)->bool{ Dir r; QString er; if(!im.readDir(dir,&r,&er)) return false;
           int i=r.indexOf(n); if(i<0||r.entries[i].isDir()) return false; *out=r.entries[i]; return true; };
       {   // same process, dropped on the Games directory row: $.BOOT -> $.Games.BOOT, A.BOOT -> $.Games.A.BOOT
-          auto* m4=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"$.BOOT"),find(sd.dfsTree(),"A.BOOT")});
-          d.tabs()->setCurrentWidget(d.tree()); pump(); sendDropOn(d.tree(),find(d.tree(),"Games"),m4);
-          quint32 g=adfsDir(d.image(),RootSector,"Games"); CHECK(g);
-          Entry x; CHECK(adfsFile(d.image(),g,"BOOT",&x)); CHECK(x.load==0xFFFF1900u && x.exec==0xFFFF8023u && !x.flag(Entry::L));
-          quint32 a=adfsDir(d.image(),g,"A"); CHECK(a);
-          CHECK(adfsFile(d.image(),a,"BOOT",&x)); CHECK(x.load==0x1100 && x.exec==0x1200 && x.flag(Entry::L));
-          { QByteArray b; CHECK(d.image().readFile(x,&b,&e)); CHECK(b==aboot); }
-          CHECK(!adfsDir(d.image(),RootSector,"A"));                                   // nothing at the root
+          auto* m4=mimeFor(sd,wt::dfsTree(sd),{find(wt::dfsTree(sd),"$.BOOT"),find(wt::dfsTree(sd),"A.BOOT")});
+          d.tabWidget()->setCurrentWidget(wt::adfsTree(d)); pump(); sendDropOn(wt::adfsTree(d),find(wt::adfsTree(d),"Games"),m4);
+          quint32 g=adfsDir(d.document()->image(),RootSector,"Games"); CHECK(g);
+          Entry x; CHECK(adfsFile(d.document()->image(),g,"BOOT",&x)); CHECK(x.load==0xFFFF1900u && x.exec==0xFFFF8023u && !x.flag(Entry::L));
+          quint32 a=adfsDir(d.document()->image(),g,"A"); CHECK(a);
+          CHECK(adfsFile(d.document()->image(),a,"BOOT",&x)); CHECK(x.load==0x1100 && x.exec==0x1200 && x.flag(Entry::L));
+          { QByteArray b; CHECK(d.document()->image().readFile(x,&b,&e)); CHECK(b==aboot); }
+          CHECK(!adfsDir(d.document()->image(),RootSector,"A"));                                   // nothing at the root
           delete m4; }
       {   // the directory is reused if it is already there (no A~1)
-          quint32 pre=0; CHECK(d.image().makeDir(RootSector,"A",&e,&pre)); d.refreshTree(); pump();
-          auto* m5=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"A.BOOT")});
-          d.tabs()->setCurrentWidget(d.tree()); pump(); sendDrop(d.tree(),m5);
-          Entry x; CHECK(adfsFile(d.image(),pre,"BOOT",&x)); CHECK(!adfsDir(d.image(),RootSector,"A~1"));
+          quint32 pre=0; CHECK(d.document()->image().makeDir(RootSector,"A",&e,&pre)); d.refresh(); pump();
+          auto* m5=mimeFor(sd,wt::dfsTree(sd),{find(wt::dfsTree(sd),"A.BOOT")});
+          d.tabWidget()->setCurrentWidget(wt::adfsTree(d)); pump(); sendDrop(wt::adfsTree(d),m5);
+          Entry x; CHECK(adfsFile(d.document()->image(),pre,"BOOT",&x)); CHECK(!adfsDir(d.document()->image(),RootSector,"A~1"));
           delete m5; }
       {   // a letter ADFS can't have as a name (^): $.X_HAT in the drop directory, not a directory "_", with a warning
-          CHECK(sd.dfs(0).addFile('^',"HAT",QByteArray("hat"),0x1900,0x1900,false,false,&e)); sd.refreshDfs(); pump();
-          auto* m7=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"^.HAT")});
+          CHECK(sd.document()->dfs(0).addFile('^',"HAT",QByteArray("hat"),0x1900,0x1900,false,false,&e)); sd.refresh(); pump();
+          auto* m7=mimeFor(sd,wt::dfsTree(sd),{find(wt::dfsTree(sd),"^.HAT")});
           answer({QMessageBox::Ok});                              // the import summary lists the warning
-          d.tabs()->setCurrentWidget(d.tree()); pump(); sendDrop(d.tree(),m7); for(int i=0;i<10;++i) pump();
-          Entry x; CHECK(adfsFile(d.image(),RootSector,"X_HAT",&x)); CHECK(!adfsDir(d.image(),RootSector,"_"));
+          d.tabWidget()->setCurrentWidget(wt::adfsTree(d)); pump(); sendDrop(wt::adfsTree(d),m7); for(int i=0;i<10;++i) pump();
+          Entry x; CHECK(adfsFile(d.document()->image(),RootSector,"X_HAT",&x)); CHECK(!adfsDir(d.document()->image(),RootSector,"_"));
           CHECK(g_answered==1);
-          { QByteArray b; CHECK(d.image().readFile(x,&b,&e)); CHECK(b=="hat"); }
-          CHECK(d.image().deleteEntry(RootSector,"X_HAT",&e)); d.refreshTree();
-          CHECK(sd.dfs(0).remove('^',"HAT",&e)); sd.refreshDfs(); pump();
+          { QByteArray b; CHECK(d.document()->image().readFile(x,&b,&e)); CHECK(b=="hat"); }
+          CHECK(d.document()->image().deleteEntry(RootSector,"X_HAT",&e)); d.refresh();
+          CHECK(sd.document()->dfs(0).remove('^',"HAT",&e)); sd.refresh(); pump();
           delete m7; }
       {   // from another process (the retro-files JSON): the same, at the root
-          auto* m6=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"$.BOOT"),find(sd.dfsTree(),"A.BOOT")}); QMimeData* f6=asForeign(m6);
-          d2.tabs()->setCurrentWidget(d2.tree()); pump(); sendDrop(d2.tree(),f6);
-          Entry x; CHECK(adfsFile(d2.image(),RootSector,"BOOT",&x));
-          quint32 a=adfsDir(d2.image(),RootSector,"A"); CHECK(a); CHECK(adfsFile(d2.image(),a,"BOOT",&x) && x.load==0x1100 && x.flag(Entry::L));
-          QString err; CHECK(d2.image().commit(&err,false,nullptr)); if(!err.isEmpty()) printf("  commit: %s\n",qPrintable(err));
+          auto* m6=mimeFor(sd,wt::dfsTree(sd),{find(wt::dfsTree(sd),"$.BOOT"),find(wt::dfsTree(sd),"A.BOOT")}); QMimeData* f6=asForeign(m6);
+          d2.tabWidget()->setCurrentWidget(wt::adfsTree(d2)); pump(); sendDrop(wt::adfsTree(d2),f6);
+          Entry x; CHECK(adfsFile(d2.document()->image(),RootSector,"BOOT",&x));
+          quint32 a=adfsDir(d2.document()->image(),RootSector,"A"); CHECK(a); CHECK(adfsFile(d2.document()->image(),a,"BOOT",&x) && x.load==0x1100 && x.flag(Entry::L));
+          QString err; CHECK(d2.document()->image().commit(&err,false,nullptr)); if(!err.isEmpty()) printf("  commit: %s\n",qPrintable(err));
           delete f6; delete m6; }
 
       // DFS -> host -> ADFS: the .inf carries the letter, so the files land as a direct copy puts them
       printf("== DFS -> host (.inf) -> ADFS, letter case, flatten setting\n");
       {   QString h3=out+"/host3.adl"; CHECK(NewDisc::create(h3,NewDisc::AdfsL,"H3",false,&e));
-          MainWindow d3; d3.show(); CHECK(d3.openImage(h3)); pump();
-          auto* mh=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"$.BOOT"),find(sd.dfsTree(),"A.BOOT")});
+          MainWindow d3; d3.show(); CHECK(d3.openFile(h3)); pump();
+          auto* mh=mimeFor(sd,wt::dfsTree(sd),{find(wt::dfsTree(sd),"$.BOOT"),find(wt::dfsTree(sd),"A.BOOT")});
           QStringList hp; for(auto&u:mh->urls()) hp<<u.toLocalFile();             // BOOT, BOOT.inf, A.BOOT, A.BOOT.inf
           CHECK(hp.size()==4);
-          d3.tabs()->setCurrentWidget(d3.tree()); pump(); dropPaths(d3.tree(),hp);
-          Entry x; CHECK(adfsFile(d3.image(),RootSector,"BOOT",&x)); CHECK(x.load==0xFFFF1900u && x.exec==0xFFFF8023u);
-          quint32 a=adfsDir(d3.image(),RootSector,"A"); CHECK(a);
-          CHECK(adfsFile(d3.image(),a,"BOOT",&x) && x.load==0x1100 && x.exec==0x1200 && x.flag(Entry::L));
-          { QByteArray b; CHECK(d3.image().readFile(x,&b,&e)); CHECK(b==aboot); }
-          CHECK(!adfsFile(d3.image(),RootSector,"A_BOOT",&x));                       // not flattened into the name either
+          d3.tabWidget()->setCurrentWidget(wt::adfsTree(d3)); pump(); dropPaths(wt::adfsTree(d3),hp);
+          Entry x; CHECK(adfsFile(d3.document()->image(),RootSector,"BOOT",&x)); CHECK(x.load==0xFFFF1900u && x.exec==0xFFFF8023u);
+          quint32 a=adfsDir(d3.document()->image(),RootSector,"A"); CHECK(a);
+          CHECK(adfsFile(d3.document()->image(),a,"BOOT",&x) && x.load==0x1100 && x.exec==0x1200 && x.flag(Entry::L));
+          { QByteArray b; CHECK(d3.document()->image().readFile(x,&b,&e)); CHECK(b==aboot); }
+          CHECK(!adfsFile(d3.document()->image(),RootSector,"A_BOOT",&x));                       // not flattened into the name either
           delete mh;
           // a lower-case letter keeps its case, directly and through the host
-          CHECK(sd.dfs(0).addFile('b',"LOW",QByteArray("low"),0x1900,0x1900,false,false,&e)); sd.refreshDfs(); pump();
-          auto* ml=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"b.LOW")});
-          d3.tabs()->setCurrentWidget(d3.tree()); pump(); sendDrop(d3.tree(),ml);
-          { Dir r; QString er; CHECK(d3.image().readDir(RootSector,&r,&er)); int i=r.indexOf("b");
+          CHECK(sd.document()->dfs(0).addFile('b',"LOW",QByteArray("low"),0x1900,0x1900,false,false,&e)); sd.refresh(); pump();
+          auto* ml=mimeFor(sd,wt::dfsTree(sd),{find(wt::dfsTree(sd),"b.LOW")});
+          d3.tabWidget()->setCurrentWidget(wt::adfsTree(d3)); pump(); sendDrop(wt::adfsTree(d3),ml);
+          { Dir r; QString er; CHECK(d3.document()->image().readDir(RootSector,&r,&er)); int i=r.indexOf("b");
             CHECK(i>=0 && r.entries[i].isDir() && r.entries[i].name()=="b"); }
-          quint32 lb=adfsDir(d3.image(),RootSector,"b"); CHECK(lb && adfsFile(d3.image(),lb,"LOW",&x));
+          quint32 lb=adfsDir(d3.document()->image(),RootSector,"b"); CHECK(lb && adfsFile(d3.document()->image(),lb,"LOW",&x));
           QString h4=out+"/host4.adl"; CHECK(NewDisc::create(h4,NewDisc::AdfsL,"H4",false,&e));
-          { MainWindow d4; d4.show(); CHECK(d4.openImage(h4)); pump();
+          { MainWindow d4; d4.show(); CHECK(d4.openFile(h4)); pump();
             QStringList lp; for(auto&u:ml->urls()) lp<<u.toLocalFile();
-            d4.tabs()->setCurrentWidget(d4.tree()); pump(); dropPaths(d4.tree(),lp);
-            Dir r; QString er; CHECK(d4.image().readDir(RootSector,&r,&er)); int i=r.indexOf("b");
+            d4.tabWidget()->setCurrentWidget(wt::adfsTree(d4)); pump(); dropPaths(wt::adfsTree(d4),lp);
+            Dir r; QString er; CHECK(d4.document()->image().readDir(RootSector,&r,&er)); int i=r.indexOf("b");
             CHECK(i>=0 && r.entries[i].isDir() && r.entries[i].name()=="b");
-            quint32 l4=adfsDir(d4.image(),RootSector,"b"); CHECK(l4 && adfsFile(d4.image(),l4,"LOW",&x)); }
+            quint32 l4=adfsDir(d4.document()->image(),RootSector,"b"); CHECK(l4 && adfsFile(d4.document()->image(),l4,"LOW",&x)); }
           delete ml;
           // Tools > "DFS directories become ADFS directories" off: flattened, from DFS and from the host
           QSettings().setValue("dfsLetterDirs",false);
           QString h5=out+"/host5.adl"; CHECK(NewDisc::create(h5,NewDisc::AdfsL,"H5",false,&e));
-          { MainWindow d5; d5.show(); CHECK(d5.openImage(h5)); pump();
-            auto* mf=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"A.BOOT")});
+          { MainWindow d5; d5.show(); CHECK(d5.openFile(h5)); pump();
+            auto* mf=mimeFor(sd,wt::dfsTree(sd),{find(wt::dfsTree(sd),"A.BOOT")});
             QStringList fp; for(auto&u:mf->urls()) fp<<u.toLocalFile();
-            d5.tabs()->setCurrentWidget(d5.tree()); pump(); dropPaths(d5.tree(),fp);
-            auto* mg=mimeFor(sd,sd.dfsTree(),{find(sd.dfsTree(),"b.LOW")});
-            d5.tabs()->setCurrentWidget(d5.tree()); pump(); sendDrop(d5.tree(),mg);
-            CHECK(adfsFile(d5.image(),RootSector,"BOOT",&x) && x.load==0x1100 && x.flag(Entry::L));
-            CHECK(adfsFile(d5.image(),RootSector,"LOW",&x));
-            CHECK(!adfsDir(d5.image(),RootSector,"A") && !adfsDir(d5.image(),RootSector,"b"));
+            d5.tabWidget()->setCurrentWidget(wt::adfsTree(d5)); pump(); dropPaths(wt::adfsTree(d5),fp);
+            auto* mg=mimeFor(sd,wt::dfsTree(sd),{find(wt::dfsTree(sd),"b.LOW")});
+            d5.tabWidget()->setCurrentWidget(wt::adfsTree(d5)); pump(); sendDrop(wt::adfsTree(d5),mg);
+            CHECK(adfsFile(d5.document()->image(),RootSector,"BOOT",&x) && x.load==0x1100 && x.flag(Entry::L));
+            CHECK(adfsFile(d5.document()->image(),RootSector,"LOW",&x));
+            CHECK(!adfsDir(d5.document()->image(),RootSector,"A") && !adfsDir(d5.document()->image(),RootSector,"b"));
             delete mg; delete mf; }
           QSettings().setValue("dfsLetterDirs",true);
-          CHECK(sd.dfs(0).remove('b',"LOW",&e)); sd.refreshDfs(); pump(); }
+          CHECK(sd.document()->dfs(0).remove('b',"LOW",&e)); sd.refresh(); pump(); }
 
       // ADFS -> DFS: a single-letter directory may keep its letter (asked); other directories flatten into $
       printf("== ADFS single-letter directories -> DFS directory letters\n");
@@ -379,34 +381,34 @@ int main(int argc,char**argv){
         CHECK(im.makeDir(RootSector,"Kit",&e,&k)); CHECK(im.addFile(k,"FOUR",four,0,0,FlagR|FlagW,false,&e));
         CHECK(im.addFile(RootSector,"H",hfile,0,0,FlagR|FlagW,false,&e)); CHECK(im.commit(&e,false,nullptr)); }
       QString ldsd=out+"/letters.dsd"; CHECK(NewDisc::create(ldsd,NewDisc::DfsDs40,"",false,&e));
-      MainWindow ls; ls.show(); CHECK(ls.openImage(ladl)); pump();
-      MainWindow ld; ld.show(); CHECK(ld.openImage(ldsd)); pump();
-      auto dfsHas=[&](int side,QChar dir,const QString& n)->const Dfs::File*{ int i=ld.dfs(side).indexOf(dir,n); return i>=0?&ld.dfs(side).files()[i]:nullptr; };
+      MainWindow ls; ls.show(); CHECK(ls.openFile(ladl)); pump();
+      MainWindow ld; ld.show(); CHECK(ld.openFile(ldsd)); pump();
+      auto dfsHas=[&](int side,QChar dir,const QString& n)->const dw::dfs::File*{ int i=ld.document()->dfs(side).indexOf(dir,n); return i>=0?&ld.document()->dfs(side).files()[i]:nullptr; };
       {   // Yes for F (nested Sub's file keeps F too), No for g; a single-letter *file* and a longer name aren't asked about
-          auto* m7=mimeFor(ls,ls.tree(),{find(ls.tree(),"F"),find(ls.tree(),"g"),find(ls.tree(),"H"),find(ls.tree(),"Kit")});
+          auto* m7=mimeFor(ls,wt::adfsTree(ls),{find(wt::adfsTree(ls),"F"),find(wt::adfsTree(ls),"g"),find(wt::adfsTree(ls),"H"),find(wt::adfsTree(ls),"Kit")});
           answer({QMessageBox::Yes,QMessageBox::No});
-          ld.tabs()->setCurrentWidget(ld.dfsTree()); pump(); sendDrop(ld.dfsTree(),m7); pump();
+          ld.tabWidget()->setCurrentWidget(wt::dfsTree(ld)); pump(); sendDrop(wt::dfsTree(ld),m7); pump();
           CHECK(g_answered==2); CHECK(g_promptTexts.size()==2 && g_promptTexts[0].contains("'F'") && g_promptTexts[1].contains("'g'"));
-          const Dfs::File* x=dfsHas(0,'F',"ONE"); CHECK(x && x->load==0x1900 && x->exec==0x8023 && x->locked);
+          const dw::dfs::File* x=dfsHas(0,'F',"ONE"); CHECK(x && x->load==0x1900 && x->exec==0x8023 && x->locked);
           CHECK(dfsHas(0,'F',"TWO")); CHECK(!dfsHas(0,'$',"ONE") && !dfsHas(0,'$',"TWO"));
           CHECK(dfsHas(0,'$',"THREE")); CHECK(!dfsHas(0,'g',"THREE"));
           CHECK(dfsHas(0,'$',"H")); CHECK(dfsHas(0,'$',"FOUR"));
           delete m7; }
       {   // from another process (JSON): "Yes to all" answers once for both directories, keeping the letter's case
-          auto* m8=mimeFor(ls,ls.tree(),{find(ls.tree(),"F"),find(ls.tree(),"g")}); QMimeData* f8=asForeign(m8);
+          auto* m8=mimeFor(ls,wt::adfsTree(ls),{find(wt::adfsTree(ls),"F"),find(wt::adfsTree(ls),"g")}); QMimeData* f8=asForeign(m8);
           answer({QMessageBox::YesToAll});
-          ld.tabs()->setCurrentWidget(ld.dfsTree()); pump(); sendDropOn(ld.dfsTree(),ld.dfsRoot(1),f8); pump();
+          ld.tabWidget()->setCurrentWidget(wt::dfsTree(ld)); pump(); sendDropOn(wt::dfsTree(ld),ld.dfsRoot(1),f8); pump();
           CHECK(g_answered==1);
-          auto has1=[&](QChar dir,const QString& n){ int i=ld.dfs(1).indexOf(dir,n); return i>=0 && ld.dfs(1).files()[i].dir==dir; };
+          auto has1=[&](QChar dir,const QString& n){ int i=ld.document()->dfs(1).indexOf(dir,n); return i>=0 && ld.document()->dfs(1).files()[i].dir==dir; };
           CHECK(has1('F',"ONE")); CHECK(has1('F',"TWO")); CHECK(has1('g',"THREE"));
-          QString err; CHECK(ld.image().commit(&err,false,nullptr)); if(!err.isEmpty()) printf("  commit: %s\n",qPrintable(err));
+          QString err; CHECK(ld.document()->image().commit(&err,false,nullptr)); if(!err.isEmpty()) printf("  commit: %s\n",qPrintable(err));
           delete f8; delete m8; }
       {   // Cancel stops the whole copy: H after it isn't reached (it would raise a "replace?" prompt, caught as unexpected)
-          int before0=ld.dfs(0).files().size(); int failsBefore=fails;
-          auto* m9=mimeFor(ls,ls.tree(),{find(ls.tree(),"F"),find(ls.tree(),"H")});
+          int before0=ld.document()->dfs(0).files().size(); int failsBefore=fails;
+          auto* m9=mimeFor(ls,wt::adfsTree(ls),{find(wt::adfsTree(ls),"F"),find(wt::adfsTree(ls),"H")});
           answer({QMessageBox::Cancel});
-          ld.tabs()->setCurrentWidget(ld.dfsTree()); pump(); sendDrop(ld.dfsTree(),m9); pump(); pump();
-          CHECK(g_answered==1); CHECK(ld.dfs(0).files().size()==before0); CHECK(fails==failsBefore);
+          ld.tabWidget()->setCurrentWidget(wt::dfsTree(ld)); pump(); sendDrop(wt::dfsTree(ld),m9); pump(); pump();
+          CHECK(g_answered==1); CHECK(ld.document()->dfs(0).files().size()==before0); CHECK(fails==failsBefore);
           delete m9; }
     }
 
@@ -420,30 +422,40 @@ int main(int argc,char**argv){
                       {"base",QUrl::fromLocalFile(base).toString()},{"items",QJsonArray{it}}};
       QMimeData mm; mm.setData(RetroFiles::MimeType,QJsonDocument(doc).toJson()); mm.setUrls({QUrl::fromLocalFile(base+"/PIP.COM"),QUrl::fromLocalFile(base+"/junk.txt")});
       QString dpc2=out+"/dst2.img"; CHECK(NewDisc::create(dpc2,NewDisc::Pc720,"",false,&e));
-      MainWindow dp; dp.show(); CHECK(dp.openImage(dpc2)); pump(); dp.tabs()->setCurrentWidget(dp.dosTree()); pump(); sendDrop(dp.dosTree(),&mm);
-      QVector<Dos::DEntry> L; CHECK(dp.dos().listDir(0,&L,&e)); CHECK(L.size()==1);         // only the listed item
-      if(L.size()==1){ CHECK(L[0].name=="PIP.COM"); CHECK(L[0].attr&Dos::AttrR); }
+      MainWindow dp; dp.show(); CHECK(dp.openFile(dpc2)); pump(); dp.tabWidget()->setCurrentWidget(wt::dosTree(dp)); pump(); sendDrop(wt::dosTree(dp),&mm);
+      QVector<dw::fat::DEntry> L; CHECK(dp.document()->dos().listDir(0,&L,&e)); CHECK(L.size()==1);         // only the listed item
+      if(L.size()==1){ CHECK(L[0].name=="PIP.COM"); CHECK(L[0].attr&dw::fat::AttrR); }
       // unsafe or broken lists are refused
-      QVector<XItem> x; QString err;
+      QVector<dw::TransferItem> x; QString err;
       for(const QString& bad:{QString("../outside"),QString("/etc/passwd"),QString("a/../../b"),QString("")}){
           QJsonObject b=doc; QJsonObject bi=it; bi["path"]=bad; b["items"]=QJsonArray{bi};
-          CHECK(!RetroFiles::readJson(QJsonDocument(b).toJson(),&x,&err)); }
-      { QJsonObject b=doc; b["version"]=2; CHECK(!RetroFiles::readJson(QJsonDocument(b).toJson(),&x,&err)); printf("  version 2: %s\n",qPrintable(err)); }
-      { QJsonObject b=doc; QJsonObject bi=it; bi["size"]=99; b["items"]=QJsonArray{bi}; CHECK(!RetroFiles::readJson(QJsonDocument(b).toJson(),&x,&err)); }
-      CHECK(!RetroFiles::readJson("not json",&x,&err));
-      // Stardot access letters: upper case = owner, lower case = public (which this program has nowhere to keep)
+          CHECK(!dw::xfer::readJson(QJsonDocument(b).toJson(),&x,&err)); }
+      { QJsonObject b=doc; b["version"]=2; CHECK(!dw::xfer::readJson(QJsonDocument(b).toJson(),&x,&err)); printf("  version 2: %s\n",qPrintable(err)); }
+      { QJsonObject b=doc; QJsonObject bi=it; bi["size"]=99; b["items"]=QJsonArray{bi}; CHECK(!dw::xfer::readJson(QJsonDocument(b).toJson(),&x,&err)); }
+      CHECK(!dw::xfer::readJson("not json",&x,&err));
+      // Stardot access letters: upper case = owner, lower case = public (which this program has nowhere to keep). Read as
+      // the window reads a drop (the old test read the list into this program's own item): dropped on an ADFS disc the
+      // file gets R and W, and no L (the public "l" is not the owner's lock).
       { QJsonObject b=doc; QJsonObject bi=it; b["source"]=QJsonObject{{"filesystem","adfs"}}; bi["name"]="Pip";
         bi["attributes"]=QJsonObject{{"acorn",QJsonObject{{"load","00001900"},{"exec","00001900"},{"access","WRrl"}}}}; b["items"]=QJsonArray{bi};
-        x.clear(); CHECK(RetroFiles::readJson(QJsonDocument(b).toJson(),&x,&err));
-        CHECK(x.size()==1 && x[0].adfsFlags==(FlagR|FlagW) && !x[0].locked); }
-      // DFS names are D.NAME, bytes carried one character per byte (a BBC "£" is byte &60, i.e. "`")
+        QMimeData ma; ma.setData(RetroFiles::MimeType,QJsonDocument(b).toJson()); ma.setUrls({QUrl::fromLocalFile(base+"/PIP.COM")});
+        QString adl2=out+"/access.adl"; CHECK(NewDisc::create(adl2,NewDisc::AdfsL,"ACC",false,&e));
+        MainWindow wa; wa.show(); CHECK(wa.openFile(adl2)); pump(); sendDrop(wt::adfsTree(wa),&ma);
+        Dir r; QString er; CHECK(wa.document()->image().readDir(RootSector,&r,&er)); int i=r.indexOf("Pip");
+        CHECK(i>=0 && r.entries[i].flag(Entry::R) && r.entries[i].flag(Entry::W) && !r.entries[i].flag(Entry::L)); }
+      // DFS names are D.NAME, bytes carried one character per byte (a BBC "£" is byte &60, i.e. "`"): dropped on a DFS
+      // disc the directory letter and the name come out as the list gives them
       { QJsonObject b=doc; b["source"]=QJsonObject{{"filesystem","dfs"}}; QJsonArray arr;
         for(const char* n:{"$.`5","q.PROG","PLAIN"}){ QJsonObject bi=it; bi["name"]=QString::fromLatin1(n);
             bi["attributes"]=QJsonObject{{"acorn",QJsonObject{{"load","00001900"},{"exec","00001900"},{"access","WR"}}}}; arr.append(bi); }
-        b["items"]=arr; x.clear(); CHECK(RetroFiles::readJson(QJsonDocument(b).toJson(),&x,&err));
-        CHECK(x.size()==3);
-        if(x.size()==3){ CHECK(x[0].dfsDir=='$' && x[0].name=="`5"); CHECK(x[1].dfsDir=='q' && x[1].name=="PROG");
-                         CHECK(x[2].dfsDir=='$' && x[2].name=="PLAIN"); } }
+        b["items"]=arr;
+        QMimeData md; md.setData(RetroFiles::MimeType,QJsonDocument(b).toJson()); md.setUrls({QUrl::fromLocalFile(base+"/PIP.COM")});
+        QString ssd2=out+"/letters.ssd"; CHECK(NewDisc::create(ssd2,NewDisc::DfsSs40,"",false,&e));
+        MainWindow wd; wd.show(); CHECK(wd.openFile(ssd2)); pump(); wd.tabWidget()->setCurrentWidget(wt::dfsTree(wd)); pump();
+        sendDrop(wt::dfsTree(wd),&md);
+        const auto& fl=wd.document()->dfs(0).files(); CHECK(fl.size()==3);
+        auto has=[&](QChar d,const QString& n){ for(const auto& f:fl) if(f.dir==d && f.name==n) return true; return false; };
+        CHECK(has('$',"`5")); CHECK(has('q',"PROG")); CHECK(has('$',"PLAIN")); }
     }
 
     // ---- disc images dropped from the host: opened (an empty window here, others in new windows); a hard disc asks
@@ -453,50 +465,50 @@ int main(int argc,char**argv){
       QString fl=out+"/floppy.adl"; CHECK(NewDisc::create(fl,NewDisc::AdfsL,"FLOP",false,&e));
       CHECK(detectDisk(hd).kind==DiskInfo::Adfs); CHECK(detectDisk(plain).kind==DiskInfo::Unknown);
       {   // an empty window: the first file opens here, the next in a new window
-          MainWindow w; w.show(); pump(); QList<MainWindow*> before=MainWindow::windows();
-          dropPaths(w.tree(),{dsd,adl});
-          CHECK(w.image().isOpen() && w.info().kind==DiskInfo::Dfs);
-          QList<MainWindow*> n=newWindows(before); CHECK(n.size()==1 && n[0]->info().kind==DiskInfo::Adfs);
+          MainWindow w; w.show(); pump(); QList<MainWindow*> before=wt::windows();
+          dropPaths(wt::adfsTree(w),{dsd,adl});
+          CHECK(w.document()->image().isOpen() && w.document()->info().kind==DiskInfo::Dfs);
+          QList<MainWindow*> n=newWindows(before); CHECK(n.size()==1 && n[0]->document()->info().kind==DiskInfo::Adfs);
           closeAll(n); }
       {   // a floppy: the image opens in a new window without asking, the plain file is added
-          MainWindow w; w.show(); CHECK(w.openImage(fl)); pump(); QList<MainWindow*> before=MainWindow::windows();
-          dropPaths(w.tree(),{dsd,plain});
-          QList<MainWindow*> n=newWindows(before); CHECK(n.size()==1 && n[0]->info().kind==DiskInfo::Dfs);
-          Dir r; CHECK(w.image().readDir(RootSector,&r,&e)); CHECK(r.entries.size()==1);   // only the text file
+          MainWindow w; w.show(); CHECK(w.openFile(fl)); pump(); QList<MainWindow*> before=wt::windows();
+          dropPaths(wt::adfsTree(w),{dsd,plain});
+          QList<MainWindow*> n=newWindows(before); CHECK(n.size()==1 && n[0]->document()->info().kind==DiskInfo::Dfs);
+          Dir r; CHECK(w.document()->image().readDir(RootSector,&r,&e)); CHECK(r.entries.size()==1);   // only the text file
           closeAll(n); }
       {   // a hard disc asks: Open
-          MainWindow w; w.show(); CHECK(w.openImage(hd)); pump(); CHECK(w.isHardDisc());
-          QList<MainWindow*> before=MainWindow::windows();
-          clickText({"Open it"}); dropPaths(w.tree(),{dsd});
+          MainWindow w; w.show(); CHECK(w.openFile(hd)); pump(); CHECK(w.isHardDisc());
+          QList<MainWindow*> before=wt::windows();
+          clickText({"Open it"}); dropPaths(wt::adfsTree(w),{dsd});
           CHECK(g_clickTexts.size()==1 && g_clickTexts[0].contains("disc image"));
-          QList<MainWindow*> n=newWindows(before); CHECK(n.size()==1 && n[0]->info().kind==DiskInfo::Dfs);
-          Dir r; CHECK(w.image().readDir(RootSector,&r,&e)); CHECK(r.entries.isEmpty());
+          QList<MainWindow*> n=newWindows(before); CHECK(n.size()==1 && n[0]->document()->info().kind==DiskInfo::Dfs);
+          Dir r; CHECK(w.document()->image().readDir(RootSector,&r,&e)); CHECK(r.entries.isEmpty());
           closeAll(n);
           // Copy onto this disc: the image becomes a file on the hard disc, the plain file goes with it
-          clickText({"Copy onto this disc"}); dropPaths(w.tree(),{dsd,plain});
+          clickText({"Copy onto this disc"}); dropPaths(wt::adfsTree(w),{dsd,plain});
           CHECK(g_answered==1); CHECK(newWindows(before).isEmpty());
-          CHECK(w.image().readDir(RootSector,&r,&e)); CHECK(r.entries.size()==2);
+          CHECK(w.document()->image().readDir(RootSector,&r,&e)); CHECK(r.entries.size()==2);
           bool big=false; for(const Entry& x:r.entries) if(x.length==quint32(QFileInfo(dsd).size())) big=true; CHECK(big);
           // Cancel: nothing happens, nothing more is added
-          clickText({"Cancel"}); dropPaths(w.tree(),{adl,plain});
+          clickText({"Cancel"}); dropPaths(wt::adfsTree(w),{adl,plain});
           CHECK(g_answered==1); CHECK(newWindows(before).isEmpty());
-          CHECK(w.image().readDir(RootSector,&r,&e)); CHECK(r.entries.size()==2);
+          CHECK(w.document()->image().readDir(RootSector,&r,&e)); CHECK(r.entries.size()==2);
           // two images: one question for both
-          clickText({"Open them"}); dropPaths(w.tree(),{dsd,adl});
+          clickText({"Open them"}); dropPaths(wt::adfsTree(w),{dsd,adl});
           CHECK(g_clickTexts.size()==1 && g_clickTexts[0].startsWith("2 of the dropped files"));
           CHECK(newWindows(before).size()==2); closeAll(newWindows(before));
           // a plain file only: no question, added as before
           QString plain2=out+"/more.txt"; { QFile f(plain2); f.open(QIODevice::WriteOnly|QIODevice::Truncate); f.write("more\n"); }
-          int fb=fails; dropPaths(w.tree(),{plain2}); CHECK(fails==fb);
-          CHECK(w.image().readDir(RootSector,&r,&e)); CHECK(r.entries.size()==3); }
+          int fb=fails; dropPaths(wt::adfsTree(w),{plain2}); CHECK(fails==fb);
+          CHECK(w.document()->image().readDir(RootSector,&r,&e)); CHECK(r.entries.size()==3); }
     }
 
     // ---- read-only image (a damaged free space map opens read-only): dragging out still works
     { QString ro=out+"/ro.adl"; QFile::remove(ro); QFile::copy(adl,ro);
       { QFile f(ro); f.open(QIODevice::ReadWrite); f.seek(0xFF); char c; f.getChar(&c); f.seek(0xFF); f.putChar(char(c^0x55)); }
       MainWindow w; w.show(); QTimer::singleShot(200,[]{ if(QWidget* d=QApplication::activeModalWidget()) d->close(); });   // the "opened read-only" report
-      CHECK(w.openImage(ro)); pump(); CHECK(!w.image().editable());
-      auto* m=mimeFor(w,w.tree(),{find(w.tree(),"Elite")}); CHECK(m); if(m){ CHECK(!m->urls().isEmpty()); CHECK(m->state()->errors.isEmpty());
+      CHECK(w.openFile(ro)); pump(); CHECK(!w.document()->image().editable());
+      auto* m=mimeFor(w,wt::adfsTree(w),{find(wt::adfsTree(w),"Elite")}); CHECK(m); if(m){ CHECK(!m->urls().isEmpty()); CHECK(m->state()->errors.isEmpty());
       QJsonObject j=jsonOf(m); CHECK(slurp(QUrl(j["base"].toString()).toLocalFile()+"/Elite")==elite); delete m; } }
 
     // ---- step 5l: host files whose .inf names a DFS letter, dropped on the window and put by acorndw: the same discs
@@ -522,9 +534,9 @@ int main(int argc,char**argv){
             QSettings().setValue("dfsLetterDirs",!flat);
             const QString gw=out+QString("/letters-gui%1.adl").arg(flat), cl=out+QString("/letters-cli%1.adl").arg(flat);
             CHECK(NewDisc::create(gw,NewDisc::AdfsL,"L",false,&e)); QFile::remove(cl); CHECK(QFile::copy(gw,cl));
-            { MainWindow w; w.show(); CHECK(w.openImage(gw)); pump(); w.tabs()->setCurrentWidget(w.tree()); pump();
+            { MainWindow w; w.show(); CHECK(w.openFile(gw)); pump(); w.tabWidget()->setCurrentWidget(wt::adfsTree(w)); pump();
               if(!flat) answer({QMessageBox::Ok});                       // the ^.HAT warning ("Some items could not be added")
-              dropPaths(w.tree(),{hl}); CHECK(flat || g_answered==1); CHECK(w.save()); }
+              dropPaths(wt::adfsTree(w),{hl}); CHECK(flat || g_answered==1); CHECK(w.save()); }
             AcornCli::Backend backend;
             dw::cli::AppInfo info; info.tool="acorndw"; info.program.name="Acorn Disk Wrangler"; info.program.id="acorndiskwrangler";
             info.backend=&backend; info.options=QStringList{"sides","sidecars","title","dosboot","to-sides"};

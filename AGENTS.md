@@ -31,17 +31,17 @@ files (see Build).
 |---|---|
 | `adfs.h/.cpp` | `Adfs::Image`: the opened disc used by **every** format - a DiskWranglerCore `Container` (raw, ImageDisk, DSK, TeleDisk) seen through a `Linear` with the side order - plus the ADFS old-map filesystem (`FsMap`, `Dir`, `Entry`), validation, commit |
 | `core/diskwrangler/device/` | DiskWranglerCore's device layer: `Container` (the image file, staged writes, the checked save), `Linear` (the disc in its own numbering, slices), `SideOrder` (was `Adfs::SideLayout`; the old name stays as a `using` for the tests) |
-| `core/diskwrangler/fs/fat/` | DiskWranglerCore's FAT module (was `dosfs.cpp`): `dw::fat::Volume` (still `Dos::Volume` here, through `src/dosfs.h`): FAT12/FAT16 on a `Linear` - an `Image`'s, a whole floppy or the DRIVE_C file in it (BPB, table-driven `Format`, Acorn layouts); browse/add/mkdir/delete/rename/label/check; `fatprobe` (detection), `fatvolume` (the `dw::fs::Volume` adapter) |
-| `core/diskwrangler/fs/dfs/` | DiskWranglerCore's DFS module (was `dfs.cpp`): `dw::dfs::Disc` (still `Dfs::Disc` here, through `src/dfs.h`): one side of a DFS disc on an `Image`'s `Linear` (catalogue in sectors 0-1, plus 2-3 on a Watford 62-file disc); a .dsd = two `Disc`s. Also `.inf` sidecars (`inf.h`), addresses, the directory-letter mapping for copies to ADFS (`placeLetter`), Acorn Z80 CP/M's catalogue, `dfsprobe` (detection), `dfsvolume` (the adapter) |
+| `core/diskwrangler/fs/fat/` | DiskWranglerCore's FAT module (was `dosfs.cpp`): `dw::fat::Volume`: FAT12/FAT16 on a `Linear` - an `Image`'s, a whole floppy or the DRIVE_C file in it (BPB, table-driven `Format`, Acorn layouts); browse/add/mkdir/delete/rename/label/check; `fatprobe` (detection), `fatvolume` (the `dw::fs::Volume` adapter) |
+| `core/diskwrangler/fs/dfs/` | DiskWranglerCore's DFS module (was `dfs.cpp`): `dw::dfs::Disc`: one side of a DFS disc on an `Image`'s `Linear` (catalogue in sectors 0-1, plus 2-3 on a Watford 62-file disc); a .dsd = two `Disc`s. Also `.inf` sidecars (`inf.h`), addresses, the directory-letter mapping for copies to ADFS (`placeLetter`), Acorn Z80 CP/M's catalogue, `dfsprobe` (detection), `dfsvolume` (the adapter) |
 | `diskformat.h/.cpp` | detection by tiers (`core/diskwrangler/fs/detection.h`): probes for ADFS and Torch CP/N here, FAT and DFS from the core; `detectCandidates(path, force)` -> `dw::fs::Verdict` (open, ask which, or hand to CP/M Disk Wrangler), each candidate's data a `DiskInfo` (kind, full size, DFS layout, side layout + whether the side order was confirmed); `detectDisk` = the best one's. Decides how a file is opened. `tests/legacydetect.cpp` is the detection before step 4, for `agreetest` |
 | `adfsvolume.h/.cpp` | DiskWranglerCore's filesystem interface: `AdfsVolume` (an `Image` as a `dw::fs::Volume`) and `Adfs::OpenedDisc` (an opened disc as a `dw::fs::Disc`: ADFS + DOS, DFS drives 0 and 2, or FAT). `OpenedDisc` is the window's document (`dw::app::Document`) and `acorndw`'s opened image alike, so both save through the same checks: the volumes a change touches, the side order (`setConvertSides`), Save As into another kind (`writeCopy`, also `acorndw convert`) |
 | `newdisc.h/.cpp` | `NewDisc::create()`: blank images of every format (File > New image); pure QtCore, checks its own output with `detectDisk`. The 640K DOS Plus disc needs a `bootSource` (an existing 640K disc to copy the boot track from, or a DOSBOOT file): DOSBOOT is Acorn's code and must never be put in the repo |
 | `mainwindow.h/.cpp` | the main window on DiskWranglerCore's window kit (`MainWindow` derives from `dw::ui::DiscWindow`; see *GUI architecture*): `DropTree` (the kit's `VolumePane` plus drag and drop), the panes and their rows (`paneLayout`, `decorateRow`), opening, Save / Save As / Revert, side order, boot option, disc name, Check, New directory, Delete, Extract, ADFS Properties |
 | `mainwindow_dos.cpp` | the DOS pane: its selection, DOS Properties, Rename and the viewer |
 | `mainwindow_dfs.cpp` | the DFS pane (both sides in one tree), DFS Properties and the letter mover, copying out (`exportForCopy`, `exportRefs`), **every import** on the kit's import session (`importAll`, `importHooks`, `askReplace`, `importSummary`), drops between windows, Copy / Paste |
-| `mainwindow_p.h` | shared private header: item roles, `Pane`, `DragRef`, `XItem` (kept for the tests), `fmtSectors` |
+| `mainwindow_p.h` | shared private header: item roles, `Pane`, `DragRef`, `fmtSectors` |
 | `hostpolicy.h/.cpp` | QtCore only, shared with `acorndw`: the `.inf` reader, `acornHostRead` (how the core's one host reader, `dw::xfer::readHost`, reads files for this program: `.inf` sidecars by Tools > Read .inf files / `--sidecars`), and `RetroFiles::AcornPolicy`, how items become host files (Extract, drags) |
-| `dragout.h/.cpp` | the retro-files drag format's Acorn side (spec in `core/docs/retro-files-format.md`; the format itself is the core's `dw::xfer` and `dw::DragOutMime`): `RetroFiles::DragOutMime`, the drag folders' prefix and clean-up, and `XItem` <-> `dw::TransferItem` (`toTransfer` / `fromTransfer`, `writeHost`, `makeJson`, `readJson`: kept for the tests and CP/M's `interop_adw`) |
+| `dragout.h/.cpp` | the retro-files drag format's Acorn side (spec in `core/docs/retro-files-format.md`; the format itself is the core's `dw::xfer` and `dw::DragOutMime`): `RetroFiles::dragSpec` (how this program's drags are written out), and the drag folders' prefix and clean-up) |
 | `cli/` | `acorndw`, the console program: `AcornCli::Backend` (how an image is opened, made and converted, and how host files become items); the commands are DiskWranglerCore's `diskwrangler/cli` |
 | `viewtext.*` | text / hex / BBC BASIC detokeniser (pure QtCore, no GUI) |
 | `viewer.*` | the read-only viewer window |
@@ -88,8 +88,9 @@ files (see Build).
 - **The window kit.** `MainWindow` is a `dw::ui::DiscWindow` (DiskWranglerCore, `core/diskwrangler/ui/discwindow.h`:
   read its header comment first) showing an `Adfs::OpenedDisc` (`document()`). The kit makes the panes, the standard
   actions, the rows, the selection, the title and status, and does each change in one `Disc::transact`; this program
-  fills its hooks with its own dialogs, texts and rules. A test-visible slot or function the kit took over stays on
-  `MainWindow` as a forward (the list is in the plan's step-5 history; they go when the tests are ported).
+  fills its hooks with its own dialogs, texts and rules. The tests reach the window through the kit (`document()` typed
+  as `Adfs::OpenedDisc`, `pane(group)`, `openFile`, `DiscWindow::all()`; `tests/windowhelp.h` has the casts); the
+  window has no forwards for them.
 - **Panes.** `paneGroups()` = "ADFS", "DOS", "DFS", shown as tabs that come and go with the disc (`paneShown`,
   `paneTitle`); each mount of the document is in one group (`paneOf(mount)` / `mountOf(pane)`, never `if (pane == ...)`
   in the kit). `refresh()` follows `$.DOS.DRIVE_C` (`OpenedDisc::followDriveC`) and makes every pane again;
@@ -103,7 +104,7 @@ files (see Build).
   (`orderRows`: DFS by letter, then name), where to stop (`listChildren`: a directory already shown, a loop on a
   damaged disc, depth ADFS 64 / DOS 32) and an unreadable directory (`listFailed`) are hooks. DFS rows use name
   `"D.NAME"`.
-- **Opening** is the kit's open pipeline (`openFile`; `openImage(path, force)` forwards to it): `detectImage`
+- **Opening** is the kit's open pipeline (`openFile(path, force)`): `detectImage`
   (`detectCandidates`), `openDocument` (ADFS D/E refused, the DOS / DFS checks), `handOverMessage` (a CP/M disc goes
   to CP/M Disk Wrangler, with the kit's link and Locate...), `afterOpen` (the read-only notices). The document runs
   with `setWindowRules(true)`: an unknown disc opens as ADFS, an unreadable DFS side or DOS partition is left out.
@@ -202,7 +203,7 @@ files (see Build).
   drag folders). Checked across real processes on X11 (Xvfb + xclip: CP/M copy -> Acorn paste, a GNOME-style file
   list -> paste); Windows Explorer and macOS Finder are not tested.
 - **Dragging out** (`dragout.h/.cpp`, spec in `core/docs/retro-files-format.md`): `makeMime`
-  returns a `RetroFiles::DragOutMime` carrying the private formats *and* `text/uri-list` + the retro-files JSON.
+  returns a `dw::DragOutMime` (built from `RetroFiles::dragSpec`) carrying the private formats *and* `text/uri-list` + the retro-files JSON.
   Those two are produced lazily (the core's `dw::DragOutMime`): the selection is exported (`exportRefs`) and written by
   the core's `writeHost` with `AcornPolicy` (same names/.inf as Extract to host; clashing names get `_2`; Windows device names and trailing
   dots made safe in `hostSafeName`) into a `QTemporaryDir` kept until exit (`cleanStale()` at start-up removes

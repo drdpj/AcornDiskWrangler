@@ -22,8 +22,9 @@
 // MainWindow (offscreen): the option follows the current pane; DOS has none. Images are left in <outdir> for an
 // independent check (see AGENTS.md).
 #include "mainwindow.h"
+#include "windowhelp.h"
 #include "adfs.h"
-#include "dfs.h"
+#include <diskwrangler/fs/dfs/dfs.h>
 #include "diskformat.h"
 #include "newdisc.h"
 #include <QApplication>
@@ -94,12 +95,12 @@ int main(int argc, char **argv) {
     {
         printf("== DFS\n");
         QString p = out + "/boot_dfs.dsd"; CHECK(NewDisc::create(p, NewDisc::DfsDs80, "BOOT", false, &e));
-        auto openDfs = [&](Image &img, Dfs::Disc *d) {
+        auto openDfs = [&](Image &img, dw::dfs::Disc *d) {
             DiskInfo i = detectDisk(p); CHECK(img.openRaw(p, i.fullSize, &e, i.sides));
             for (int s = 0; s < 2; ++s) CHECK(d[s].attach(&img, s, i.dfs, &e));
         };
         QByteArray f0 = head(p, 12 * 256);
-        { Image img; Dfs::Disc d[2]; openDfs(img, d); CHECK(d[0].bootOption() == 0 && d[1].bootOption() == 0);
+        { Image img; dw::dfs::Disc d[2]; openDfs(img, d); CHECK(d[0].bootOption() == 0 && d[1].bootOption() == 0);
           CHECK(d[0].setBootOption(3, &e)); CHECK(!d[0].setBootOption(7, &e)); CHECK(d[0].bootOption() == 3);
           CHECK(d[0].check().ok()); CHECK(img.commit(&e, false, nullptr)); }
         QByteArray f1 = head(p, 12 * 256);
@@ -107,12 +108,12 @@ int main(int argc, char **argv) {
         CHECK((quint8(f1[256 + 6]) & 3) == (quint8(f0[256 + 6]) & 3));              // sector count bits kept
         CHECK(f1[256 + 4] != f0[256 + 4]);                                          // cycle number bumped
         CHECK(f1.mid(10 * 256, 512) == f0.mid(10 * 256, 512));                      // side 1 catalogue (file sectors 10-11) untouched
-        { Image img; Dfs::Disc d[2]; openDfs(img, d); CHECK(d[0].bootOption() == 3); CHECK(d[1].bootOption() == 0);
+        { Image img; dw::dfs::Disc d[2]; openDfs(img, d); CHECK(d[0].bootOption() == 3); CHECK(d[1].bootOption() == 0);
           CHECK(d[1].setBootOption(2, &e)); CHECK(img.commit(&e, false, nullptr)); }
         QByteArray f2 = head(p, 12 * 256);
         CHECK(((quint8(f2[10 * 256 + 256 + 6]) >> 4) & 3) == 2); CHECK(f2.left(512) == f1.left(512));
         QString q = out + "/boot_dfs.ssd"; CHECK(NewDisc::create(q, NewDisc::DfsSs40, "", false, &e));
-        { DiskInfo i = detectDisk(q); Image img; CHECK(img.openRaw(q, i.fullSize, &e, i.sides)); Dfs::Disc d; CHECK(d.attach(&img, 0, i.dfs, &e));
+        { DiskInfo i = detectDisk(q); Image img; CHECK(img.openRaw(q, i.fullSize, &e, i.sides)); dw::dfs::Disc d; CHECK(d.attach(&img, 0, i.dfs, &e));
           CHECK(d.setBootOption(1, &e)); CHECK(img.commit(&e, false, nullptr)); }
         CHECK(((quint8(head(q, 512)[256 + 6]) >> 4) & 3) == 1);
         printf("  DFS sides set independently; .ssd too\n");
@@ -144,16 +145,16 @@ int main(int argc, char **argv) {
     {
         printf("== MainWindow\n");
         QString p = out + "/boot_gui.dsd"; CHECK(NewDisc::create(p, NewDisc::DfsDs40, "", false, &e));
-        { MainWindow w; CHECK(w.openImage(p)); w.tabs()->setCurrentWidget(w.dfsTree()); w.dfsTree()->setCurrentItem(w.dfsRoot(1)); QApplication::processEvents();
-          CHECK(w.bootOption() == 0); CHECK(w.setBootOption(3)); CHECK(w.bootOption() == 3); CHECK(w.image().dirty());
-          w.dfsTree()->setCurrentItem(w.dfsRoot(0)); QApplication::processEvents(); CHECK(w.bootOption() == 0);
+        { MainWindow w; CHECK(w.openFile(p)); w.tabWidget()->setCurrentWidget(wt::dfsTree(w)); wt::dfsTree(w)->setCurrentItem(w.dfsRoot(1)); QApplication::processEvents();
+          CHECK(w.bootOption() == 0); CHECK(w.setBootOption(3)); CHECK(w.bootOption() == 3); CHECK(w.document()->image().dirty());
+          wt::dfsTree(w)->setCurrentItem(w.dfsRoot(0)); QApplication::processEvents(); CHECK(w.bootOption() == 0);
           CHECK(w.save()); }
-        { MainWindow w; CHECK(w.openImage(p)); w.tabs()->setCurrentWidget(w.dfsTree()); w.dfsTree()->setCurrentItem(w.dfsRoot(1)); QApplication::processEvents(); CHECK(w.bootOption() == 3); }
+        { MainWindow w; CHECK(w.openFile(p)); w.tabWidget()->setCurrentWidget(wt::dfsTree(w)); wt::dfsTree(w)->setCurrentItem(w.dfsRoot(1)); QApplication::processEvents(); CHECK(w.bootOption() == 3); }
         QString l = out + "/boot_adfs2.adl";
-        { MainWindow w; CHECK(w.openImage(l)); CHECK(w.bootOption() == 0); CHECK(w.setBootOption(2)); CHECK(w.save()); }
-        { MainWindow w; CHECK(w.openImage(l)); CHECK(w.bootOption() == 2); }
+        { MainWindow w; CHECK(w.openFile(l)); CHECK(w.bootOption() == 0); CHECK(w.setBootOption(2)); CHECK(w.save()); }
+        { MainWindow w; CHECK(w.openFile(l)); CHECK(w.bootOption() == 2); }
         QString pc = out + "/boot_pc.img"; CHECK(NewDisc::create(pc, NewDisc::Pc720, "", false, &e));
-        { MainWindow w; CHECK(w.openImage(pc)); CHECK(w.bootOption() == -1); }
+        { MainWindow w; CHECK(w.openFile(pc)); CHECK(w.bootOption() == -1); }
     }
     QSettings().clear();
     printf(fails ? "FAILED (%d failures)\n" : "ALL OK (%d failures)\n", fails);
