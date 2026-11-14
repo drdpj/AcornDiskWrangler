@@ -20,6 +20,12 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
   interleaves by track (`phys = ((n/10)*2+side)*10 + n%10`); a sequential-side variant is
   detected too. 204800 bytes is ambiguous (80-track SSD vs 40-track DSD): the catalogue
   sector count and the second catalogue's plausibility decide, then the file suffix.
+  The **title** (sector 0 bytes 0-7, sector 1 bytes 0-3) is kept byte for byte, as DFS 2.45 (the Master's DFS, the
+  version this program follows where DFS versions differ) keeps it: every catalogue write puts the 12 bytes back as
+  read, and only setting the title (Rename disc, `acorndw title`) writes new ones, the characters then zeros, as 2.45's
+  `*TITLE` (command table entry &898E) does. Some DFS versions and tools pad a title with spaces; those spaces stay. It
+  is shown up to the first NUL, trimmed. (Step 6c, deliberate change 11; before, the first change wrote it back
+  zero-padded.)
 - **Watford DFS 62-file discs** (`.ssd` or either side of a `.dsd`). Checked against Watford's own ROMs, DFS 1.44
   and DDFS 1.54T (disassembled; their 62-file code is the same), a real disc (Superior Software 8) and
   `tests/acorncheck.py`. Neither ROM is in the repo.
