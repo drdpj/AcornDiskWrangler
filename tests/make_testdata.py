@@ -26,7 +26,7 @@
 ADFS floppies come from the C++ tool:  tests/mkimg <outdir>
 The Acorn 800K / 640K hybrid images come from:  tests/floptest acorn800|hybrid640 <out>
 """
-import os, subprocess, sys
+import os, random, subprocess, sys
 
 def cat(sectors, title=b''):
     s0 = bytearray(256); s1 = bytearray(256)
@@ -59,14 +59,18 @@ def make_dfs(out):
 
 def make_host(root='/tmp/drop/proj'):
     os.makedirs(root + '/sub/nested', exist_ok=True)
+    # The same bytes every time: random bytes now and then look like a DFS catalogue (1 in 400 sets of 5000 bytes
+    # tried did), and the window then treats prog.bas as a disc image, so guitest and guitest2 failed now and then.
+    # This seed's files are checked to be no disc image (detecttest says Unknown for each).
+    rnd = random.Random(6)
     w = lambda p, d: open(os.path.join(root, p), 'wb').write(d)
     w('hello.txt', b'Hello from the host\n')
     w('hello.txt.inf', b'hello    FF1900 FF8023 00000014 0B\n')      # R W L ; 6-digit addresses are sign-extended
-    w('prog.bas', os.urandom(5000)); w('prog.bas.inf', b'prog 00001900 00001900 00001388 03\n')
+    w('prog.bas', rnd.randbytes(5000)); w('prog.bas.inf', b'prog 00001900 00001900 00001388 03\n')
     # 10 PRINT "HELLO" / 20 GOTO 10  (tokenised)
     w('test.bas', bytes.fromhex('0D000A0DF1202248454C4C4F22' + '0D00140AE5208D544A40' + '0DFF'))
-    w('sub/a.bin', os.urandom(256)); w('sub/b.bin', os.urandom(257))
-    w('sub/nested/c.bin', b''); w('sub/nested/d.bin', os.urandom(70000))
+    w('sub/a.bin', rnd.randbytes(256)); w('sub/b.bin', rnd.randbytes(257))
+    w('sub/nested/c.bin', b''); w('sub/nested/d.bin', rnd.randbytes(70000))
     w('long_filename_example1.dat', b'one' * 100); w('long_filename_example2.dat', b'two' * 100)
 
 def make_pc(out):
