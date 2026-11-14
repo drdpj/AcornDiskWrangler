@@ -50,15 +50,12 @@ public:
     QMimeData *makeMime(const QList<QTreeWidgetItem *> &items) const override;
     // The rows a drag or a copy of these items is made of: no root rows, nothing inside a selected directory.
     QVector<DragRef> refsFor(const QList<QTreeWidgetItem *> &items) const;
-signals:
-    void dragOutFinished(int files, int dirs, const QStringList &errors);      // a drag whose files were written
 protected:
     DropRules dropRules() const override;
     void dragMoveEvent(QDragMoveEvent *e) override;      // the kit's, and the row under the drag made current
     QStringList mimeTypes() const override;
+    // A picture of the row, then the kit's execDragOut (which says what came of it: dragOutFinished, dragOutNothing).
     void startDrag(Qt::DropActions supported) override;
-private:
-    mutable std::shared_ptr<RetroFiles::DragState> m_lastDrag;
 };
 
 

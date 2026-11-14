@@ -45,9 +45,6 @@ QString filesystemName(int srcPane);
 // ones a crash left behind at start-up (dw::xfer::cleanStale).
 QString dragDirPrefix();                     // e.g. /tmp/acorndiskwrangler-drag-
 
-// What a drag did, for the window that started it (filled in when a target asks for the files).
-typedef dw::DragState DragState;
-
 // How this program's drags (and Edit > Copy) are written out: the core's DragSpec with Acorn's policy (host-safe
 // names, DFS NAME or D.NAME, .inf sidecars when writeInf is set), the source filesystem of the pane ("adfs", "dfs",
 // "fat") and this program's drag folders. The window builds a dw::DragOutMime from it and an exporter of

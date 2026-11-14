@@ -95,7 +95,6 @@ void DropTree::startDrag(Qt::DropActions) {
     QList<QTreeWidgetItem *> items = selectedItems();
     QMimeData *data = makeMime(items);
     if (!data) return;
-    std::shared_ptr<RetroFiles::DragState> state = m_lastDrag;
     auto *drag = new QDrag(this);
     drag->setMimeData(data);
     if (QTreeWidgetItem *first = currentItem() && currentItem()->isSelected() ? currentItem() : items.value(0)) {
@@ -106,13 +105,10 @@ void DropTree::startDrag(Qt::DropActions) {
             drag->setHotSpot(viewport()->mapFromGlobal(QCursor::pos()) - r.topLeft());
         }
     }
-    Qt::DropAction result = drag->exec(Qt::CopyAction, Qt::CopyAction);   // copy only: never "move" off the disc
-    // Don't delete the drag: on X11 the drop target fetches the files after exec() returns, and Qt deletes the
-    // drag itself when that is over (QAbstractItemView doesn't delete its drags either). It is a child of this
-    // tree, so it goes at the latest when the window closes.
-    if (state && state->extracted && result == Qt::CopyAction)
-        emit dragOutFinished(state->files, state->dirs, state->errors);
-    m_lastDrag.reset();
+    // Copy only; reports dragOutFinished or dragOutNothing. Don't delete the drag: on X11 the drop target fetches the
+    // files after exec() returns, and Qt deletes the drag itself when that is over (QAbstractItemView doesn't delete
+    // its drags either). It is a child of this tree, so it goes at the latest when the window closes.
+    execDragOut(drag);
 }
 
 QVector<DragRef> DropTree::refsFor(const QList<QTreeWidgetItem *> &items) const {
@@ -153,7 +149,6 @@ QMimeData *DropTree::makeMime(const QList<QTreeWidgetItem *> &items) const {
                                   win ? QFileInfo(win->document()->image().path()).fileName() : QString(), pane));
     m->setData(DW_MIME_ITEMS, payload);
     m->setData(DW_MIME_SOURCE, sourceTag());
-    m_lastDrag = m->state();
     return m;
 }
 
@@ -418,6 +413,9 @@ MainWindow::MainWindow(QWidget *parent) : DiscWindow(parent) {
             else
                 statusBar()->showMessage(QString("Dragged out %1 file(s)%2.").arg(files)
                                              .arg(dirs ? QString(" in %1 folder(s)").arg(dirs) : QString()), 6000);
+        });
+        connect(t, &DropTree::dragOutNothing, this, [this] {
+            statusBar()->showMessage("Nothing was dragged out: the drop wasn't taken, or no file was asked for.", 6000);
         });
     }
     for (QAction *a : {m_optReadInf, m_optWriteInf, m_optBackup, m_optLetterDirs})
