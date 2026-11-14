@@ -60,7 +60,7 @@ files (see Build).
    are *staged* in the container (`Image::linear()`, `writeSectors`/`writeFileBytes`): a raw file in 128-byte
    blocks, the other containers per sector. Reads overlay staged data on the file, so every layer sees its own
    pending changes. A raw file is read as needed, never loaded whole (a hard disc is 512 MB). A staged write that
-   fails (a bad sector in an ImageDisk file) undoes the whole change.
+   fails (a bad sector in an ImageDisk file) fails the whole change, and its transaction (rule 4) undoes it.
 2. **Validate before writing.** `commit()` runs `validate()` (ADFS map + tree) and the *extra
    validator* (set by `Adfs::OpenedDisc`: the DOS Plus and DFS volumes the pending changes touch, by
    `Disc::validateTouched`, with "DOS partition: " / "DFS drive N: " in front of their errors). Any error vetoes the whole save. It also refuses if sectors 0-1 on
@@ -75,10 +75,15 @@ files (see Build).
    *standard floppy size* (160K/320K/640K); never trust an ADFS map's size claim to grow a file (see the
    hybrid gotcha in docs/disc-formats.md). A save with nothing changed must leave the file byte-identical.
 4. **Every mutating operation is atomic.** The window changes a disc through `Disc::transact` (the
-   window kit does this for Delete, Rename, Properties, disc attributes and every import, one transaction per file);
-   underneath, the filesystem classes still take `Image::snapshot()` and `restore()` on failure (see `DOS_TXN` in
-   `core/diskwrangler/fs/fat/fat.cpp`, and the ADFS `addFile`/`makeDir`/... wrappers). A failed add (disc full,
-   directory full) must leave no trace.
+   window kit does this for Delete, Rename, Properties, disc attributes, New directory and every import, one
+   transaction per file and per folder made). The transaction is the only rollback: since step 6b `Adfs::Image`, the
+   core's DFS catalogue (`dw::dfs::Disc`) and FAT volume (`dw::fat::Volume`) keep no snapshot of their own, so a change
+   that fails half way leaves what it staged (and a free space map, catalogue or FAT changed in memory) until the
+   transaction puts the staging back and every mount reloads. So each class's `reload()` must be faithful: after a
+   change that succeeded it reads back exactly what the change left in memory (`voltest` and the core's `moduletest`
+   check it after every kind of change). Never change a disc outside a transaction in the program; `acorndw` needs
+   none, as its first error abandons the run unsaved. A failed add (disc full, directory full, a replace that doesn't
+   fit) must leave no trace.
 5. **A disc that fails validation on open is read-only.** The ADFS half of the 640K hybrid is
    locked (`Image::setAdfsLocked`) so ADFS edits cannot corrupt the FAT. Don't weaken this.
 6. ADFS-only operations go through `Image::checkAdfs()`; raw containers (`openRaw`) never

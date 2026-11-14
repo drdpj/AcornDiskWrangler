@@ -140,7 +140,6 @@ public:
     Image() = default;
     Image(const Image &) = delete;                // its Linear points at its own container
     Image &operator=(const Image &) = delete;
-    struct Snapshot { FsMap map; dw::device::Container::Snapshot staged; };
 
     // forceFullSize (if non-zero) fixes the disc size instead of trusting the ADFS map, and tolerates a map that
     // claims more sectors than the file holds (Acorn DOS Plus hybrid discs do exactly that).
@@ -195,15 +194,18 @@ public:
     // non-empty result vetoes the save.
     void setReopenValidator(std::function<QStringList(Image &saved)> f) { m_reopenCheck = f; }
     // Reads the free space map again from the (staged) disc: what a dw::fs::Disc transaction calls after it has put
-    // the container's staging back (AdfsVolume::reload).
+    // the container's staging back (AdfsVolume::reload). Faithful: after any change that succeeded it gives exactly
+    // the map the change left in memory (the directories are read from the disc each time; nothing else is kept).
     bool reload(QString *err);
     dw::device::Container &container() { return m_c; }
-    Snapshot snapshot() const { return Snapshot{m_map, m_c.snapshot()}; }
-    void restore(const Snapshot &s) { m_map = s.map; m_c.restore(s.staged); }
 
     bool readDir(quint32 sector, Dir *d, QString *err) const;
     bool readFile(const Entry &e, QByteArray *out, QString *err) const;
 
+    // Changes, staged in the container. One that fails may leave part of itself staged and the free space map in
+    // memory changed: make changes inside dw::fs::Disc::transact (the window kit, the import session and
+    // Adfs::OpenedDisc's callers do), which puts the staging back and calls reload(). Since step 6b Image keeps no
+    // snapshot of its own. (acorndw needs none: its first error abandons the run.)
     bool addFile(quint32 parent, const QString &name, const QByteArray &data, quint32 load,
                  quint32 exec, quint8 flags, bool replaceExisting, QString *err);
     bool makeDir(quint32 parent, const QString &name, QString *err, quint32 *newSector = nullptr);
@@ -225,7 +227,7 @@ private:
     bool writeSectors(quint32 start, QByteArray data);
     bool stageFsMap();
     bool writeDir(const Dir &d);
-    bool staged(const Snapshot &snap, QString *err);        // after a change: a write that failed undoes it
+    bool staged(QString *err);                              // after a change: false if a staged write failed
     bool freeRun(quint32 start, quint32 n, QString *err);
     bool freeTree(quint32 dirSector, int depth, QString *err);
     bool checkEditable(QString *err) const;

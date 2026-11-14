@@ -479,9 +479,9 @@ bool Image::moveToCopy(const QString &dest, QString *err) {
     // the copy holds the same bytes, so what is staged applies to it unchanged
     dw::device::Container moved;
     if (!moved.open(dest, err)) { *err = "could not open " + dest + ": " + *err; return false; }
-    dw::device::Container::Snapshot staged = m_c.snapshot();
+    dw::device::Container::Snapshot pending = m_c.snapshot();
     m_c = moved;
-    m_c.restore(staged);
+    m_c.restore(pending);
     m_path = dest;
     makeLinear();
     return true;
@@ -503,11 +503,13 @@ bool Image::writeSectors(quint32 start, QByteArray data) {
     return false;
 }
 
-bool Image::staged(const Snapshot &snap, QString *err) {
+// After a change: a staged write that failed (a bad sector in an ImageDisk file, say) fails the change. What the change
+// staged before it is left: the caller's dw::fs::Disc::transact puts the staging back and has the volumes reload
+// (step 6b: Image keeps no snapshot of its own).
+bool Image::staged(QString *err) {
     if (m_stageError.isEmpty()) return true;
     *err = m_stageError;
     m_stageError.clear();
-    restore(snap);
     return false;
 }
 
@@ -542,9 +544,8 @@ bool Image::writeFileBytes(quint32 sin, quint32 fileLen, quint64 off, const QByt
     if (quint64(sin) + last >= m_map.total) { *err = "write beyond the end of the disc"; return false; }
     QByteArray s = readSectors(sin + quint32(first), quint32(last - first + 1));
     memcpy(s.data() + (off - first * SectorSize), data.constData(), size_t(data.size()));
-    Snapshot snap = snapshot();
     writeSectors(sin + quint32(first), s);
-    return staged(snap, err);
+    return staged(err);
 }
 
 bool Image::pendingTouches(quint32 start, quint32 count) const {
@@ -580,14 +581,16 @@ bool Image::freeTree(quint32 dirSector, int depth, QString *err) {
 }
 
 // -------------------------------------------------------------- modifications
+// A change that fails stops where it is: what it staged, and the free space map it changed in memory, are put back by
+// the caller's dw::fs::Disc::transact, which puts the staging back and has AdfsVolume reload (reload() reads the map
+// again). Since step 6b these keep no snapshot of their own.
 
 bool Image::addFile(quint32 parent, const QString &name, const QByteArray &data, quint32 load,
                     quint32 exec, quint8 flags, bool replace, QString *err) {
     if (!checkAdfs(err)) return false;
-    Snapshot snap = snapshot();
-    if (!addFileInner(parent, name, data, load, exec, flags, replace, err)) { m_stageError.clear(); restore(snap); return false; }
+    if (!addFileInner(parent, name, data, load, exec, flags, replace, err)) { m_stageError.clear(); return false; }
     stageFsMap();
-    return staged(snap, err);
+    return staged(err);
 }
 
 bool Image::addFileInner(quint32 parent, const QString &name, const QByteArray &data, quint32 load,
@@ -634,7 +637,6 @@ bool Image::addFileInner(quint32 parent, const QString &name, const QByteArray &
 
 bool Image::makeDir(quint32 parent, const QString &name, QString *err, quint32 *newSector) {
     if (!checkAdfs(err)) return false;
-    Snapshot snap = snapshot();
     bool ok = [&]() -> bool {
         QString why;
         if (!isValidName(name, &why)) { *err = QString("'%1': %2").arg(name, why); return false; }
@@ -668,17 +670,16 @@ bool Image::makeDir(quint32 parent, const QString &name, QString *err, quint32 *
         if (newSector) *newSector = start;
         return true;
     }();
-    if (!ok) { m_stageError.clear(); restore(snap); return false; }
+    if (!ok) { m_stageError.clear(); return false; }
     stageFsMap();
-    return staged(snap, err);
+    return staged(err);
 }
 
 bool Image::deleteEntry(quint32 parent, const QString &name, QString *err) {
     if (!checkAdfs(err)) return false;
-    Snapshot snap = snapshot();
-    if (!deleteInner(parent, name, err)) { m_stageError.clear(); restore(snap); return false; }
+    if (!deleteInner(parent, name, err)) { m_stageError.clear(); return false; }
     stageFsMap();
-    return staged(snap, err);
+    return staged(err);
 }
 
 bool Image::deleteInner(quint32 parent, const QString &name, QString *err) {
@@ -702,10 +703,9 @@ bool Image::setBootOption(int opt, QString *err) {
     if (!checkAdfs(err)) return false;
     if (opt < 0 || opt > 3) { *err = "the boot option must be 0 (off), 1 (*LOAD), 2 (*RUN) or 3 (*EXEC)"; return false; }
     if (m_map.base.size() != 512) { *err = "the free space map has not been read"; return false; }
-    Snapshot snap = snapshot();
     m_map.base[256 + 0xFD] = char(opt);
     stageFsMap();                                   // serialize() keeps byte &FD and recomputes both checksums
-    return staged(snap, err);
+    return staged(err);
 }
 
 bool Image::setDiscTitle(const QString &title, QString *err) {
@@ -713,7 +713,6 @@ bool Image::setDiscTitle(const QString &title, QString *err) {
     if (title.size() > MaxNameLen) { *err = "the disc name can be at most 10 characters"; return false; }
     for (QChar ch : title)
         if (ch.unicode() < 0x20 || ch.unicode() > 0x7E) { *err = "the disc name may only contain printable ASCII characters"; return false; }
-    Snapshot snap = snapshot();
     Dir d;
     if (!readDir(RootSector, &d, err)) return false;
     QByteArray t(19, 0x0d);                       // ADFS pads titles with CR
@@ -733,12 +732,11 @@ bool Image::setDiscTitle(const QString &title, QString *err) {
         }
     }
     stageFsMap();
-    return staged(snap, err);
+    return staged(err);
 }
 
 bool Image::replaceEntry(quint32 parent, const QString &oldName, const Entry &upd, QString *err) {
     if (!checkAdfs(err)) return false;
-    Snapshot snap = snapshot();
     bool ok = [&]() -> bool {
         Dir d;
         if (!readDir(parent, &d, err)) return false;
@@ -770,8 +768,8 @@ bool Image::replaceEntry(quint32 parent, const QString &oldName, const Entry &up
         }
         return true;
     }();
-    if (!ok) { m_stageError.clear(); restore(snap); return false; }
-    return staged(snap, err);
+    if (!ok) { m_stageError.clear(); return false; }
+    return staged(err);
 }
 
 // ----------------------------------------------------------------- validate
@@ -896,7 +894,7 @@ bool Image::commit(QString *err, bool makeBackup, Report *post) {
 
     // Changing the side order: the whole disc (everything staged included) is laid out again in the other order and
     // staged over the file. Track 0 side 0 is first in both orders.
-    Snapshot before = snapshot();
+    const dw::device::Container::Snapshot before = m_c.snapshot();      // the side-order rewrite below is put back on failure
     dw::device::SideOrder after = m_sides;
     if (m_convert) {
         after.sequential = !m_sides.sequential;
@@ -904,7 +902,7 @@ bool Image::commit(QString *err, bool makeBackup, Report *post) {
         QByteArray file = dw::device::layoutFile(disc, after);
         file.truncate(int(m_fullSize));
         QString e;
-        if (!m_c.writeStored(0, file, &e)) { restore(before); *err = "Could not change the side order: " + e + "\nNOTHING was written."; return false; }
+        if (!m_c.writeStored(0, file, &e)) { m_c.restore(before); *err = "Could not change the side order: " + e + "\nNOTHING was written."; return false; }
     }
 
     // The copy that will replace the file is opened again as an Image, as it will be read next time, and checked.
@@ -927,7 +925,7 @@ bool Image::commit(QString *err, bool makeBackup, Report *post) {
     };
     QString e;
     if (!m_c.commit(opt, &e)) {
-        restore(before);
+        m_c.restore(before);
         *err = e.contains("NOTHING was written") ? e : e + "\nNOTHING was written.";
         return false;
     }
