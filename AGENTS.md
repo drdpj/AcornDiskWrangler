@@ -231,11 +231,22 @@ files (see Build).
   files?" (QueryGetData / EnumFormatEtc for `CF_HDROP`) by calling `urls()`, so the files are written when the
   drag first passes over another program or the desktop, not at the drop (checked in qtbase 5.15
   `qwindowsmime.cpp`); in-process drops use the source `QMimeData` directly and write nothing. (4)
-  `DropTree::startDrag` runs its own `QDrag` so it knows the result: "Dragged out" is reported only if the files
-  were written **and** the drop was accepted (the owner saw the message after a drag that passed over Explorer
-  and was let go back in the window). (5) Never delete the `QDrag` after `exec()`: on X11 the target fetches the
-  data after `exec()` returns and Qt deletes the drag itself (`xdragtest` caught this). Not testable here: a real
-  drag into Explorer (ask the owner).
+  `DropTree::startDrag` sets the drag's picture and runs it with the kit's `execDragOut` (core v1.1.0, series
+  6c-2), which reports the outcome when it is known: `dragOutFinished` ("Dragged out N file(s)", or the errors in a
+  box) once another program asked for the files and they were written **and** the drop was accepted (the owner saw
+  the message after a drag that passed over Explorer and was let go back in the window); `dragOutNothing` ("Nothing
+  was dragged out: ...", status bar) when it was let go outside the program and nothing was copied (refused,
+  cancelled, or no file asked for within `VolumePane::DragOutWaitMs`). A drop on a window of this program reports
+  neither (`QDrag::target()`; its import says what it did). On X11 the target asks for the files **after**
+  `exec()` returns, which is why the outcome waits. (5) Never delete the `QDrag` after `exec()`: on X11 the target
+  fetches the data after `exec()` returns and Qt deletes the drag itself (`xdragtest` caught this). (6) **Linux,
+  X11 and XWayland** (the program runs under XWayland on a GNOME Wayland session): Qt's xcb drag code answers a
+  format it lacks with no target and doesn't answer TARGETS, so GTK 4 (Nautilus) and mutter's XWayland bridge
+  (every Wayland program on GNOME) waited for ever and got nothing; the kit answers the drag's selection requests
+  itself (`core/diskwrangler/ui/xdndsource.h`). `xdragtest` drops on a target that asks as they do. Known X11
+  limit: Qt takes a drop's result from the target's last hover reply, so a target that takes the files while the
+  drag passes and refuses the drop itself still gets "Dragged out" (`xdragtest` prints it). Not testable here: a
+  real drag into Explorer or the Finder (ask the owner).
 - To add an operation: if the kit has a pattern for it (a change, a copy-out, an import), fill its hooks; otherwise
   write it to the same shape (the mounts writable, one `Disc::transact`, `refreshChanged`), extend `updateActions`,
   and add a GUI test. To add a new disc format: a filesystem module in DiskWranglerCore (a `dw::fs::Volume`, a probe
