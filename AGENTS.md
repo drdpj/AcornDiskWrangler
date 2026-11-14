@@ -45,7 +45,7 @@ files (see Build).
 | `cli/` | `acorndw`, the console program: `AcornCli::Backend` (how an image is opened, made and converted, and how host files become items); the commands are DiskWranglerCore's `diskwrangler/cli` |
 | `viewtext.*` | text / hex / BBC BASIC detokeniser (pure QtCore, no GUI) |
 | `viewer.*` | the read-only viewer window |
-| `main.cpp` | opens each command-line image in its own window; installs `fileopen.h`'s filter for the Finder's |
+| `main.cpp` | the window kit's start-up (`core/diskwrangler/ui/startup.h`): settings' names, icon, stale drag folders, the Finder's filter, each command-line image in its own window |
 | `core/diskwrangler/app/appsettings.h` | where settings live: the system's place, or `<program>.ini` beside the program (portable; for an AppImage, beside the `.AppImage` file - `$APPIMAGE` - not in its temporary mount; a program installed on Linux, or by the Windows installer - `installedHere()`: Inno Setup's `unins000.dat` beside it -, has no portable mode, so File > Create local config file isn't shown). Use `AppSettings` instead of `QSettings` in program code (tests may use `QSettings` to clear the system store). Header only; in DiskWranglerCore |
 | `core/diskwrangler/ui/buttonbar.h` | the main window's button bar: real QPushButtons kept in step with their QActions (a QToolBar's own buttons draw as flat text on macOS). Header only; in DiskWranglerCore |
 | `core/diskwrangler/app/fileopen.h` | macOS opens files from the Finder (double-click, Open With, the Dock icon) by sending the running program a `QFileOpenEvent`, never a command-line argument: `FileOpen::FileOpenFilter<MainWindow>` (installed on the application in `main.cpp`) opens the image like File > Open - in an empty window, the active one first, else a new window; one already open just comes forward. Windows and Linux never send it. `guitest2` / CP/M Disk Wrangler's `guitest` send it. Header only; in DiskWranglerCore |
@@ -136,9 +136,9 @@ files (see Build).
   `title` / `label` / `boot`), Check disc (`showCheck`: Acorn's report, with "DOS: " / "DFS drive N: " and the padding
   warning). The dialog is the program's; the change, its transaction and the refresh are the kit's. A dialog keeps its
   widgets in the same creation order (`guitest` and the screenshots depend on it).
-- Host drops of disc images (`MainWindow::dropImages`, called first by every pane's host-file drop handler; the same
-  behaviour as CP/M Disk Wrangler): an empty window opens every dropped file (`openInWindow`: first here, rest in new
-  windows); otherwise files `detectDisk` recognises are opened in new windows (a CP/M disc in CP/M Disk Wrangler),
+- Host drops of disc images: an empty window opens every dropped file (the kit's `openDropped`: first here, rest in
+  new windows; `.inf` files left out, `dropSkipsFile`), as CP/M Disk Wrangler's does; on a disc (`droppedOnDisc` ->
+  `MainWindow::dropImages`, for every pane; CP/M Disk Wrangler imports them instead, a difference kept) files `detectDisk` recognises are opened in new windows (a CP/M disc in CP/M Disk Wrangler),
   except on a hard disc (`isHardDisc()`: ADFS over 640K, any of its panes) where one question asks Open / Copy onto
   this disc / Cancel. The rest are imported. All queued (no dialog or window inside the drop handler). An empty
   window also ignores the retro-files JSON and takes the files, so it can open an image dragged out of another
@@ -196,12 +196,13 @@ files (see Build).
   disc and its space, then `  -  `-separated extras (side order, `read-only: <readOnlyReason()>`, padding;
   `statusVariants`); with no disc it says to open or drop an image. Short messages use `statusBar()->showMessage`,
   which covers the label for a while. Which actions are enabled is `updateActions`.
-- **Copy and Paste** (`copySelected`, `paste` in `mainwindow_dfs.cpp`; the same design in CP/M Disk Wrangler): Copy
-  exports the selection at once (`exportForCopy`) and keeps the `dw::TransferItem`s, so a paste gets what was
+- **Copy and Paste** (`copySelected`, `paste` in `mainwindow_dfs.cpp`; the clipboard's part is the window kit's
+  since step 6c, `publishCopy` / `pasteClipboard`, so the design is CP/M Disk Wrangler's too): Copy
+  exports the selection at once (`exportForCopy`) and the kit keeps the `dw::TransferItem`s, so a paste gets what was
   selected then even if the source has changed or closed. The clipboard gets a `dw::DragOutMime` (built from `RetroFiles::dragSpec`) whose
   exporter returns that copy (files written to a drag folder only when another program asks: text/uri-list, the
   retro-files JSON and, `setForClipboard`, GNOME's `x-special/gnome-copied-files`), plus `DW_MIME_CLIP` = `pid:n`.
-  Paste (`pasteItems`): our own token -> `importAll` from the kept copy (nothing written); else retro-files JSON ->
+  Paste (the kit's `pasteClipboard`, given this program's three imports): our own token -> `importAll` from the kept copy (nothing written); else retro-files JSON ->
   `onRetroFilesDrop` (another copy of this program, CP/M Disk Wrangler); else local files from a file manager (URLs
   or GNOME's list) -> the pane's import of host paths, like Add files. It goes where Add files would (current row's
   directory, or the DFS side in use). At exit a clipboard we still own is cleared (its files are deleted with the
@@ -211,10 +212,11 @@ files (see Build).
   returns a `dw::DragOutMime` (built from `RetroFiles::dragSpec`) carrying the private formats *and* `text/uri-list` + the retro-files JSON.
   Those two are produced lazily (the core's `dw::DragOutMime`): the selection is exported (`exportRefs`) and written by
   the core's `writeHost` with `AcornPolicy` (same names/.inf as Extract to host; clashing names get `_2`; Windows device names and trailing
-  dots made safe in `hostSafeName`) into a `QTemporaryDir` kept until exit (`cleanStale()` at start-up removes
-  ones older than a day). Rules: (1) `acceptable()`/`dropEvent()` must only look at format *names*, never ask
+  dots made safe in `hostSafeName`) into a `QTemporaryDir` kept until exit (the kit's start-up removes
+  ones older than a day). Drops are sorted by the kit's `VolumePane` (step 6c); `DropTree::dropRules` says what a pane
+  takes. Rules: (1) `acceptable()`/`dropEvent()` (the kit's) only look at format *names*, never ask
   for a drag's URLs or JSON unless it is about to import them - asking makes the source write its files.
-  (2) The private tag is `pid:window:pane`; `fromThisProcess()` decides a direct copy, because window ids are
+  (2) The private tag is `pid:window:pane` (`setDragSource`); `fromThisProcess()` decides a direct copy, because window ids are
   addresses and another copy of the program can have a window at the same address. (3) A drop from another
   process / tool goes through `onRetroFilesDrop` -> the core's `dw::xfer::readJson` (path-safety checked) ->
   `importAll`, so it behaves exactly like a copy between windows. (4a) The owner's rule for the JSON: **no redundant keys**. A
@@ -288,7 +290,12 @@ the program's sources are in `src/`. A new source file goes in the `.pro`, in `C
   helper, the button bar, the Finder-open filter, the licences viewer and `settingstest` are in the core.)
 
 ## Test
-Each test is its own project in `tests/`: `mkdir b && cd b && qmake ../tests/X.pro && make`; GUI tests run with
+```
+tests/run_all.sh <build dir> <real images dir>
+```
+builds every test with the `qmake` on PATH and runs them all with the right data and the independent checks; it ends
+"ALL PASSED" (the real images are the owner's `scsi0.dat`, `M512_1.ADL`, `M512_3.IMG`). Each test is also its own
+project in `tests/`: `mkdir b && cd b && qmake ../tests/X.pro && make`; GUI tests run with
 `QT_QPA_PLATFORM=offscreen`. [docs/testing.md](docs/testing.md) lists them all with their arguments. The ones a UI
 change most often needs: `guitest2` (menus, buttons, title, status bar, drops, Copy / Paste), `dragtest` (drag data
 and retro-files), `screenshot` (look at the result). Several tests need the owner's real hard disc image, which is
