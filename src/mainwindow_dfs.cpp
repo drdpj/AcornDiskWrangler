@@ -817,19 +817,8 @@ void MainWindow::onInternalDrop(int pane, quint32 dir, const QByteArray &payload
 
 // ================================================ copy and paste
 
-// Edit > Copy takes a copy of the selection there and then, so a paste copies what was selected at the time even if
-// the disc has changed or its window has closed since. Inside this program a paste uses that copy (the clipboard
-// carries a token naming it); for the desktop and other programs the clipboard offers the files, as a drag does
-// (text/uri-list, the retro-files JSON and GNOME's list), written to a temporary folder only when something asks.
-static QVector<dw::TransferItem> &clipItems() { static QVector<dw::TransferItem> v; return v; }
-static QByteArray &clipToken() { static QByteArray t; return t; }
-
-static int countItems(const QVector<dw::TransferItem> &v) {
-    int n = 0;
-    for (const dw::TransferItem &x : v) n += x.isDir ? countItems(x.kids) : 1;
-    return n;
-}
-
+// Edit > Copy takes a copy of the selection there and then (the kit's publishCopy: a paste in this program gets exactly
+// those; the desktop and other programs get the files).
 void MainWindow::copySelected() {
     auto *t = static_cast<DropTree *>(currentTree());
     QVector<DragRef> refs = t->refsFor(t->selectedItems());
@@ -842,47 +831,9 @@ void MainWindow::copySelected() {
     bool ok = refItems(pane, refs, &picked, &err) && exportForCopy(picked, &copied, &err);
     QApplication::restoreOverrideCursor();
     if (!ok) { QMessageBox::warning(this, "Copy", err); return; }
-    const QVector<dw::TransferItem> &items = copied;
-    static int serial = 0;
-    clipItems() = items;
-    clipToken() = QByteArray::number(qint64(QCoreApplication::applicationPid())) + ":" + QByteArray::number(++serial);
-    auto *m = new dw::DragOutMime([copied](QVector<dw::TransferItem> *out, QString *) { *out = copied; return true; },
-                                  RetroFiles::dragSpec(writeInfOnExtract(), QFileInfo(m_img.path()).fileName(), pane));
-    m->setForClipboard(true);
-    m->setData(DW_MIME_CLIP, clipToken());
-    QApplication::clipboard()->setMimeData(m);
-    static bool once = false;                  // the copied files live in a folder removed at exit: don't leave
-    if (!once) {                               // a clipboard behind that names them
-        once = true;
-        connect(qApp, &QCoreApplication::aboutToQuit, [] {
-            const QMimeData *c = QApplication::clipboard()->mimeData();
-            if (c && c->hasFormat(DW_MIME_CLIP) && QApplication::clipboard()->ownsClipboard()) QApplication::clipboard()->clear();
-        });
-    }
-    int n = countItems(items);
+    const int n = publishCopy(copied, RetroFiles::dragSpec(writeInfOnExtract(), QFileInfo(m_img.path()).fileName(), pane));
     statusBar()->showMessage(QString("Copied %1 file%2 - Edit > Paste puts %3 into another disc, a folder on the desktop "
                                      "or another program.").arg(n).arg(n == 1 ? "" : "s").arg(n == 1 ? "it" : "them"), 8000);
-}
-
-// Local files the clipboard names: a file manager's copy (text/uri-list, or GNOME's own list).
-static QStringList clipboardPaths(const QMimeData *m) {
-    QStringList paths;
-    for (const QUrl &u : m->urls())
-        if (u.isLocalFile()) paths << u.toLocalFile();
-    if (paths.isEmpty() && m->hasFormat("x-special/gnome-copied-files")) {
-        const QList<QByteArray> lines = m->data("x-special/gnome-copied-files").split('\n');
-        for (int i = 1; i < lines.size(); ++i) {               // line 0 is "copy" or "cut"
-            QUrl u = QUrl::fromEncoded(lines[i].trimmed());
-            if (u.isLocalFile()) paths << u.toLocalFile();
-        }
-    }
-    return paths;
-}
-
-bool MainWindow::clipboardUsable() const {
-    const QMimeData *m = QApplication::clipboard()->mimeData();
-    return m && (m->hasFormat(DW_MIME_CLIP) || m->hasFormat(RetroFiles::MimeType) || m->hasUrls() ||
-                 m->hasFormat("x-special/gnome-copied-files"));
 }
 
 // Edit > Paste: into the directory of the current row (ADFS, DOS) or the side in use (DFS), as Add files would.
@@ -893,24 +844,15 @@ void MainWindow::paste() {
     else if (dfsSide() >= 0) { pane = dfsSide() ? PaneDfs1 : PaneDfs0; dir = 0; }
     if (!m_img.isOpen()) return;
     if (!paneEditable(pane)) { QMessageBox::warning(this, "Paste", "This disc is read-only: " + readOnlyReason() + "."); return; }
-    const QMimeData *m = QApplication::clipboard()->mimeData();
-    if (!m || !pasteItems(pane, dir, m))
+    PasteTo to;
+    to.copied = [this, pane, dir](const QVector<dw::TransferItem> &items) { importAll(pane, dir, items, {}, true, true); };
+    to.retroFiles = [this, pane, dir](const QByteArray &json) { onRetroFilesDrop(pane, dir, json); };
+    to.paths = [this, pane, dir](const QStringList &paths) {      // files copied in a file manager: as Add files
+        if (pane == PaneAdfs) importPaths(paths, dir);
+        else if (pane == PaneDos) dosImportPaths(paths, dir);
+        else dfsImportPaths(pane == PaneDfs1 ? 1 : 0, paths);
+    };
+    if (!pasteClipboard(to))
         statusBar()->showMessage("Nothing to paste: copy some files first (here, in another window, or in a file manager).", 6000);
 }
 
-bool MainWindow::pasteItems(int pane, quint32 dir, const QMimeData *m) {
-    if (m->hasFormat(DW_MIME_CLIP) && !clipToken().isEmpty() && m->data(DW_MIME_CLIP) == clipToken()) {
-        importAll(pane, dir, clipItems(), {}, true, true);   // copied in this program: nothing written to the host
-        return true;
-    }
-    if (m->hasFormat(RetroFiles::MimeType)) {             // another copy of this program, or another tool
-        QByteArray json = m->data(RetroFiles::MimeType);
-        if (!json.isEmpty()) { onRetroFilesDrop(pane, dir, json); return true; }
-    }
-    QStringList paths = clipboardPaths(m);                 // files copied in a file manager: as Add files
-    if (paths.isEmpty()) return false;
-    if (pane == PaneAdfs) importPaths(paths, dir);
-    else if (pane == PaneDos) dosImportPaths(paths, dir);
-    else dfsImportPaths(pane == PaneDfs1 ? 1 : 0, paths);
-    return true;
-}

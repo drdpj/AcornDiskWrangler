@@ -87,34 +87,6 @@ DropTree::DropTree(QWidget *parent) : dw::ui::VolumePane(parent) {
 }
 
 QStringList DropTree::mimeTypes() const { return QStringList() << DW_MIME_ITEMS; }
-Qt::DropActions DropTree::supportedDropActions() const { return Qt::CopyAction; }   // copying never removes the source
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-QMimeData *DropTree::mimeData(const QList<QTreeWidgetItem *> &items) const { return makeMime(items); }
-#else
-QMimeData *DropTree::mimeData(const QList<QTreeWidgetItem *> items) const { return makeMime(items); }
-#endif
-
-// Where a drag is over the tree: QDropEvent::pos() is deprecated in Qt 6 and position() is new in it.
-static QPoint dropPos(const QDropEvent *e) {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    return e->position().toPoint();
-#else
-    return e->pos();
-#endif
-}
-
-static QByteArray sourceTag(quint64 owner, int pane) {
-    return QByteArray::number(qint64(QCoreApplication::applicationPid())) + ":" + QByteArray::number(qulonglong(owner)) +
-           ":" + QByteArray::number(pane);
-}
-
-bool DropTree::fromThisProcess(const QMimeData *m) {
-    if (!m->hasFormat(DW_MIME_SOURCE) || !m->hasFormat(DW_MIME_ITEMS)) return false;
-    QList<QByteArray> f = m->data(DW_MIME_SOURCE).split(':');
-    // window ids are addresses, so the same id can exist in another copy of the program: check the process too
-    return f.size() == 3 && f[0].toLongLong() == qint64(QCoreApplication::applicationPid()) &&
-           MainWindow::byId(f[1].toULongLong()) != nullptr;
-}
 
 // Our own drag, rather than QAbstractItemView's, so that we know whether the drop was accepted: on Windows the files
 // may already have been written while the drag passed over another program, and a drag that then comes back and is
@@ -168,35 +140,33 @@ QMimeData *DropTree::makeMime(const QList<QTreeWidgetItem *> &items) const {
     if (refs.isEmpty()) return nullptr;
     QByteArray payload;
     QDataStream ds(&payload, QIODevice::WriteOnly);
-    ds << quint64(m_owner) << qint32(m_pane) << qint32(refs.size());
+    ds << quint64(sourceWindow()) << qint32(sourcePane()) << qint32(refs.size());
     for (const DragRef &r : refs) ds << quint32(r.parent) << r.name << r.isDir;
     // the files themselves, for the host or another program: exported from the window when (if) they're asked for
-    QPointer<MainWindow> win = MainWindow::byId(m_owner);
-    int pane = m_pane;
+    QPointer<MainWindow> win = MainWindow::byId(sourceWindow());
+    int pane = sourcePane();
     dw::DragOutMime::Exporter exporter = [win, pane, refs](QVector<dw::TransferItem> *out, QString *err) {
         if (!win) { *err = "the disc's window was closed during the drag"; return false; }
         return win->exportRefs(pane, refs, out, err);
     };
     auto *m = new dw::DragOutMime(exporter, RetroFiles::dragSpec(win && win->writeInfOnExtract(),
-                                  win ? QFileInfo(win->document()->image().path()).fileName() : QString(), m_pane));
+                                  win ? QFileInfo(win->document()->image().path()).fileName() : QString(), pane));
     m->setData(DW_MIME_ITEMS, payload);
-    m->setData(DW_MIME_SOURCE, sourceTag(m_owner, m_pane));
+    m->setData(DW_MIME_SOURCE, sourceTag());
     m_lastDrag = m->state();
     return m;
 }
 
-bool DropTree::acceptable(const QMimeData *m) const {
-    // Only format names are looked at here: asking for a drag's file list would make its source write the files.
-    if (fromThisProcess(m)) {                    // items from another tree (but not dropped back onto their own)
-        if (m->data(DW_MIME_SOURCE) != sourceTag(m_owner, m_pane)) return true;
-        MainWindow *w = MainWindow::byId(m_owner);  // within the DFS tree: from one side to the other
-        return w && (m_pane == PaneDfs0 || m_pane == PaneDfs1) && w->document()->dfs(0).attached() && w->document()->dfs(1).attached();
-    }
-    return m->hasFormat(RetroFiles::MimeType) || m->hasUrls();
-}
-
-void DropTree::dragEnterEvent(QDragEnterEvent *e) {
-    if (acceptable(e->mimeData())) e->acceptProposedAction();
+// What a tree takes (the kit sorts the drop): items from another tree, or within the DFS tree from one side to the
+// other; retro-files JSON and files, but an empty window wants a drop's files (it opens them: an image dragged out of
+// another window).
+dw::ui::VolumePane::DropRules DropTree::dropRules() const {
+    DropRules r;
+    MainWindow *w = MainWindow::byId(sourceWindow());
+    r.fromItself = w && (sourcePane() == PaneDfs0 || sourcePane() == PaneDfs1) && w->document()->dfs(0).attached() &&
+                   w->document()->dfs(1).attached();
+    r.filesNotJson = w && !w->document()->image().isOpen();
+    return r;
 }
 
 void DropTree::dragMoveEvent(QDragMoveEvent *e) {
@@ -206,32 +176,6 @@ void DropTree::dragMoveEvent(QDragMoveEvent *e) {
     if (it && it != currentItem()) setCurrentItem(it);
 }
 
-void DropTree::dropEvent(QDropEvent *e) {
-    if (!acceptable(e->mimeData())) return;
-    if (fromThisProcess(e->mimeData())) {        // one of this program's own windows: copy directly
-        e->setDropAction(Qt::CopyAction);
-        e->accept();
-        emit internalDrop(e->mimeData()->data(DW_MIME_ITEMS), itemAt(dropPos(e)));
-        return;
-    }
-    MainWindow *win = MainWindow::byId(m_owner);
-    bool empty = win && !win->document()->image().isOpen();  // an empty window opens dropped files, so it wants them as files
-    if (!empty && e->mimeData()->hasFormat(RetroFiles::MimeType)) {   // another copy of this program, or another tool
-        QByteArray json = e->mimeData()->data(RetroFiles::MimeType);
-        if (!json.isEmpty()) {
-            e->setDropAction(Qt::CopyAction);
-            e->accept();
-            emit retroFilesDropped(json, itemAt(dropPos(e)));
-            return;
-        }
-    }
-    QStringList paths;
-    for (const QUrl &u : e->mimeData()->urls())
-        if (u.isLocalFile()) paths << u.toLocalFile();
-    if (paths.isEmpty()) return;
-    e->acceptProposedAction();
-    emit pathsDropped(paths, itemAt(dropPos(e)));
-}
 
 // ===================================================================== helpers
 
@@ -296,7 +240,7 @@ dw::ui::DiscWindow::ActionSpec MainWindow::actionSpec(Act a) const {
 // keyboard focus (which pane has it when the window opens) follows it.
 dw::ui::VolumePane *MainWindow::createPane(const QString &group) {
     auto *t = new DropTree(group == "ADFS" ? this : nullptr);
-    t->setPane(id(), group == "ADFS" ? PaneAdfs : group == "DOS" ? PaneDos : PaneDfs0);
+    t->setDragSource(id(), group == "ADFS" ? PaneAdfs : group == "DOS" ? PaneDos : PaneDfs0);
     return t;
 }
 
@@ -454,13 +398,6 @@ MainWindow::MainWindow(QWidget *parent) : DiscWindow(parent) {
             convertSideOrder(!m_img.sideLayout().sequential);
         }
     });
-    connect(m_tree, &DropTree::pathsDropped, this, &MainWindow::onDropped);
-    connect(m_dosTree, &DropTree::pathsDropped, this, &MainWindow::onDosDropped);
-    connect(m_dfsTree, &DropTree::pathsDropped, this, [this](const QStringList &p, QTreeWidgetItem *it) {
-        int s = dfsTargetSide(it);
-        if (!dropImages(s ? PaneDfs1 : PaneDfs0, p, [this, s](const QStringList &r) { dfsImportPaths(s, r); }))
-            dfsImportPaths(s, p);
-    });
     connect(m_actRenameVol, &QAction::triggered, this, &MainWindow::renameVolume);
     for (DropTree *t : {m_tree, m_dosTree, m_dfsTree}) {
         connect(t, &QTreeWidget::currentItemChanged, this, &MainWindow::updateUi);   // which DFS side is in use
@@ -494,12 +431,6 @@ MainWindow::MainWindow(QWidget *parent) : DiscWindow(parent) {
     updateUi();
 }
 
-void MainWindow::newWindow() {
-    auto *w = new MainWindow;
-    w->setAttribute(Qt::WA_DeleteOnClose);
-    w->show();
-}
-
 // ---------------------------------------------------------------- open/save
 
 bool MainWindow::confirmDiscard() {
@@ -523,12 +454,7 @@ void MainWindow::openDialog() {
 }
 
 // Each disc in its own window (Open..., New disc image, dropped images): a new one, closed again if the disc didn't open.
-dw::ui::DiscWindow *MainWindow::createWindow() {
-    auto *w = new MainWindow;
-    w->setAttribute(Qt::WA_DeleteOnClose);
-    w->show();
-    return w;
-}
+dw::ui::DiscWindow *MainWindow::createWindow() { return makeWindow<MainWindow>(); }
 
 // ---------------------------------------------------------------- opening, on the kit's open pipeline (openFile)
 // confirmDiscard (beforeOpen) -> detectImage -> the kit asks when two readings are equally likely, and hands a CP/M
@@ -1325,9 +1251,22 @@ QTreeWidget *MainWindow::currentTree() const {
 
 // ------------------------------------------------------------------ importing
 
-void MainWindow::onDropped(const QStringList &paths, QTreeWidgetItem *target) {
+// Host files dropped on a pane of an open disc (an empty window opens them: the kit's openDropped, with .inf files
+// left out, dropSkipsFile): disc images go to dropImages, the rest is imported where they were dropped.
+void MainWindow::droppedOnDisc(dw::ui::VolumePane *pane, QTreeWidgetItem *target, const QStringList &paths) {
+    if (pane == m_dosTree) { onDosDropped(paths, target); return; }
+    if (pane == m_dfsTree) {
+        int s = dfsTargetSide(target);
+        if (!dropImages(s ? PaneDfs1 : PaneDfs0, paths, [this, s](const QStringList &r) { dfsImportPaths(s, r); }))
+            dfsImportPaths(s, paths);
+        return;
+    }
     quint32 dir = targetDirForItem(target);
     if (!dropImages(PaneAdfs, paths, [this, dir](const QStringList &r) { importPaths(r, dir); })) importPaths(paths, dir);
+}
+
+bool MainWindow::dropSkipsFile(const QString &path) const {
+    return QFileInfo(path).isDir() || path.endsWith(".inf", Qt::CaseInsensitive);
 }
 
 bool MainWindow::isHardDisc() const {
@@ -1335,29 +1274,18 @@ bool MainWindow::isHardDisc() const {
 }
 
 MainWindow *MainWindow::openInNewWindow(const QString &path) {
-    auto *w = new MainWindow;
-    w->setAttribute(Qt::WA_DeleteOnClose);
-    w->show();
+    MainWindow *w = makeWindow<MainWindow>();
     if (w->openFile(path)) return w;
     w->close();
     return nullptr;
 }
 
-// Files dropped from the host that are disc images (as CP/M Disk Wrangler does). An empty window opens whatever is
-// dropped on it: the first file here, the rest in new windows. A window holding a floppy opens disc images in new
-// windows and adds the other files as usual. A hard disc may be where an image is meant to be kept, so it asks
-// whether to open the images or copy them onto the disc as files. Returns true if it took the drop over; the work
-// is queued, so no dialog or new window appears inside the drop handler. (Add files never opens images.)
+// Files dropped from the host on an open disc that are disc images (an empty window opens whatever is dropped on it:
+// the kit's openDropped, as in CP/M Disk Wrangler). A window holding a floppy opens disc images in new windows and adds
+// the other files as usual (CP/M Disk Wrangler adds them all). A hard disc may be where an image is meant to be kept,
+// so it asks whether to open the images or copy them onto the disc as files. Returns true if it took the drop over; the
+// work is queued, so no dialog or new window appears inside the drop handler. (Add files never opens images.)
 bool MainWindow::dropImages(int pane, const QStringList &paths, std::function<void(const QStringList &)> importRest) {
-    if (!m_img.isOpen()) {
-        QTimer::singleShot(0, this, [this, paths] {
-            for (const QString &p : paths) {
-                if (QFileInfo(p).isDir() || p.endsWith(".inf", Qt::CaseInsensitive)) continue;
-                openInWindow(p);                    // this window while it is empty, then new windows
-            }
-        });
-        return true;
-    }
     QStringList images, kinds;
     for (const QString &p : paths) {
         if (QFileInfo(p).isDir()) continue;

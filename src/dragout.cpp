@@ -37,9 +37,7 @@ QString filesystemName(int srcPane) {
 
 // ------------------------------------------------------------------------------ temporary folders
 
-QString dragDirPrefix() { return QDir::temp().filePath("acorndiskwrangler-drag-"); }
-
-int cleanStale(qint64 maxAgeSecs) { return dw::xfer::cleanStale(dragDirPrefix(), maxAgeSecs); }
+QString dragDirPrefix() { return dw::xfer::dragDirPrefix("acorndiskwrangler"); }
 
 // ------------------------------------------------------------------------------ the drag data
 

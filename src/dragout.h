@@ -41,10 +41,9 @@ extern const char *const MimeType;          // "application/x-retro-files+json"
 QString filesystemName(int srcPane);
 
 // Temporary folders for drags (the core's DragOutMime makes one per drag, kept until the program exits: a drop
-// target may still be copying when the drag returns). cleanStale() removes ones left behind by a crash, older than
-// maxAgeSecs.
+// target may still be copying when the drag returns). The core's, for this program's id; the window kit removes the
+// ones a crash left behind at start-up (dw::xfer::cleanStale).
 QString dragDirPrefix();                     // e.g. /tmp/acorndiskwrangler-drag-
-int cleanStale(qint64 maxAgeSecs = 24 * 3600);
 
 // What a drag did, for the window that started it (filled in when a target asks for the files).
 typedef dw::DragState DragState;

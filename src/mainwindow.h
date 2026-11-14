@@ -37,42 +37,28 @@ class QTabWidget;
 class QMimeData;
 
 // A pane of the window (the window kit's VolumePane) that accepts files and folders dragged in from the desktop, and
-// items dragged between discs and windows. Its rows carry the program's own roles (RoleParent ...) beside the kit's.
+// items dragged between discs and windows (the kit sorts the drops, step 6c: dropRules says what this pane takes). Its
+// rows carry the program's own roles (RoleParent ...) beside the kit's. Its drag source names its pane number
+// (PaneAdfs, PaneDos, PaneDfs0: setDragSource).
 class DropTree : public dw::ui::VolumePane {
     Q_OBJECT
 public:
     explicit DropTree(QWidget *parent = nullptr);
-    void setPane(quint64 owner, int pane) { m_owner = owner; m_pane = pane; }
-    int pane() const { return m_pane; }
+    int pane() const { return sourcePane(); }
     // The payload of a drag from this tree: the private formats (copying between this program's windows) plus the
     // files themselves, written only if a drop target asks for them (see dragout.h).
-    QMimeData *makeMime(const QList<QTreeWidgetItem *> &items) const;
+    QMimeData *makeMime(const QList<QTreeWidgetItem *> &items) const override;
     // The rows a drag or a copy of these items is made of: no root rows, nothing inside a selected directory.
     QVector<DragRef> refsFor(const QList<QTreeWidgetItem *> &items) const;
-    // A drag carries "pid:window:pane" so a drop can tell whether it came from this process.
-    static bool fromThisProcess(const QMimeData *m);
 signals:
-    void pathsDropped(const QStringList &paths, QTreeWidgetItem *target);
-    void internalDrop(const QByteArray &payload, QTreeWidgetItem *target);
-    void retroFilesDropped(const QByteArray &json, QTreeWidgetItem *target);    // from another program / instance
     void dragOutFinished(int files, int dirs, const QStringList &errors);      // a drag whose files were written
 protected:
-    void dragEnterEvent(QDragEnterEvent *e) override;
-    void dragMoveEvent(QDragMoveEvent *e) override;
-    void dropEvent(QDropEvent *e) override;
+    DropRules dropRules() const override;
+    void dragMoveEvent(QDragMoveEvent *e) override;      // the kit's, and the row under the drag made current
     QStringList mimeTypes() const override;
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)               // Qt 6 passes the list by reference, Qt 5 by value
-    QMimeData *mimeData(const QList<QTreeWidgetItem *> &items) const override;
-#else
-    QMimeData *mimeData(const QList<QTreeWidgetItem *> items) const override;
-#endif
-    Qt::DropActions supportedDropActions() const override;
     void startDrag(Qt::DropActions supported) override;
 private:
-    bool acceptable(const QMimeData *m) const;
     mutable std::shared_ptr<RetroFiles::DragState> m_lastDrag;
-    quint64 m_owner = 0;
-    int m_pane = 0;
 };
 
 
@@ -124,7 +110,6 @@ public:
 
     // the kit's slots, as this program does them
     void refresh() override;
-    void newWindow() override;
     void openDialog() override;
     void saveAsDialog() override;
     void revert() override;
@@ -164,6 +149,9 @@ protected:
     NotOpened handOverMessage(const QString &path, const dw::fs::Verdict &verdict, const dw::fs::Candidate &pick) const override;
     void afterOpen(const QString &path) override;
     dw::ui::DiscWindow *createWindow() override;
+    // host files dropped (step 6c: the kit opens them in an empty window, .inf files left out; on a disc, this program's)
+    bool dropSkipsFile(const QString &path) const override;
+    void droppedOnDisc(dw::ui::VolumePane *pane, QTreeWidgetItem *target, const QStringList &paths) override;
     QVector<Item> deleteItems() const override;
     bool confirmDelete(const QVector<Item> &items) override;
     bool deleteEachOnItsOwn() const override { return true; }
@@ -184,8 +172,6 @@ private slots:
     void checkImage();
     void bootOptionDialog();
     void renameVolume();
-    void onDosDropped(const QStringList &paths, QTreeWidgetItem *target);
-    void onDropped(const QStringList &paths, QTreeWidgetItem *target);
 
 private:
     friend class DropTree;
@@ -264,8 +250,7 @@ private:
     QVector<Sel> selectedObjects() const;
     quint32 targetDirForItem(QTreeWidgetItem *it) const;
     QTreeWidget *currentTree() const;
-    bool clipboardUsable() const;                         // something Paste can add
-    bool pasteItems(int pane, quint32 dir, const QMimeData *m);
+    void onDosDropped(const QStringList &paths, QTreeWidgetItem *target);
     void showReport(const QString &title, const QString &headline, const Adfs::Report &r, bool warn);
 
     bool dropImages(int pane, const QStringList &paths, std::function<void(const QStringList &)> importRest);
