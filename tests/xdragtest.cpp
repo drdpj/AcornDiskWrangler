@@ -24,14 +24,22 @@
 // the action from the last hover reply, so the message can't be relied on here - only printed).
 // It caught a bug the offscreen tests can't: on X11 the target fetches the files after QDrag::exec() returns, so the
 // drag must not be deleted when exec() returns.
+// Series 6c-2 added two drops on a target written straight on xcb (core/tests/xdndtarget.h, "xdragtest xdnd <silent>
+// <log>"): one that asks as GTK 4 (Nautilus) and mutter's XWayland bridge do - TARGETS, then a portal format nobody
+// offers, then text/uri-list, taking only an answer for the very target it asked - and one that never asks. The
+// first must get the format list, a proper refusal and the files, and the window "Dragged out"; the second nothing,
+// and the window must say nothing was dragged out. Both failed before 6c-2 (Qt's answers name no target; the window
+// said nothing of a drop whose files are asked for after exec() returns).
 #include "mainwindow.h"
 #include "windowhelp.h"
 #include "newdisc.h"
+#include "../core/tests/xdndtarget.h"
 #include <QApplication>
 #include <QDragEnterEvent>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QTimer>
 #include <cstdio>
 #include <functional>
@@ -62,6 +70,7 @@ int main(int argc, char **argv) {
         FakeExplorer ex(QString(argv[2]) == "1", argv[3]); ex.setGeometry(700, 50, 300, 300); ex.show();
         return app.exec();
     }
+    if (QString(argv[1]) == "xdnd") return xdndtarget::Target(argv[3], QString(argv[2]) == "1").run(700, 50, 300, 300);
     QString dir = argv[1], e, adl = dir + "/d.adl";
     NewDisc::create(adl, NewDisc::AdfsL, "X", false, &e);
     { Image im; im.open(adl, &e, 0, detectDisk(adl).sides); im.addFile(RootSector, "Elite", QByteArray(5000, 'x'), 0, 0, FlagR | FlagW, false, &e); im.commit(&e, false, nullptr); }
@@ -87,6 +96,32 @@ int main(int argc, char **argv) {
         bool asked = got.contains("asked 2");
         printf("%-58s Explorer: %-22s status bar: %s\n", what[sc], qPrintable(got), msg.isEmpty() ? "(nothing)" : qPrintable(msg));
         if (!asked || (sc < 2 && (sc == 0) != !msg.isEmpty()) || (sc == 0 && !got.contains("dropped 2"))) ++fails;
+    }
+    const char *what2[] = {"dropped on a GTK 4-like target", "dropped on a target that never asks"};
+    for (int sc = 0; sc < 2; ++sc) {
+        QString log = dir + QString("/xlog%1.txt").arg(sc); QFile::remove(log);
+        QProcess tg; tg.start(argv[0], {"xdnd", sc == 1 ? "1" : "0", log}); wait(1500);
+        MainWindow w; w.setGeometry(20, 50, 600, 400); w.show(); w.openFile(adl); wait(800);
+        QTreeWidgetItem *it = findItemNamed(wt::adfsTree(w), "Elite"); wt::adfsTree(w)->setCurrentItem(it); it->setSelected(true);
+        QPoint p = wt::adfsTree(w)->viewport()->mapToGlobal(wt::adfsTree(w)->visualItemRect(it).center());
+        QString msg; bool nothing = false;
+        QObject::connect(wt::adfsTree(w), &DropTree::dragOutFinished, [&](int f, int, const QStringList &) { msg = QString("\"Dragged out %1 file(s)\"").arg(f); });
+        QObject::connect(wt::adfsTree(w), &DropTree::dragOutNothing, [&] { nothing = true; });
+        QString path = QString("xdotool mousemove %1 %2 mousedown 1; sleep 0.3; xdotool mousemove %3 %4; sleep 0.3; ").arg(p.x()).arg(p.y()).arg(p.x() + 30).arg(p.y() + 5) +
+                       "xdotool mousemove 850 200; sleep 0.5; xdotool mousemove 860 210; sleep 0.5; xdotool mouseup 1";
+        QProcess drv; drv.start("sh", {"-c", path});
+        while (drv.state() != QProcess::NotRunning) wait(50);
+        QElapsedTimer t; t.start();               // the target asks after the drop; "nothing" waits for it a while
+        while (msg.isEmpty() && !nothing && t.elapsed() < 2 * dw::ui::VolumePane::DragOutWaitMs) wait(50);
+        wait(300);
+        tg.kill(); tg.waitForFinished();
+        QFile l(log); l.open(QIODevice::ReadOnly); QString got = QString::fromUtf8(l.readAll()).trimmed().replace('\n', " | ");
+        printf("%-58s target: %s; status bar: %s\n", what2[sc], qPrintable(got),
+               nothing ? "\"Nothing was dragged out\"" : msg.isEmpty() ? "(nothing)" : qPrintable(msg));
+        const bool ok = sc == 0 ? got.contains(QRegularExpression("^targets TARGETS .*text/uri-list")) && got.contains("portal refused") &&
+                                      got.contains("uri-list 2 Elite Elite.inf") && msg == "\"Dragged out 1 file(s)\"" && !nothing
+                                : got == "dropped, asked for nothing" && nothing && msg.isEmpty();
+        if (!ok) ++fails;
     }
     printf(fails ? "FAILED (%d)\n" : "ALL OK\n", fails);
     return fails;
