@@ -61,7 +61,7 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
   - **Track interleave (the bug that corrupted every file):** DOS Plus numbers sectors side 0 first
     (cylinders 0-79), then side 1, but the image file is stored cylinder by cylinder (side 0, side 1, ...).
     A track is 16 x 256 = 4096 bytes; **logical track t is at file track 2t (t < 80) or 2(t-80)+1
-    (t >= 80)**. This is now done by `Adfs::Image` (`SideLayout::sideFirst`, the same as for ADFS L - see the
+    (t >= 80)**. This is now done by `Adfs::Image` (`SideOrder::sideFirst`, the same as for ADFS L - see the
     side order notes below); `dw::fat::Volume` only ever sees the disc's own numbering. Detection
     (`diskformat.cpp`) looks for the FAT signature at *file* offset 8192 (= logical sector 16; 4096 in a
     sequential file).
@@ -83,10 +83,10 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
   every file size, and after edits `fsck.fat`/`mtools` (via a prepended BPB sector) are clean.
   `floptest real800 <copy of the disc>` checks all of that. The image is not in the repo.
 - **Side order of the image FILE** (Acorn double-sided floppies only: ADFS L, DFS .dsd, DOS Plus 800K / 640K.
-  The owner's rule: **PC floppies (360K/720K/1.2M/1.44M) are always interleaved** - they get no `SideLayout`, so
+  The owner's rule: **PC floppies (360K/720K/1.2M/1.44M) are always interleaved** - they get no `SideOrder`, so
   no detection, Read as, Convert or sequential creation; only the Acorn formats can be odd): *interleaved* = cylinder 0 side 0, cylinder 0
   side 1, ...; *sequential* = all of side 0, then all of side 1. Two separate things must not be mixed up,
-  and `Adfs::Image` handles both (`SideLayout`, which is DiskWranglerCore's `dw::device::SideOrder`, translated by the
+  and `Adfs::Image` handles both (DiskWranglerCore's `dw::device::SideOrder`, translated by the
   `Linear` it reads and writes through; everything above `Image` sees the disc in its own sector numbering): (1) the file's side order (`sequential`); (2) how the disc
   numbers its sectors (`sideFirst`). **ADFS L and DOS Plus 640K number side 0 first** - the machine reads all
   of side 0, then side 1 - so even an interleaved file is always remapped (verified on real discs: the Master

@@ -30,7 +30,7 @@ files (see Build).
 | File | Role |
 |---|---|
 | `adfs.h/.cpp` | `Adfs::Image`: the opened disc used by **every** format - a DiskWranglerCore `Container` (raw, ImageDisk, DSK, TeleDisk) seen through a `Linear` with the side order - plus the ADFS old-map filesystem (`FsMap`, `Dir`, `Entry`), validation, commit |
-| `core/diskwrangler/device/` | DiskWranglerCore's device layer: `Container` (the image file, staged writes, the checked save), `Linear` (the disc in its own numbering, slices), `SideOrder` (was `Adfs::SideLayout`; the old name stays as a `using` for the tests) |
+| `core/diskwrangler/device/` | DiskWranglerCore's device layer: `Container` (the image file, staged writes, the checked save), `Linear` (the disc in its own numbering, slices), `SideOrder` (was `Adfs::SideLayout`) |
 | `core/diskwrangler/fs/fat/` | DiskWranglerCore's FAT module (was `dosfs.cpp`): `dw::fat::Volume`: FAT12/FAT16 on a `Linear` - an `Image`'s, a whole floppy or the DRIVE_C file in it (BPB, table-driven `Format`, Acorn layouts); browse/add/mkdir/delete/rename/label/check; `fatprobe` (detection), `fatvolume` (the `dw::fs::Volume` adapter) |
 | `core/diskwrangler/fs/dfs/` | DiskWranglerCore's DFS module (was `dfs.cpp`): `dw::dfs::Disc`: one side of a DFS disc on an `Image`'s `Linear` (catalogue in sectors 0-1, plus 2-3 on a Watford 62-file disc); a .dsd = two `Disc`s. Also `.inf` sidecars (`inf.h`), addresses, the directory-letter mapping for copies to ADFS (`placeLetter`), Acorn Z80 CP/M's catalogue, `dfsprobe` (detection), `dfsvolume` (the adapter) |
 | `diskformat.h/.cpp` | detection by tiers (`core/diskwrangler/fs/detection.h`): probes for ADFS and Torch CP/N here, FAT and DFS from the core; `detectCandidates(path, force)` -> `dw::fs::Verdict` (open, ask which, or hand to CP/M Disk Wrangler), each candidate's data a `DiskInfo` (kind, full size, DFS layout, side layout + whether the side order was confirmed); `detectDisk` = the best one's. Decides how a file is opened. `tests/legacydetect.cpp` is the detection before step 4, for `agreetest` |
@@ -95,7 +95,7 @@ files (see Build).
   `paneTitle`); each mount of the document is in one group (`paneOf(mount)` / `mountOf(pane)`, never `if (pane == ...)`
   in the kit). `refresh()` follows `$.DOS.DRIVE_C` (`OpenedDisc::followDriveC`) and makes every pane again;
   `refreshChanged` after a change remakes every pane for an ADFS change (it may move DRIVE_C) and only its own pane
-  for a DOS or DFS change. `refreshTree()` / `refreshDos()` / `refreshDfs()` remain for the tests.
+  for a DOS or DFS change.
 - **Every refresh deletes and rebuilds the tree items.** Never hold a `QTreeWidgetItem*` across an operation that
   refreshes (this caused a use-after-free in a test); keep names/sector numbers instead. The rows are made by the
   kit in the volume's `list()` order and written by `decorateRow` from this program's own classes (`Adfs::Image`, the
@@ -193,7 +193,7 @@ files (see Build).
   which covers the label for a while. Which actions are enabled is `updateActions`.
 - **Copy and Paste** (`copySelected`, `paste` in `mainwindow_dfs.cpp`; the same design in CP/M Disk Wrangler): Copy
   exports the selection at once (`exportForCopy`) and keeps the `dw::TransferItem`s, so a paste gets what was
-  selected then even if the source has changed or closed. The clipboard gets a `RetroFiles::DragOutMime` whose
+  selected then even if the source has changed or closed. The clipboard gets a `dw::DragOutMime` (built from `RetroFiles::dragSpec`) whose
   exporter returns that copy (files written to a drag folder only when another program asks: text/uri-list, the
   retro-files JSON and, `setForClipboard`, GNOME's `x-special/gnome-copied-files`), plus `DW_MIME_CLIP` = `pid:n`.
   Paste (`pasteItems`): our own token -> `importAll` from the kept copy (nothing written); else retro-files JSON ->
