@@ -46,7 +46,7 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
     save since. Our next write there sets it as Watford would. The true size is the larger of the two catalogues'
     claims; detection uses it, which matters for placing side 1 of a sequential `.dsd`.
 - **PC FAT**: standard; checked against `fsck.fat` and `mtools`. FAT12/16 chosen by cluster
-  count. `Dos::Volume::attach` reads the BPB; `attachFormat` uses the table in the core's `fs/fat/fat.cpp`.
+  count. `dw::fat::Volume::attach` reads the BPB; `attachFormat` uses the table in the core's `fs/fat/fat.cpp`.
 - **New DOS Plus 640K discs** copy the real layout: track 0 side 0 = free space map (total 2720, no free runs),
   root "Acorn DOS Boot Disc" with one entry `dosboot` (WR, load/exec &04000000, length of the DOSBOOT file - 2303
   on the real disc - at sector 7), DOSBOOT in sectors 7-15; then the empty FAT at interleaved track 2. From a disc
@@ -62,7 +62,7 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
     (cylinders 0-79), then side 1, but the image file is stored cylinder by cylinder (side 0, side 1, ...).
     A track is 16 x 256 = 4096 bytes; **logical track t is at file track 2t (t < 80) or 2(t-80)+1
     (t >= 80)**. This is now done by `Adfs::Image` (`SideLayout::sideFirst`, the same as for ADFS L - see the
-    side order notes below); `Dos::Volume` only ever sees the disc's own numbering. Detection
+    side order notes below); `dw::fat::Volume` only ever sees the disc's own numbering. Detection
     (`diskformat.cpp`) looks for the FAT signature at *file* offset 8192 (= logical sector 16; 4096 in a
     sequential file).
   - **How it was found:** extract the DOS files from the hard disc's `DRIVE_C` (`tests/extract_hd_dos.py`),
@@ -93,7 +93,7 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
   Welcome disc, Acorn User Tau85 and ARM Evaluation disc 4, from b-em's `discs/` and oaknut's test data: only
   this mapping gives a valid directory tree, and every BBC BASIC program on them reads intact end to end).
   **DOS Plus 800K (and PC FAT) number sector, side, track**, i.e. the same as an interleaved file (verified on
-  the real 800K disc). A DFS .dsd's sides are separate discs, mapped by `Dfs::Disc` on top of an interleaved
+  the real 800K disc). A DFS .dsd's sides are separate discs, mapped by `dw::dfs::Disc` on top of an interleaved
   view (`sideFirst` false). Geometry (track bytes x cylinders): ADFS L / hybrid 4096 x 80, DFS 2560 x 40|80,
   Acorn 800K 5120 x 80.
   - **Bug fixed with this (owner, please note):** earlier versions read and wrote ADFS L floppies as if ADFS

@@ -120,7 +120,7 @@ files (see Build).
   -> opened like File > Open.
 - Boot option (Edit > Boot option): `MainWindow::bootOption()/setBootOption()` act on the current pane -
   `Image::setBootOption` (ADFS floppy or hard disc: map sector 1 byte &FD, staged via `stageFsMap`, which
-  recomputes both checksums) or `Dfs::Disc::setBootOption` (catalogue sector 1 byte 6 bits 4-5, per side).
+  recomputes both checksums) or `dw::dfs::Disc::setBootOption` (catalogue sector 1 byte 6 bits 4-5, per side).
   DOS panes have none; the locked ADFS side of a 640K DOS Plus disc refuses it. Note: every map save clears
   unused free-list slots past the end-of-list pointer (a real hard disc had a stale entry there) - harmless,
   ADFS ignores them.
@@ -171,7 +171,7 @@ files (see Build).
   (`unlockBeforeReplace` off, so the DFS cycle number counts once).
 - **Copying between discs and windows**: the source side is `exportRefs()` / `exportForCopy` (the kit's
   `exportItems` plus this program's dates); drags carry only `(window id, pane, parent, name)` in a custom MIME
-  type, and the target looks up the source window in `MainWindow::windows()` (same process), exports there and
+  type, and the target looks up the source window in `DiscWindow::all()` (same process), exports there and
   imports here. The drop is queued (`QTimer::singleShot`) so no modal dialog runs inside the drop handler.
 - **Menus, button bar and context menu are laid out like CP/M Disk Wrangler's** (owner's rule: the same order in
   both programs; one program's extra items may sit in between). File: New window (Ctrl+Shift+N), New disc image
