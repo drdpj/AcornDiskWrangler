@@ -560,7 +560,7 @@ int main(int argc,char**argv){
     { QString old=RetroFiles::dragDirPrefix()+"testold"; QDir().mkpath(old);
       struct utimbuf t; t.actime=t.modtime=time(nullptr)-3*24*3600; utime(old.toLocal8Bit().constData(),&t);
       QString fresh=RetroFiles::dragDirPrefix()+"testnew"; QDir().mkpath(fresh);
-      CHECK(RetroFiles::cleanStale()>=1); CHECK(!QFileInfo::exists(old)); CHECK(QFileInfo::exists(fresh)); QDir(fresh).removeRecursively(); }
+      CHECK(dw::xfer::cleanStale(RetroFiles::dragDirPrefix())>=1); CHECK(!QFileInfo::exists(old)); CHECK(QFileInfo::exists(fresh)); QDir(fresh).removeRecursively(); }
 
     QSettings().clear();
     printf(fails ? "FAILED (%d failures)\n" : "ALL OK (%d failures)\n", fails);
