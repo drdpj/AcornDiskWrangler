@@ -71,6 +71,60 @@ static QString tree(dw::fs::Volume *v, const Path &dir = Path(), int depth = 0) 
     return out;
 }
 
+// Step 6b: is the free space map Image keeps in memory exactly what reload() reads from the staging? The map's own
+// numbers, and the bytes the next map write makes from it (a boot-option write: the free list, the size, the disc name
+// and id, both checksums). Both are written, compared and put back; reload() is left done (the same state, if so).
+static bool adfsFaithful(Image &img, QString *why) {
+    const auto snap = img.container().snapshot();
+    const quint32 freeM = img.freeSectors(), runM = img.largestFreeRun(), totalM = img.totalSectors();
+    QString e;
+    QByteArray a, b;
+    const bool wa = img.setBootOption(img.bootOption(), &e) && img.linear().read(0, 512, &a, &e);
+    img.container().restore(snap);
+    if (!img.reload(&e)) { *why = "reload: " + e; return false; }
+    if (img.freeSectors() != freeM || img.largestFreeRun() != runM || img.totalSectors() != totalM) {
+        *why = QString("free %1/%2, largest %3/%4, total %5/%6").arg(freeM).arg(img.freeSectors()).arg(runM).arg(img.largestFreeRun())
+                   .arg(totalM).arg(img.totalSectors());
+        return false;
+    }
+    const bool wb = img.setBootOption(img.bootOption(), &e) && img.linear().read(0, 512, &b, &e);
+    img.container().restore(snap);
+    if (!wa || !wb || a != b) { *why = "the next map write differs" + (e.isEmpty() ? QString() : ": " + e); return false; }
+    return true;
+}
+
+// An ImageDisk file with every sector of one track recorded as "data unavailable" (IMD record type 0): writes to that
+// track fail, as on a real damaged disc.
+static bool imdTrackUnavailable(const QString &path, int cyl, int head, QString *why) {
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) { *why = "can't read " + path; return false; }
+    const QByteArray in = f.readAll();
+    f.close();
+    int at = in.indexOf('\x1a');
+    if (at < 0) { *why = "no IMD header"; return false; }
+    QByteArray out = in.left(++at);
+    bool found = false;
+    while (at + 5 <= in.size()) {
+        const int c = quint8(in[at + 1]), hf = quint8(in[at + 2]), n = quint8(in[at + 3]), sz = 128 << quint8(in[at + 4]);
+        int q = at + 5 + n + ((hf & 0x80) ? n : 0) + ((hf & 0x40) ? n : 0);
+        const bool target = c == cyl && (hf & 0x0F) == head;
+        out += in.mid(at, q - at);
+        for (int k = 0; k < n; ++k) {
+            const int t = quint8(in[q]);
+            const int len = t == 0 ? 0 : (t % 2 ? sz : 1);
+            if (target) out += char(0);
+            else out += in.mid(q, 1 + len);
+            q += 1 + len;
+        }
+        found |= target;
+        at = q;
+    }
+    if (!found) { *why = "no such track"; return false; }
+    if (!f.open(QIODevice::WriteOnly)) { *why = "can't write " + path; return false; }
+    f.write(out);
+    return true;
+}
+
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
     if (argc < 8) { printf("usage: voltest <work dir> <adfs L> <hybrid> <dsd> <pc720> <acorn800> <scsi0.dat>\n"); return 2; }
@@ -137,6 +191,88 @@ int main(int argc, char **argv) {
         CHECK(o2.disc().volume(0)->read(Path({"Games", "Elite2"}), &d, &err) && d == QByteArray(3000, 'e'), "file contents");
         CHECK(o2.disc().volume(0)->remove(Path({"Games"}), &err) && o2.image().validate().ok() &&
                   o2.disc().volume(0)->info().free == qint64(o2.image().freeSectors()) * 256, "remove a directory with its files");
+    }
+
+    // Step 6b: Adfs::Image keeps no snapshot of its own. A change that fails half way leaves what it did; the document's
+    // Disc::transact puts the staging back and has AdfsVolume reload, and Image::reload() gives exactly the map the
+    // changes left in memory.
+    printf("Step 6b: ADFS: Disc::transact is the only rollback, and reload() is faithful\n");
+    {
+        err.clear();
+        const QString p = copyIn(W, argv[2]);
+        QFile::rename(p, W + "/staging.adl");
+        const QString q = W + "/staging.adl";
+        OpenedDisc o;
+        CHECK(openIt(o, q, &err), "open: " + err);
+        Image &img = o.image();
+        auto *v = static_cast<AdfsVolume *>(o.disc().volume(0));
+        QString why;
+        quint32 sub = 0, deep = 0;
+        CHECK(img.addFile(RootSector, "Big", QByteArray(20000, 'b'), 0x1900, 0x8023, FlagR | FlagW, false, &err) &&
+                  img.makeDir(RootSector, "Sub", &err, &sub) && img.makeDir(sub, "Deep", &err, &deep) &&
+                  img.addFile(deep, "Tiny", "t", 0, 0, FlagR, false, &err) && adfsFaithful(img, &why), "adds and directories: " + err + why);
+        bool added = true;
+        for (int i = 0; i < 30 && added; ++i)
+            added = img.addFile(sub, QString("F%1").arg(i), QByteArray(300 + 700 * (i % 5), char('a' + i % 26)), 0, 0, FlagR | FlagW, false, &err);
+        CHECK(added && adfsFaithful(img, &why), "30 files: " + err + why);
+        for (int i = 0; i < 30 && added; i += 3) added = img.deleteEntry(sub, QString("F%1").arg(i), &err);
+        CHECK(added && adfsFaithful(img, &why), "every third deleted: the free list in fragments: " + err + why);
+        CHECK(img.addFile(sub, "F1", QByteArray(9000, 'r'), 0, 0, FlagR, true, &err) && adfsFaithful(img, &why), "a replace, larger: " + err + why);
+        CHECK(img.addFile(RootSector, "Big", QByteArray(500, 's'), 0, 0, FlagR, true, &err) && adfsFaithful(img, &why), "a replace, smaller: " + err + why);
+        Dir root;
+        CHECK(img.readDir(RootSector, &root, &err), "root: " + err);
+        Entry moved = root.entries[root.indexOf("Sub")];
+        moved.setName("Moved");
+        CHECK(img.replaceEntry(RootSector, "Sub", moved, &err) && img.setDiscTitle("STAGED", &err) && img.setBootOption(2, &err) &&
+                  adfsFaithful(img, &why), "a directory renamed, the title, the boot option: " + err + why);
+        CHECK(img.deleteEntry(RootSector, "Moved", &err) && adfsFaithful(img, &why), "a directory deleted with its files: " + err + why);
+        CHECK(img.addFile(RootSector, "Big", QByteArray(20000, 'B'), 0x1900, 0x8023, FlagR | FlagW, true, &err), "Big again: " + err);
+        // a replace that doesn't fit: the old file's sectors are freed in the map in memory, then there is no room
+        const auto snap = img.container().snapshot();
+        const QString before = tree(v);
+        const quint32 freeBefore = img.freeSectors();
+        const QByteArray huge(int(freeBefore + 200) * 256, 'h');
+        CHECK(!o.disc().transact([&](QString *e) { return v->write(Path(), "Big", huge, {}, QDateTime(), true, e); }, &err),
+              "a replace that doesn't fit fails: " + err);
+        QByteArray back;
+        CHECK(img.container().snapshot() == snap && tree(v) == before && img.freeSectors() == freeBefore &&
+                  v->read(Path({"Big"}), &back, &err) && back == QByteArray(20000, 'B') && img.validate().ok(),
+              "the transaction put back the staging and the map: Big is there as it was");
+        QString e2;
+        CHECK(!img.addFile(RootSector, "Big", huge, 0, 0, FlagR, true, &e2) && img.freeSectors() > freeBefore,
+              "without a transaction the map in memory has Big's sectors freed (" + e2 + ")");
+        img.container().restore(snap);
+        CHECK(img.reload(&err) && img.freeSectors() == freeBefore && tree(v) == before, "the staging put back by hand and reloaded: " + err);
+        CHECK(!o.disc().transact([&](QString *e) {
+                  return v->remove(Path({"Big"}), e) && v->mkdir(Path(), "NewDir", e) && v->setVolumeAttrs({{"title", "CHANGED"}}, e) &&
+                         v->rename(Path({"NoSuch"}), Path({"X"}), e);
+              }, &err) && img.container().snapshot() == snap && tree(v) == before && img.freeSectors() == freeBefore,
+              "a remove, a directory, a title, then a failure: all put back: " + err);
+        CHECK(o.save(&err), "checked save: " + err);
+        OpenedDisc o2;
+        CHECK(openIt(o2, q, &err) && tree(o2.disc().volume(0)) == before && o2.image().freeSectors() == freeBefore, "read back the same");
+
+        // A staged write that fails half way (an ImageDisk file whose last track is unreadable): the file's data reaches
+        // the bad track only after the free space map in memory has given it its sectors.
+        const QString imd = W + "/staging-bad.imd";
+        QFile::remove(imd);
+        CHECK(o2.writeCopy(imd, dw::device::Kind::Imd, QString(), false, &err), "ImageDisk copy: " + err);
+        const int lastTrack = int((o2.image().totalSectors() - 1) / 16);          // ADFS L: 16 sectors a track, interleaved
+        CHECK(imdTrackUnavailable(imd, lastTrack / 2, lastTrack % 2, &why), "its last track made unreadable: " + why);
+        OpenedDisc o3;
+        CHECK(openIt(o3, imd, &err) && o3.image().editable(), "the damaged copy opens, editable: " + err);
+        auto *v3 = static_cast<AdfsVolume *>(o3.disc().volume(0));
+        const quint32 run = o3.image().largestFreeRun();
+        const auto snap3 = o3.image().container().snapshot();
+        const QString before3 = tree(v3);
+        CHECK(!o3.disc().transact([&](QString *e) { return v3->write(Path(), "Fill", QByteArray(int(run) * 256, 'f'), {}, QDateTime(), false, e); }, &err),
+              "a file reaching the unreadable track fails: " + err);
+        CHECK(o3.image().container().snapshot() == snap3 && tree(v3) == before3 && o3.image().largestFreeRun() == run && o3.image().validate().ok(),
+              "and is put back: the staging, the directory and the map");
+        CHECK(!o3.image().addFile(RootSector, "Fill", QByteArray(int(run) * 256, 'f'), 0, 0, FlagR, false, &e2) &&
+                  o3.image().largestFreeRun() != run, "without a transaction the map in memory keeps the sectors it gave (" + e2 + ")");
+        o3.image().container().restore(snap3);
+        CHECK(o3.image().reload(&err) && o3.image().largestFreeRun() == run && tree(v3) == before3, "the staging put back by hand and reloaded: " + err);
     }
 
     printf("640K hybrid\n");
