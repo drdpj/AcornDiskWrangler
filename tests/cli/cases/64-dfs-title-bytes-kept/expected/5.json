@@ -1,0 +1,20 @@
+{
+    "changes": [
+    ],
+    "command": "title",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.ssd",
+    "ok": true,
+    "result": {
+        "key": "title",
+        "title": "PADDED"
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

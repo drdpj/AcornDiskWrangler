@@ -1,0 +1,5 @@
+$TOOL title img.ssd --json
+$TOOL put img.ssd host/FILE / --json
+$TOOL attr img.ssd FILE --set locked=1 --json
+$TOOL boot img.ssd 2 --json
+$TOOL title img.ssd --json

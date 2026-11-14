@@ -1,0 +1,11 @@
+# A DFS disc whose title is padded with spaces (as some DFS versions and tools write it): " PADDED" and five spaces.
+# Deliberate change 11 (step 6c): every change keeps the title's 12 bytes as they are, as DFS 2.45 does; only
+# "title" writes a new one (the characters, then zeros).
+python3 -c "
+import sys
+img = bytearray(400 * 256)
+t = b' PADDED     '
+img[0:8] = t[:8]; img[256:260] = t[8:12]
+img[256 + 6] = (400 >> 8) & 3; img[256 + 7] = 400 & 0xFF
+open('img.ssd', 'wb').write(img)
+"
