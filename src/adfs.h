@@ -41,6 +41,8 @@
 #include <diskwrangler/device/linear.h>
 #include <diskwrangler/device/sideorder.h>
 #include <diskwrangler/fs/dfs/dfs.h>
+
+#include "adfsflags.h"
 #include <diskwrangler/fs/volume.h>
 
 namespace Adfs {
@@ -54,8 +56,7 @@ const quint32 RootSector = 2;
 const quint32 FirstDataSector = 7;   // 0-1 map, 2-6 root directory
 const int MaxNameLen = 10;
 
-// Attribute flags used by the Image API
-enum Flag { FlagR = 1, FlagW = 2, FlagL = 4, FlagE = 8 };
+// Attribute flags used by the Image API: Flag (FlagR, FlagW, FlagL, FlagE), in adfsflags.h
 
 inline quint32 sectorsFor(quint32 bytes) { return (bytes + SectorSize - 1) / SectorSize; }
 

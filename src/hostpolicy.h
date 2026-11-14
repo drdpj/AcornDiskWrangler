@@ -28,7 +28,7 @@
 #include <diskwrangler/xfer/retrofiles.h>
 #include <diskwrangler/xfer/transferitem.h>
 
-#include "adfs.h"
+#include "adfsflags.h"
 
 // .inf sidecar: NAME LOAD EXEC [LENGTH] [ATTR|L]; NAME may be "D.NAME" (DFS directory letter). Read by
 // DiskWranglerCore's DFS module (dw::dfs::readInf); this is it with the access as Adfs::Flag bits.
