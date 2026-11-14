@@ -175,7 +175,6 @@ private slots:
 
 private:
     friend class DropTree;
-    struct XItem;                                       // a disc's file as the import hooks read it (mainwindow_dfs.cpp)
     bool exportRefs(int pane, const QVector<DragRef> &refs, QVector<dw::TransferItem> *out, QString *err);   // a drag's items, for the kit
     void refreshDfs();
     void importPaths(const QStringList &paths, quint32 dirSector);
@@ -238,7 +237,6 @@ private:
     void hostImport(int pane, quint32 dir, const QStringList &paths, bool useInf);
     void importAll(int pane, quint32 dir, const QVector<dw::TransferItem> &items,
                    const QVector<dw::xfer::HostReadError> &readProblems, bool internal, bool refreshAll);
-    XItem asX(const dw::TransferItem &t) const;
     QString importSrc(const dw::TransferItem &item) const;
     void mapImportItem(const QString &from, const dw::TransferItem &t);
     dw::fs::Path dirPath(int pane, quint32 dir) const;

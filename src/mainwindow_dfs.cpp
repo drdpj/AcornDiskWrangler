@@ -398,65 +398,54 @@ bool MainWindow::exportRefs(int pane, const QVector<DragRef> &refs, QVector<dw::
 // question for DFS), the "File already exists" questions and the summary with its "Some items could not be added" box,
 // every text as before. Host files are read by the core's one host reader (hostImport). What an item is, the hooks ask
 // of the item: hostPath set = a host file (its .inf, if any, read again for the numbers, as Add files always did),
-// otherwise a file of a disc, read as the old code read it (asX). m_run holds what one import needs besides.
+// otherwise a file of a disc, read from the item itself (fromAdfs, dfsLetter, acornAddr, itemLocked, adfsFlags). m_run holds what one import needs besides.
 
-// A file or directory of a disc as the import hooks read it: the attributes of whichever family the core's item has
-// ("acorn" for ADFS and DFS, "fat"), the DFS letter taken off its name.
-struct MainWindow::XItem {
-    QString name;               // name in the source (ADFS name, DOS "NAME.EXT", DFS name without directory)
-    QChar dfsDir = '$';         // DFS directory letter (DFS sources only)
-    bool isDir = false;
-    QByteArray data;
-    quint32 load = 0, exec = 0;
-    bool hasAddr = false;       // load/exec are meaningful (ADFS and DFS sources)
-    bool locked = false;        // ADFS L / DFS locked / DOS read-only
-    quint8 adfsFlags = 0;       // Adfs::FlagR.. bits (ADFS sources)
-    int src = PaneAdfs;         // which kind of disc it came from
-    quint8 dosAttr = 0;         // FAT attribute bits (DOS sources)
-    QDateTime when;             // the date the source records (invalid if none)
-};
+// A file or directory of a disc as the import hooks read it, straight from the core's item: the kind of disc it came
+// from (sourceFs), its name (a DFS file's without its letter), and the attributes of whichever family it has ("acorn"
+// for ADFS and DFS, "fat", any family's "readonly").
+static bool fromAdfs(const dw::TransferItem &t) { return t.sourceFs == "adfs"; }
+static bool fromDfs(const dw::TransferItem &t) { return t.sourceFs == "dfs"; }
 
-// The item as this program's copy code reads it, and for a DFS file copied in this program (a drop from one of its
-// windows, its clipboard) the letter put back when it is one the disc shouldn't have.
-MainWindow::XItem MainWindow::asX(const dw::TransferItem &t) const {
-    XItem x;
-    x.isDir = t.isDir;
-    x.name = t.name;
-    x.data = t.data;
-    x.when = t.when;
-    const QString &fs = t.sourceFs;
-    x.src = fs == "adfs" ? PaneAdfs : fs == "dfs" ? PaneDfs0 : PaneDos;      // anything else: plain host files
+// A DFS file's directory letter and name ("D.NAME": the letter is part of a DFS name). internal (copied in this
+// program: a drop from one of its windows, its clipboard): the letter is taken off whenever it isn't $, even one the
+// disc shouldn't have. Any other item: $ and its name.
+static QChar dfsLetter(const dw::TransferItem &t, bool internal, QString *name) {
+    *name = t.name;
+    if (!fromDfs(t) || t.name.size() < 3 || t.name[1] != '.') return '$';
+    if (!dw::dfs::validDir(t.name[0]) && !(internal && t.name[0] != '$')) return '$';
+    *name = t.name.mid(2);
+    return t.name[0];
+}
+static QString itemName(const dw::TransferItem &t, bool internal) {
+    QString n;
+    dfsLetter(t, internal, &n);
+    return n;
+}
+
+// Load and exec of an ADFS or DFS file (false: a folder, or not both given).
+static bool acornAddr(const dw::TransferItem &t, quint32 *load, quint32 *exec) {
+    *load = *exec = 0;
+    if (t.isDir || !(fromAdfs(t) || fromDfs(t))) return false;
     const QJsonObject acorn = t.attrs.value("acorn");
-    const QString access = acorn["access"].toString();
-    if (x.src == PaneAdfs || x.src == PaneDfs0) {
-        x.hasAddr = !x.isDir && RetroFiles::parseHex(acorn["load"], &x.load) && RetroFiles::parseHex(acorn["exec"], &x.exec);
-        x.locked = access.contains('L');       // case-sensitive: lower case letters are public access
-        x.adfsFlags = quint8((access.contains('R') ? Adfs::FlagR : 0) | (access.contains('W') ? Adfs::FlagW : 0) |
-                             (access.contains('L') ? Adfs::FlagL : 0) | (access.contains('E') ? Adfs::FlagE : 0));
-        if (x.src == PaneDfs0) {                // "D.NAME": the directory is part of a DFS name
-            if (x.name.size() >= 3 && x.name[1] == '.' && dw::dfs::validDir(x.name[0])) {
-                x.dfsDir = x.name[0];
-                x.name = x.name.mid(2);
-            } else {
-                x.dfsDir = '$';
-            }
-        }
-    } else {
-        const QJsonObject fat = t.attrs.value("fat");
-        x.locked = fat["readonly"].toBool() || access.contains('L');
-        for (auto ns = t.attrs.begin(); ns != t.attrs.end(); ++ns)          // any namespace's "readonly" (e.g. cpm)
-            if (ns.value()["readonly"].toBool()) x.locked = true;
-        x.dosAttr = quint8((x.locked ? dw::fat::AttrR : 0) | (fat["hidden"].toBool() ? dw::fat::AttrH : 0) |
-                           (fat["system"].toBool() ? dw::fat::AttrS : 0) | (fat["archive"].toBool() ? dw::fat::AttrA : 0));
-    }
-    if (m_run.internal && t.sourceFs == "dfs") {
-        x.src = PaneDfs0;
-        if (x.dfsDir == '$' && t.name.size() >= 3 && t.name[1] == '.' && t.name[0] != '$') {
-            x.dfsDir = t.name[0];
-            x.name = t.name.mid(2);
-        }
-    }
-    return x;
+    return RetroFiles::parseHex(acorn["load"], load) && RetroFiles::parseHex(acorn["exec"], exec);
+}
+
+// ADFS L / DFS locked (the access letters are case-sensitive: lower case is public access); from anything else,
+// FAT read-only, an L, or any family's "readonly" (CP/M's).
+static bool itemLocked(const dw::TransferItem &t) {
+    const QString access = t.attrs.value("acorn")["access"].toString();
+    if (fromAdfs(t) || fromDfs(t)) return access.contains('L');
+    if (t.attrs.value("fat")["readonly"].toBool() || access.contains('L')) return true;
+    for (auto ns = t.attrs.begin(); ns != t.attrs.end(); ++ns)
+        if (ns.value()["readonly"].toBool()) return true;
+    return false;
+}
+
+// An ADFS file's access as Adfs::FlagR.. bits.
+static quint8 adfsFlags(const dw::TransferItem &t) {
+    const QString access = t.attrs.value("acorn")["access"].toString();
+    return quint8((access.contains('R') ? FlagR : 0) | (access.contains('W') ? FlagW : 0) | (access.contains('L') ? FlagL : 0) |
+                  (access.contains('E') ? FlagE : 0));
 }
 
 // A file of an ADFS directory the single-letter question put into a DFS letter carries the letter in front of its name,
@@ -474,7 +463,7 @@ QString MainWindow::importSrc(const dw::TransferItem &item) const {
     if (!item.hostPath.isEmpty()) return item.hostPath;
     dw::TransferItem t = item;
     takeLetter(&t);
-    return asX(t).name;
+    return itemName(t, m_run.internal);
 }
 
 // The Importer's "from" of each item (froms[i], then "/kid" for a folder's contents) -> how this program names it.
@@ -482,8 +471,9 @@ void MainWindow::mapImportItem(const QString &from, const dw::TransferItem &t) {
     m_run.src[from] = importSrc(t);
     m_run.isDir[from] = t.isDir;
     if (t.hostPath.isEmpty() && !t.isDir) {               // placeDfsLetter named a DFS file "D.NAME"
-        const XItem x = asX(t);
-        if (x.src == PaneDfs0 || x.src == PaneDfs1) m_run.letterSrc[from] = QString("%1.%2").arg(QString(x.dfsDir), x.name);
+        QString name;
+        const QChar letter = dfsLetter(t, m_run.internal, &name);
+        if (fromDfs(t)) m_run.letterSrc[from] = QString("%1.%2").arg(QString(letter), name);
     }
     for (const dw::TransferItem &k : t.kids) mapImportItem(from + "/" + k.name, k);
 }
@@ -605,9 +595,10 @@ dw::ui::ImportHooks MainWindow::importHooks(int mount) {
                 if (!letter.isNull() && !it.isDir) placeDfsLetter(letter, &p);
                 return p;
             }
-            const XItem x = asX(it);
-            p.name = x.src == PaneAdfs ? x.name : sanitizeName(x.name);
-            if (!it.isDir && (x.src == PaneDfs0 || x.src == PaneDfs1)) placeDfsLetter(x.dfsDir, &p);
+            QString name;
+            const QChar letter = dfsLetter(it, m_run.internal, &name);
+            p.name = fromAdfs(it) ? name : sanitizeName(name);
+            if (!it.isDir && fromDfs(it)) placeDfsLetter(letter, &p);
             return p;
         };
         h.attrs = [this](const dw::TransferItem &it, const dw::fs::Entry *replacing) {
@@ -619,12 +610,13 @@ dw::ui::ImportHooks MainWindow::importHooks(int mount) {
                 given = m_optReadInf->isChecked() && readInf(it.hostPath, &inf);
                 if (given) { load = inf.load; exec = inf.exec; flags = inf.flags; }
             } else {
-                const XItem x = asX(it);
-                if (x.src == PaneAdfs) {
-                    load = x.load; exec = x.exec; flags = x.adfsFlags;
+                quint32 l = 0, e = 0;
+                acornAddr(it, &l, &e);                // (an address not given reads as 0, as it always did)
+                if (fromAdfs(it)) {
+                    load = l; exec = e; flags = adfsFlags(it);
                 } else {
-                    if (x.locked) flags |= FlagL;
-                    if (x.src == PaneDfs0 || x.src == PaneDfs1) { load = dw::dfs::extendAddr(x.load); exec = dw::dfs::extendAddr(x.exec); }
+                    if (itemLocked(it)) flags |= FlagL;
+                    if (fromDfs(it)) { load = dw::dfs::extendAddr(l); exec = dw::dfs::extendAddr(e); }
                 }
             }
             if (!given && replacing) {                // a plain file over a file keeps its attributes, L too
@@ -640,11 +632,11 @@ dw::ui::ImportHooks MainWindow::importHooks(int mount) {
         h.place = [this](const dw::TransferItem &it, const dw::fs::Path &target) {
             dw::fs::Placement p;
             p.dir = target;
-            p.name = dw::fat::Volume::fromHost(it.hostPath.isEmpty() ? asX(it).name : it.name, it.isDir);
+            p.name = dw::fat::Volume::fromHost(it.hostPath.isEmpty() ? itemName(it, m_run.internal) : it.name, it.isDir);
             return p;
         };
         h.attrs = [this](const dw::TransferItem &it, const dw::fs::Entry *) {       // a new entry, read-only if it was
-            const bool ro = it.hostPath.isEmpty() && asX(it).locked;
+            const bool ro = it.hostPath.isEmpty() && itemLocked(it);
             return dw::fs::AttrValues{{"readonly", ro}, {"hidden", false}, {"system", false}, {"archive", true}};
         };
     } else {
@@ -657,9 +649,8 @@ dw::ui::ImportHooks MainWindow::importHooks(int mount) {
                 n = it.name;
                 if (it.sourceFs == "dfs") { dir = n[0]; n = n.mid(2); }
             } else {
-                const XItem x = asX(it);
-                n = x.name;
-                dir = (x.src == PaneDfs0 || x.src == PaneDfs1) ? x.dfsDir : into.isNull() ? QChar('$') : into;
+                const QChar letter = dfsLetter(it, m_run.internal, &n);
+                dir = fromDfs(it) ? letter : into.isNull() ? QChar('$') : into;
             }
             dw::fs::Placement p;
             p.name = QString(dir) + "." + dw::dfs::sanitizeName(n);
@@ -683,11 +674,11 @@ dw::ui::ImportHooks MainWindow::importHooks(int mount) {
                     locked = replacing->attrs.value("locked").toBool();
                 }
             } else {
-                const XItem x = asX(it);
                 // DFS keeps 18 bits. Narrowed the same way for every file: a RISC OS stamp can't be told from an address
                 // for sure (docs/retro-files-format.md), so never zero one on a guess.
-                if (x.hasAddr) { load = x.load & 0x3FFFF; exec = x.exec & 0x3FFFF; }
-                locked = x.locked;
+                quint32 l = 0, e = 0;
+                if (acornAddr(it, &l, &e)) { load = l & 0x3FFFF; exec = e & 0x3FFFF; }
+                locked = itemLocked(it);
             }
             return dw::fs::AttrValues{{"load", load}, {"exec", exec}, {"locked", locked}};
         };
@@ -696,14 +687,14 @@ dw::ui::ImportHooks MainWindow::importHooks(int mount) {
         h.dirHook = [this](const dw::TransferItem &d, const dw::fs::Path &) {
             dw::xfer::DirChoice ch;
             if (!d.hostPath.isEmpty()) return ch;
-            const XItem x = asX(d);
-            if (!(x.src == PaneAdfs && x.name.size() == 1 && x.name[0] != '$' && dw::dfs::validDir(x.name[0]))) return ch;
+            const QString name = d.name;
+            if (!(fromAdfs(d) && name.size() == 1 && name[0] != '$' && dw::dfs::validDir(name[0]))) return ch;
             bool keep = m_run.letterPolicy == 1;
             if (m_run.letterPolicy == 0) {
                 QMessageBox mb(QMessageBox::Question, "DFS directory letter",
                                QString("'%1' is a single-letter directory.\n\n"
                                        "Put its files in DFS directory %1 (%1.NAME)? If not, they go into $.")
-                                   .arg(x.name),
+                                   .arg(name),
                                QMessageBox::Yes | QMessageBox::YesToAll | QMessageBox::No | QMessageBox::NoToAll |
                                    QMessageBox::Cancel, this);
                 mb.setDefaultButton(QMessageBox::Yes);
@@ -714,7 +705,7 @@ dw::ui::ImportHooks MainWindow::importHooks(int mount) {
                 if (b == QMessageBox::NoToAll) m_run.letterPolicy = 2;
             }
             ch.action = dw::xfer::DirChoice::Into;
-            ch.prefix = QString(LetterMark) + (keep ? x.name[0] : QChar('$'));
+            ch.prefix = QString(LetterMark) + (keep ? name[0] : QChar('$'));
             return ch;
         };
     }
