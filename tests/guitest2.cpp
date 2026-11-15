@@ -21,6 +21,7 @@
 #include <diskwrangler/app/fileopen.h>
 #include <diskwrangler/xfer/mime.h>
 #include <QApplication>
+#include <QTabBar>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
@@ -193,7 +194,9 @@ int main(int argc,char**argv){
         CHECK(nd && nd->toolTip().contains("ADFS") && nd->toolTip().contains("DFS discs have no directories"));
         A->tabWidget()->setCurrentWidget(wt::dfsTree(A)); pump(); CHECK(nd && !nd->isEnabled());      // a DFS disc: greyed out, the tip says why
         CHECK(A->windowTitle()=="a.dsd * - Acorn Disk Wrangler");
+        CHECK(!A->tabWidget()->tabBar()->isHidden());                       // a disc open: its tabs show
         MainWindow empty; CHECK(empty.windowTitle()=="no disc - Acorn Disk Wrangler");
+        CHECK(empty.tabWidget()->tabBar()->isHidden());                     // no disc: no tab (not an "ADFS" one)
         QLabel* st=nullptr; for(QLabel* l : empty.statusBar()->findChildren<QLabel*>()) if(l->text().contains("drop one here")) st=l;
         CHECK(st!=nullptr);
     }

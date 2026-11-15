@@ -39,6 +39,7 @@
 #include <QVBoxLayout>
 #include <QCloseEvent>
 #include <QDataStream>
+#include <QTabBar>
 #include <QTimer>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -293,6 +294,7 @@ MainWindow::MainWindow(QWidget *parent) : DiscWindow(parent) {
     m_dosTree = static_cast<DropTree *>(pane("DOS"));
     m_dfsTree = static_cast<DropTree *>(pane("DFS"));
     m_tabs = tabWidget();
+    m_tabs->tabBar()->hide();                   // no tab until a disc is open (the ADFS pane stays, to take drops)
 
     m_status = new QLabel(this);                 // as CP/M Disk Wrangler: the disc's state, left-aligned, all the width
     statusBar()->addWidget(m_status, 1);
@@ -912,11 +914,13 @@ void MainWindow::showCheck(const dw::fs::Report &, const QVector<dw::fs::Report>
 // -------------------------------------------------------------------- tree
 
 // Every pane: an ADFS disc's DOS Plus partition is followed to wherever $.DOS.DRIVE_C is now (as the window always
-// has), then the kit shows or hides the tabs (paneShown, paneTitle) and makes the rows (rootLabel, decorateRow).
+// has), then the kit shows or hides the tabs (paneShown, paneTitle) and makes the rows (rootLabel, decorateRow). With
+// no disc the tab bar is hidden: the empty ADFS pane stays, as the place an image is dropped to open it.
 void MainWindow::refresh() {
     m_doc.followDriveC();
     clearRowCache();
     DiscWindow::refresh();
+    m_tabs->tabBar()->setVisible(m_img.isOpen());
 }
 
 

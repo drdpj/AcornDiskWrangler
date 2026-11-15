@@ -97,8 +97,8 @@ files (see Build).
   as `Adfs::OpenedDisc`, `pane(group)`, `openFile`, `DiscWindow::all()`; `tests/windowhelp.h` has the casts); the
   window has no forwards for them.
 - **Panes.** `paneGroups()` = "ADFS", "DOS", "DFS", shown as tabs that come and go with the disc (`paneShown`,
-  `paneTitle`); each mount of the document is in one group (`paneOf(mount)` / `mountOf(pane)`, never `if (pane == ...)`
-  in the kit). `refresh()` follows `$.DOS.DRIVE_C` (`OpenedDisc::followDriveC`) and makes every pane again;
+  `paneTitle`; with no disc the tab bar is hidden and only the empty ADFS pane shows, to take drops); each mount of
+  the document is in one group (`paneOf(mount)` / `mountOf(pane)`, never `if (pane == ...)` in the kit). `refresh()` follows `$.DOS.DRIVE_C` (`OpenedDisc::followDriveC`) and makes every pane again;
   `refreshChanged` after a change remakes every pane for an ADFS change (it may move DRIVE_C) and only its own pane
   for a DOS or DFS change.
 - **Every refresh deletes and rebuilds the tree items.** Never hold a `QTreeWidgetItem*` across an operation that
