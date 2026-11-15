@@ -82,7 +82,8 @@ python3 -I "$S/tests/acorncheck.py" "$W"/boot/* >"$W/bootcheck.log" 2>&1        
 mkdir -p "$W/shots"; s=$W/t/s; mkdir -p "$s"; cp "$T/blank40.dsd" "$T/adfs_l.adl" "$T/pc720.img" "$T/f.hybrid" "$T/g.a800" "$s/"
 timeout 120 "$B/screenshot/screenshot" "$W/shots" "$s/blank40.dsd" "$s/adfs_l.adl" "$s/pc720.img" "$s/f.hybrid" "$s/g.a800" >"$W/shots.log" 2>&1 \
   && echo "pass screenshot ($(ls "$W/shots" | wc -l) PNGs)" || fail+=(screenshot)
-mkdir -p "$W/xd"; (unset QT_QPA_PLATFORM; timeout 300 xvfb-run -a -s "-screen 0 1280x800x24" "$B/xdragtest/xdragtest" "$W/xd" >"$W/xdrag.log" 2>&1) \
+# X11 on Xvfb, even when run from a Wayland desktop (Qt would otherwise open its windows there)
+mkdir -p "$W/xd"; (export QT_QPA_PLATFORM=xcb; unset WAYLAND_DISPLAY; timeout 300 xvfb-run -a -s "-screen 0 1280x800x24" "$B/xdragtest/xdragtest" "$W/xd" >"$W/xdrag.log" 2>&1) \
   && grep -q "ALL OK" "$W/xdrag.log" && echo "pass xdragtest" || fail+=(xdragtest)
 rm -rf "$W/t"
 [ ${#fail[@]} -eq 0 ] && { echo "ALL PASSED"; exit 0; } || { echo "FAILED: ${fail[*]}"; exit 1; }
