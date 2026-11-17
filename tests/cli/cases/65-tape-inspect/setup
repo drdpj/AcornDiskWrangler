@@ -1,0 +1,4 @@
+#!/bin/bash
+# a BBC tape as MOS 1.20 saves it: GAME (3 blocks), LOADER (protected), GAME again, EMPTY (no data)
+python3 -I "$TESTS/make_testdata.py" tape .
+mv t.uef img.uef

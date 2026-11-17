@@ -4,7 +4,8 @@ QT = core
 CONFIG += c++17 console
 TARGET = voltest
 INCLUDEPATH += ../src
-SOURCES += voltest.cpp ../src/adfsvolume.cpp ../src/diskformat.cpp ../src/adfs.cpp
-HEADERS += ../src/adfsvolume.h ../src/diskformat.h ../src/adfs.h
+SOURCES += voltest.cpp ../src/adfsvolume.cpp ../src/cfs.cpp ../src/cfsvolume.cpp ../src/diskformat.cpp ../src/adfs.cpp
+HEADERS += ../src/adfsvolume.h ../src/cfs.h ../src/cfsvolume.h ../src/diskformat.h ../src/adfs.h
 !include(../core/diskwrangler-dfs.pri): error("core/ is empty: run 'git submodule update --init'")   # DFS and FAT: DiskWranglerCore modules on its device layer
 include(../core/diskwrangler-fat.pri)
+include(../core/diskwrangler-tape.pri)               # tape images (UEF): the cassette filing system

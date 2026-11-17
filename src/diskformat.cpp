@@ -17,10 +17,15 @@
  */
 #include "diskformat.h"
 
+#include <QFile>
 #include <QFileInfo>
 
 #include <diskwrangler/fs/dfs/dfsprobe.h>
 #include <diskwrangler/fs/fat/fatprobe.h>
+#include <diskwrangler/tape/records.h>
+#include <diskwrangler/tape/tapefile.h>
+
+#include "cfs.h"
 
 using namespace Adfs;
 using dw::fs::Candidate;
@@ -316,8 +321,61 @@ static dw::fs::Verdict detectAll(const QString &path, int force, DiskInfo *unkno
     return v;
 }
 
+// A tape image, by its contents: a UEF file read for cassette filing system blocks; a TZX, CDT or TAP file named and
+// refused. false: not a tape.
+static bool detectTape(const QString &path, dw::fs::Verdict *v) {
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly) || f.size() > 64 * 1024 * 1024) return false;     // no tape is that big
+    const QByteArray head = f.peek(16);
+    const bool gz = head.startsWith("\x1f\x8b");
+    if (!gz && !head.startsWith("UEF File!") && !head.startsWith("ZXTape!") && QFileInfo(path).suffix().toLower() != "tap")
+        return false;                            // (not read whole: a disc image is never a tape)
+    const QByteArray bytes = f.readAll();
+    const QString suffix = QFileInfo(path).suffix().toLower();
+    bool packed = false;
+    const dw::tape::Kind k = dw::tape::TapeFile::identify(bytes, suffix, &packed);
+    if (k == dw::tape::Kind::None) return false;
+    Candidate c;
+    c.probe = "tape";
+    DiskInfo info;
+    info.fullSize = 0;
+    if (k == dw::tape::Kind::Uef) {
+        dw::tape::TapeFile t;
+        QString e;
+        if (!t.openBytes(bytes, path, suffix, &e)) return false;
+        const Acorn::Cfs::Tape r = Acorn::Cfs::read(dw::tape::pieces(t));
+        const int files = r.files();
+        info.kind = DiskInfo::Tape;
+        info.description = QString("BBC Micro tape: %1, %2 file%3").arg(dw::tape::kindName(k, packed)).arg(files)
+                               .arg(files == 1 ? "" : "s");
+        c.fsId = "cfs";
+        c.name = "Tape";
+        c.tier = r.goodBlocks() > 0 ? dw::fs::Tier::Certain : dw::fs::Tier::Likely;
+        c.evidence << QString("%1 cassette filing system blocks, %2 with a good header CRC").arg(r.blocks.size()).arg(r.goodBlocks());
+        if (!r.goodBlocks()) info.notes << "no cassette filing system blocks: everything on it is unrecognised data";
+    } else {
+        const bool cpc = suffix == "cdt";
+        info.kind = DiskInfo::ForeignTape;
+        info.description = cpc ? QString("an Amstrad CPC tape (CDT)") : QString("a ZX Spectrum tape (%1)").arg(dw::tape::kindName(k));
+        c.fsId = cpc ? "cpc-tape" : "spectrum-tape";
+        c.name = cpc ? "CPC tape" : "Spectrum tape";
+        c.tier = dw::fs::Tier::Certain;
+        c.supported = false;
+    }
+    c.description = info.description;
+    c.notes = info.notes;
+    c.data = info;
+    *v = dw::fs::decide({c});
+    return true;
+}
+
 dw::fs::Verdict detectCandidates(const QString &path, int force, DiskInfo *unknown) {
     DiskInfo u;
+    dw::fs::Verdict tape;
+    if (detectTape(path, &tape)) {
+        if (unknown) *unknown = DiskInfo();
+        return tape;
+    }
     return detectAll(path, force, unknown ? unknown : &u);
 }
 
@@ -328,7 +386,7 @@ DiskInfo diskInfo(const Candidate &c) {
 
 DiskInfo detectDisk(const QString &path, int force) {
     DiskInfo unknown;
-    const dw::fs::Verdict v = detectAll(path, force, &unknown);
+    const dw::fs::Verdict v = detectCandidates(path, force, &unknown);
     return v.bestCandidate() ? diskInfo(*v.bestCandidate()) : unknown;
 }
 

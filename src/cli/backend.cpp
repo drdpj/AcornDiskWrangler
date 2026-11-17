@@ -22,6 +22,9 @@
 #include <QFileInfo>
 #include <diskwrangler/fs/dfs/dfs.h>
 
+#include <QJsonArray>
+#include <diskwrangler/tape/tapefile.h>
+
 #include "../adfsvolume.h"
 #include "../diskformat.h"
 #include "../hostpolicy.h"
@@ -42,6 +45,8 @@ static QString kindId(DiskInfo::Kind k) {
     case DiskInfo::AdfsNewMap: return "adfs-newmap";
     case DiskInfo::AcornCpm: return "acorn-cpm";
     case DiskInfo::TorchCpn: return "torch-cpn";
+    case DiskInfo::Tape: return "tape";
+    case DiskInfo::ForeignTape: return "foreign-tape";
     case DiskInfo::Unknown: break;
     }
     return "unknown";
@@ -55,7 +60,7 @@ public:
     Adfs::OpenedDisc od;
 
     dw::fs::Disc &disc() override { return od.disc(); }
-    bool dirty() override { return od.image().dirty(); }
+    bool dirty() override { return od.dirty(); }
     bool save(bool backup, QString *err) override { return od.save(err, backup); }
 
     QJsonObject app() const override {
@@ -75,6 +80,7 @@ public:
     }
 
     bool convertSides(const QString &toSides, QString *err, int *exit) override {
+        if (od.isTape()) { *err = "a tape has no sides"; *exit = ExitUnsupported; return false; }
         if (!od.image().setConvertOnSave(toSides == "sequential", err)) { *exit = ExitUnsupported; return false; }
         return true;
     }
@@ -83,6 +89,7 @@ public:
     bool convertTo(const QString &out, const ConvertOptions &o, QJsonObject *result, QString *err, int *exit) override {
         using dw::device::Kind;
         const DiskInfo &info = od.info();
+        if (od.isTape()) { *err = "a tape can't be converted into a disc image: copy its files instead"; *exit = ExitUnsupported; return false; }
         const Kind from = od.image().container().kind();
         Kind to = from;
         if (o.container == "raw") to = Kind::Raw;
@@ -125,6 +132,21 @@ OpenOutcome Backend::open(const QString &path, const OpenOptions &o) {
     out.container = containerInfo(path, c);
     DiskInfo unknown;
     const dw::fs::Verdict v = detectCandidates(path, force, &unknown);
+    const DiskInfo best = v.bestCandidate() ? diskInfo(*v.bestCandidate()) : DiskInfo();
+    if (best.kind == DiskInfo::Tape || best.kind == DiskInfo::ForeignTape) {     // a tape file, not a disc container
+        dw::tape::TapeFile t;
+        if (t.open(path, &err)) {
+            QJsonObject k;
+            k["kind"] = t.kind() == dw::tape::Kind::Uef ? "uef" : t.kind() == dw::tape::Kind::Tzx ? "tzx" : "tap";
+            k["name"] = dw::tape::kindName(t.kind(), t.gzip());
+            k["size"] = double(QFileInfo(path).size());
+            k["readOnly"] = true;
+            k["gzip"] = t.gzip();
+            k["version"] = QString("%1.%2").arg(t.majorVersion()).arg(t.minorVersion());
+            k["chunks"] = t.chunks().size();
+            out.container = k;
+        }
+    }
     resolveVerdict(v, o.fs, &out);
     if (out.status != OpenOutcome::Ok) return out;
     const dw::fs::Candidate &cand = v.ranked[out.chosen];
@@ -178,6 +200,16 @@ bool Backend::readHost(const QStringList &paths, const PutOptions &o, QVector<dw
     if (hostReadFailed(errors, err, exit)) return false;      // the first file that can't be read, or isn't there
     *items += got;
     return true;
+}
+
+void Backend::prepareIncoming(QVector<dw::TransferItem> *items, dw::fs::Volume *target) {
+    if (!target || target->fsId() == "cfs") return;
+    for (dw::TransferItem &it : *items) {
+        if (it.sourceFs != "cfs" || !it.attrs.contains("acorn")) continue;
+        QJsonObject a = it.attrs["acorn"];
+        a["access"] = "WR";
+        it.attrs["acorn"] = a;
+    }
 }
 
 void Backend::configureTarget(dw::fs::Volume *v, const ImportOptions &o) {

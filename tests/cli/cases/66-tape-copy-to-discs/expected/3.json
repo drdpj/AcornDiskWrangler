@@ -1,0 +1,38 @@
+{
+    "changes": [
+        {
+            "from": "GAME (2)",
+            "note": null,
+            "op": "add",
+            "path": "$.GAME",
+            "vol": "drive 0"
+        },
+        {
+            "from": "LOADER",
+            "note": null,
+            "op": "add",
+            "path": "$.LOADER",
+            "vol": "drive 0"
+        }
+    ],
+    "command": "copy",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img2.ssd",
+    "ok": true,
+    "result": {
+        "added": 2,
+        "dirs": 0,
+        "renamed": [
+        ],
+        "replaced": 0,
+        "skipped": 0
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

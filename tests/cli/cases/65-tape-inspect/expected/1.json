@@ -1,0 +1,155 @@
+{
+    "changes": [
+    ],
+    "command": "info",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.uef",
+    "ok": true,
+    "result": {
+        "app": {
+            "description": "BBC Micro tape: UEF, 4 files",
+            "fullSize": 0,
+            "kind": "tape",
+            "notes": [
+            ],
+            "sides": {
+                "confirmed": true,
+                "doubleSided": false,
+                "forced": false,
+                "order": null
+            }
+        },
+        "candidates": [
+            {
+                "description": "BBC Micro tape: UEF, 4 files",
+                "evidence": [
+                    "7 cassette filing system blocks, 7 with a good header CRC"
+                ],
+                "fsId": "cfs",
+                "name": "Tape",
+                "notes": [
+                ],
+                "probe": "tape",
+                "safeToWrite": true,
+                "supported": true,
+                "tier": "certain"
+            }
+        ],
+        "chosen": {
+            "description": "BBC Micro tape: UEF, 4 files",
+            "evidence": [
+                "7 cassette filing system blocks, 7 with a good header CRC"
+            ],
+            "fsId": "cfs",
+            "name": "Tape",
+            "notes": [
+            ],
+            "probe": "tape",
+            "safeToWrite": true,
+            "supported": true,
+            "tier": "certain"
+        },
+        "container": {
+            "chunks": 31,
+            "gzip": false,
+            "kind": "uef",
+            "name": "UEF",
+            "readOnly": true,
+            "size": 1449,
+            "version": "0.10"
+        },
+        "owner": null,
+        "verdict": "open",
+        "volumes": [
+            {
+                "caps": {
+                    "contiguousOnly": false,
+                    "dates": false,
+                    "dirs": false,
+                    "maxEntriesPerDir": -1,
+                    "namespaces": false,
+                    "rename": false,
+                    "renameAcrossDirs": false,
+                    "settableDates": false,
+                    "title": false
+                },
+                "fileAttrSpecs": [
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": false,
+                        "key": "load",
+                        "label": "Load",
+                        "type": "hex"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": false,
+                        "key": "exec",
+                        "label": "Exec",
+                        "type": "hex"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": false,
+                        "key": "protected",
+                        "label": "Protected",
+                        "type": "bool"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": false,
+                        "key": "blocks",
+                        "label": "Blocks",
+                        "type": "int"
+                    },
+                    {
+                        "bits": 32,
+                        "choices": [
+                        ],
+                        "dirs": false,
+                        "editable": false,
+                        "key": "position",
+                        "label": "Position",
+                        "type": "int"
+                    }
+                ],
+                "fsId": "cfs",
+                "info": {
+                    "entriesFree": -1,
+                    "free": 0,
+                    "largestFree": -1,
+                    "title": "",
+                    "total": 1000
+                },
+                "label": "tape",
+                "readOnly": true,
+                "readOnlyWhy": "tape images can't be changed yet",
+                "vol": "tape",
+                "volumeAttrSpecs": [
+                ],
+                "volumeAttrs": {
+                }
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

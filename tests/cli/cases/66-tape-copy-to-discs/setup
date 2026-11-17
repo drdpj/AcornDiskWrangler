@@ -1,0 +1,5 @@
+#!/bin/bash
+python3 -I "$TESTS/make_testdata.py" tape .
+mv t.uef img.uef
+$TOOL new img.adl --format=adfs-l --title=TAPECOPY --quiet
+$TOOL new img2.ssd --format=dfs-ss80 --title=TAPECOPY --quiet

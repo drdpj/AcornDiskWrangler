@@ -141,6 +141,56 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
 - The BBC BASIC token table and line-number encoding (`viewtext.cpp`) are from memory,
   checked on hand-made programs and one real program; report oddities rather than guess.
 
+## Tapes: the cassette filing system (series cfs-1)
+A tape image is a UEF file (gzip or not); DiskWranglerCore's tape module reads its chunks and turns them into tones,
+gaps and data (`core/diskwrangler/tape/`); `src/cfs.cpp` reads the BBC Micro's files from the data. Every rule below
+was read from **MOS 1.20** (the BBC B's OS, SHA-1 `0d9bcaf6a393c9ce2359ed700ddb53c232c2c45d`, the copy jsbeeb ships;
+the ROM is Acorn's and is not in the repo), disassembled with MAME's `unidasm` and watched running in jsbeeb with the
+real tapes (17 Nov 2026). The Electron's OS 1.00 has **not** been checked (no copy here yet); one Electron tape
+(`JoeBlade2_E`) reads the same way.
+
+- **The CRC** (&F7B0-&F7D3): CRC-16, polynomial &1021, starting at 0 (&FB78 / &FB7C clear &BE / &BF), each byte
+  exclusive-ORed into the high byte, eight shifts, most significant bit first (CRC-16/XMODEM: "123456789" gives
+  &31C3). The header's CRC is stored **high byte first**, and the MOS reads it through the same routine, so a good
+  header leaves 0 (&F76D: `LDA &BE / ORA &BF / STA &C1`); the data's likewise. Checked live: a breakpoint at &F76D
+  on Gomoku's first block shows &BE = &BF = 0 and the header at &03B2 as below.
+- **A block** (read at &F742-&F778; written at &F7EC-&F87B): the sync byte **&2A**, which must be the first byte after
+  carrier (the receive interrupt, &F5B4-&F5D1: state 1 waits for the serial ULA's carrier detect, state 2 takes one
+  byte and starts again from state 1 unless it is &2A, so a stray byte such as the dummy &AA is passed over). Then
+  the name, read until its &00 but never more than 11 bytes (a name of 11 non-zero bytes keeps the first 10, the
+  11th stands for the &00); load (4 bytes), exec (4), block number (2), data length (2), flag (1), 4 spare bytes, the
+  header CRC (2): the 19 bytes go to &03BE-&03D0. Numbers little-endian. Then, if the length isn't 0 (&F7DF), the
+  data and its CRC. Only the length's **low byte** counts the data (&F601 `CPY &03C8`; 0 with a non-zero high byte
+  is 256), so a block holds at most 256 bytes.
+- **The flag**: bit 7 the last block (&F225, &F6F7, &F867); bit 0 **protected** (&F1ED-&F1F6: `*LOAD` of it stops
+  with "Locked"; `*RUN` and `CHAIN` load it and set `*FX200,3`, &F204). **Bit 6** ("empty block" in later documents)
+  is neither set nor tested anywhere in MOS 1.20. `*SAVE` (&F2C8-&F2F0) gives every block 256 bytes and flag 0 but
+  the last, which gets what is left (0 for an empty file: one block, no data) and flag &80; a `BPUT` file (&F478)
+  ends with a block of whatever is in the buffer, maybe 0 bytes, and has load and exec &FFFFFFFF.
+- **A file** is blocks with the same name numbered from 0. The MOS loads block n at load + 256 x n (&F96A adds 1 to
+  the address's second byte after each block), checks each block's number (&F9E3: "Block?") and name (&FA72,
+  letters compared without case: "File?"); a bad CRC is "Data?" (&FA8E), the header's too (there is no "Header?" in
+  MOS 1.20). Names are at most 10 characters (OSFILE, &F25A-&F274). `*CAT` shows each block's name and number, and at
+  a last block the length as block x 256 + its length (&F8FF-&F90E).
+- **Framing**: the MOS reads 8N1 (the serial ULA at 1200 baud, or 300 with `*TAPE3`). Data framed otherwise in a UEF
+  (`&0104` with parity or another bit count, a negative stop count's extra wave, the Atom's `&0105`) can't be blocks.
+  Carrier between a block's bytes is the line idling and doesn't stop it; silence does.
+- **What else is on the tape**: after each block's CRC the MOS sends more bytes (&F855, &F858) before the motor
+  stops, so a UEF made from a real save has a byte or two after the CRC in the block's chunk; and the dummy byte
+  &AA (&FBF9) or noise sits alone between tones. Neither is a file. Data the reader can't take (a protected game's
+  own loader format, Psycastria's 257 `&0104` chunks) is shown as "unrecognised data (chunks n-m)", one row between
+  two files, read-only, its bytes as they are.
+- **Repeated names**: one tape may hold two files of one name (Life of Repton has REPTON3 twice). Each is listed by
+  its own name; underneath the second is `REPTON3 (2)` (what `acorndw` and the host file are called; `#7` names it
+  too), its `.inf` says `REPTON3`. Names are made unique without case, as the MOS matches them.
+- **Checked against**: the 11 real tapes in `testdata/UEF` read by `tests/cfs_check.py` (an independent reader from
+  these rules, with its own UEF parsing) and by the program, row for row; Life of Repton's `*CAT` in jsbeeb gave the
+  same names, block counts and lengths for the 11 files it was run through (both REPTON3s among them); `CHAIN ""` of
+  Gomoku in jsbeeb loaded GOMOKU, which then loaded M/C, as listed.
+- **Not yet**: writing (series `cfs-2`: the MOS's leader, gaps and dummy byte are at &F7F7-&F807, &F892-&F8A8 and
+  &FBE2-&FBFB); the Electron's OS; the Atom's tapes; tapes recorded at the pulse level (UEF `&0102` is framed into
+  bytes here; TZX and WAV aren't Acorn's).
+
 ## Behaviour that follows from the formats
 User-visible behaviour the README doesn't spell out:
 

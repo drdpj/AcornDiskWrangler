@@ -1,0 +1,2 @@
+$TOOL info img.tzx --json
+$TOOL ls img.tap --json

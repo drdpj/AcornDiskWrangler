@@ -46,6 +46,14 @@ Any floppy above can also be in an **ImageDisk** (`.imd`), **DSK** or extended D
 opened as (a TeleDisk file included); the file type chosen in the dialog decides the kind, not the name you type.
 A hard disc is saved as a same-kind copy.
 
+**Cassette tapes**: a BBC Micro or Electron tape image (`.uef`, compressed or not) opens in a window with one tab,
+**Tape**: its files in the order they are on the tape (two files may share a name; both show it), with their load and
+exec addresses, length, number of blocks, **P** for a protected file and any problem (a bad CRC, a missing block).
+Data a game's own loader wrote in a format of its own shows as *unrecognised data* and is kept as it is. Drag the files
+onto a disc window or out to the computer, or Copy, Paste and Extract them, as from a disc (load and exec go with
+them; a disc copy drops the protected flag; a second `GAME` arrives on the computer as `GAME (2)`, its `.inf` saying
+`GAME`). Tapes can't be changed yet. A ZX Spectrum or Amstrad CPC tape (TZX, CDT, TAP) is named, not opened.
+
 The format is worked out from the disc's contents, then its name and size. **File > New disc image** makes a blank
 disc of any of these types. A new DOS Plus 640K disc needs Acorn's DOSBOOT boot code, which isn't included: point
 it at an existing Master 512 disc image or a DOSBOOT file.
@@ -143,6 +151,10 @@ then `$.ELITE`), never `games.ssd:$.ELITE`.
     acorndw check games.ssd                              # check every filesystem; exit 4 if one fails
     acorndw convert games.ssd games.imd --container=imd  # write the same disc as an ImageDisk file
 
+A tape is read the same way: `acorndw ls game.uef` lists its files in tape order, `acorndw get game.uef '#3' out/`
+extracts the third file on the tape (a second file called `GAME` is also `'GAME (2)'`), and
+`acorndw copy game.uef games.ssd GAME` puts a tape file onto a disc.
+
 `acorndw new --list` lists the formats that `--format` takes.
 
 `--dry-run` does everything, including every check, and writes nothing. Use it before a `put`, `rm` or `script` on a
@@ -187,6 +199,9 @@ The full reference, with every command and option, is in
 * DFS images saved with their blank end trimmed off open normally and are saved full length.
 * Discs with non-standard or copy-protected tracks aren't handled.
 * The viewer shows the first 1 MiB of a very large file.
+* Tapes are read-only: files can be copied from a tape but not added to one yet. Tapes recorded as sound (WAV, CSW)
+  and the Acorn Atom's tapes aren't read; the Electron's OS hasn't been checked against the BBC's (the Electron tapes
+  tried read the same).
 * A new DOS Plus 640K disc hasn't yet been tried on a real Master 512.
 
 ## Building from source

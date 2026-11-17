@@ -21,6 +21,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <diskwrangler/fs/dfs/dfs.h>
 #include <diskwrangler/fs/dfs/inf.h>
 #include <diskwrangler/xfer/hostname.h>
@@ -82,6 +83,7 @@ bool parseHex(const QJsonValue &v, quint32 *out) {
 }
 
 QString AcornPolicy::hostName(const dw::TransferItem &it) const {
+    if (!it.hostName.isEmpty()) return dw::hostSafeName(it.hostName);    // a tape's second GAME: "GAME (2)"
     const bool dfs = it.sourceFs == "dfs";
     return dw::hostSafeName(dfs && it.name.startsWith("$.") ? it.name.mid(2) : it.name);
 }
@@ -89,7 +91,9 @@ QString AcornPolicy::hostName(const dw::TransferItem &it) const {
 void AcornPolicy::afterFile(const dw::TransferItem &it, const QString &absDir, const QString &relDir, const QString &host,
                             dw::xfer::UsedNames &used, QStringList *topLevel, QStringList *errors) const {
     const bool dfs = it.sourceFs == "dfs";
-    if (!m_inf || !(dfs || it.sourceFs == "adfs")) return;
+    const bool tape = it.sourceFs == "cfs";
+    if (!m_inf || !(dfs || tape || it.sourceFs == "adfs")) return;
+    if (tape && !it.attrs.contains("acorn")) return;     // a tape's unrecognised data: no file, so no .inf
     const QJsonObject acorn = it.attrs.value("acorn");
     const QString access = acorn["access"].toString();
     quint32 load = 0, exec = 0;
@@ -102,6 +106,9 @@ void AcornPolicy::afterFile(const dw::TransferItem &it, const QString &absDir, c
         const quint8 attr = quint8((access.contains('R') ? dw::dfs::InfR : 0) | (access.contains('W') ? dw::dfs::InfW : 0) |
                                    (access.contains('E') ? dw::dfs::InfE : 0) | (access.contains('L') ? dw::dfs::InfL : 0));
         line = dw::dfs::infLineAdfs(it.name, load, exec, quint32(it.data.size()), attr);
+        // a tape file's name may hold a space, which would end the name: such a name is quoted, as the .inf format allows
+        if (tape && it.name.contains(QRegularExpression("\\s")))
+            line = QString::asprintf("\"%s\" %08X %08X %08X %02X\n", qPrintable(it.name), load, exec, unsigned(it.data.size()), unsigned(attr));
     }
     QString infName = used.unique(host + ".inf", false);
     QFile inf(absDir + "/" + infName);

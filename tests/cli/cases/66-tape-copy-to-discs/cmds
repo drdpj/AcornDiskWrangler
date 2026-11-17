@@ -1,0 +1,6 @@
+# load and exec kept; LOADER's protected flag dropped on a disc (it arrives WR)
+$TOOL copy img.uef img.adl GAME LOADER EMPTY --json
+$TOOL ls img.adl --json
+$TOOL copy img.uef img2.ssd 'GAME (2)' LOADER --json
+$TOOL ls img2.ssd --json
+$TOOL copy img.adl img.uef GAME --json

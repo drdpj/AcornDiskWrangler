@@ -32,6 +32,8 @@ public:
     std::shared_ptr<dw::xfer::HostPolicy> hostPolicy(const dw::cli::GetOptions &o, QString *err, int *exit) override;
     bool readHost(const QStringList &paths, const dw::cli::PutOptions &o, QVector<dw::TransferItem> *items,
                   QStringList *warnings, QString *err, int *exit) override;
+    // A tape file copied onto a disc drops its protected flag (access "E"): the owner's rule (plan tape.md, question 5).
+    void prepareIncoming(QVector<dw::TransferItem> *items, dw::fs::Volume *target) override;
     void configureTarget(dw::fs::Volume *v, const dw::cli::ImportOptions &o) override;
 };
 

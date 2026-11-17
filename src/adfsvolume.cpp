@@ -358,6 +358,15 @@ void OpenedDisc::close() {
     m_dosOk = m_dfsOk[0] = m_dfsOk[1] = false;
     m_info = DiskInfo();
     m_img.close();
+    m_cfs.reset();
+    m_tape.close();
+}
+
+static const char *TapeReadOnly = "tape images can't be changed yet";
+
+int OpenedDisc::tapeMount() const {
+    for (int i = 0; i < m_disc.mounts().size(); ++i) if (m_disc.mounts()[i].group == "Tape") return i;
+    return -1;
 }
 
 int OpenedDisc::adfsMount() const {
@@ -393,9 +402,17 @@ bool OpenedDisc::open(const QString &path, const DiskInfo &info, QString *err) {
     if (kind == DiskInfo::Unknown && m_window) kind = DiskInfo::Adfs;      // opened as ADFS, so its problems are shown
     switch (kind) {
     case DiskInfo::Unknown: case DiskInfo::AdfsNewMap: case DiskInfo::AcornCpm: case DiskInfo::TorchCpn:
+    case DiskInfo::ForeignTape:
         *err = info.description.isEmpty() ? QString("not a disc this program opens") : info.description + ": not opened here";
         m_info = DiskInfo();
         return false;
+    case DiskInfo::Tape:                          // the Disc's transactions stage on the tape file
+        if (!m_tape.open(path, err)) { close(); return false; }
+        m_tape.setWritable(false);
+        m_disc.setStaged(&m_tape);
+        m_cfs = std::make_shared<Acorn::CfsVolume>(&m_tape);
+        m_disc.addMount({"tape", m_cfs, true, TapeReadOnly, "Tape"});
+        return true;
     default: break;
     }
     const bool raw = kind == DiskInfo::Dfs || kind == DiskInfo::DosPc || kind == DiskInfo::DosAcorn800;
@@ -451,7 +468,7 @@ bool OpenedDisc::open(const QString &path, const DiskInfo &info, QString *err) {
 }
 
 bool OpenedDisc::followDriveC() {
-    if (!m_img.isOpen() || !m_img.isAdfs() || m_info.kind == DiskInfo::AdfsDosHybrid) return false;
+    if (m_tape.isOpen() || !m_img.isOpen() || !m_img.isAdfs() || m_info.kind == DiskInfo::AdfsDosHybrid) return false;
     QString e;
     const bool have = attachDriveC(&e);           // read again, as the window always has
     const int m = dosMount();
@@ -474,6 +491,11 @@ void OpenedDisc::reloadMounts() {
 }
 
 bool OpenedDisc::save(QString *err, bool backup) {
+    if (m_tape.isOpen()) {
+        if (!m_tape.hasPending()) return true;
+        *err = TapeReadOnly;
+        return false;
+    }
     // Adfs::Image keeps its own saving sequence (the map checks, padding, the side-order conversion, the
     // changed-on-disc refusal, and the checks above); the command line checks every mount first
     if (!m_window) {
@@ -489,6 +511,11 @@ bool OpenedDisc::save(QString *err, bool backup) {
 }
 
 bool OpenedDisc::saveAs(const QString &path, dw::device::Kind kind, QString *err) {
+    if (m_tape.isOpen()) {                        // a copy of the tape, as it was opened (gzip or not), checked
+        if (!m_tape.saveAs(path, m_tape.gzip(), err)) return false;
+        reloadMounts();
+        return true;
+    }
     if (kind == dw::device::Kind::None || kind == m_img.containerKind()) return m_img.moveToCopy(path, err) && save(err, false);
     if (!writeCopy(path, kind, QString(), true, err)) return false;
     DiskInfo unknown;
@@ -502,7 +529,7 @@ bool OpenedDisc::saveAs(const QString &path, dw::device::Kind kind, QString *err
 bool OpenedDisc::convertible(QString *why) const {
     dw::device::RawLayout l;
     QString w;
-    if (!m_img.isOpen()) w = "no disc";
+    if (!m_img.isOpen()) w = m_tape.isOpen() ? "a tape is not a disc" : "no disc";
     else if (rawLayoutFor(m_info, &l, &w)) return true;
     if (why) *why = w;
     return false;
@@ -535,6 +562,7 @@ bool OpenedDisc::writeCopy(const QString &out, dw::device::Kind to, const QStrin
     fail = CopyFailure::None;
     auto no = [&](CopyFailure f, const QString &e) { fail = f; *err = e; return false; };
     const DiskInfo &info = m_info;
+    if (m_tape.isOpen()) return no(CopyFailure::Unsupported, "a tape can't be converted into a disc image: copy its files instead");
     const Kind from = m_img.container().kind();
     if (!m_img.isOpen()) return no(CopyFailure::Failed, "no disc");
     if (to == Kind::None) to = from;
@@ -587,11 +615,13 @@ bool OpenedDisc::writeCopy(const QString &out, dw::device::Kind to, const QStrin
 }
 
 void OpenedDisc::revert() {
+    if (m_tape.isOpen()) { m_disc.revert(); return; }
     m_img.revert();
     reloadMounts();
 }
 
 QString OpenedDisc::readOnlyWhy(int mount) const {
+    if (m_tape.isOpen()) return TapeReadOnly;
     if (!m_img.isOpen()) return "no disc";
     if (!m_img.editable())
         return m_img.isAdfs() && !m_img.openReport().ok() ? "the free space map or directories are damaged (Tools > Check disc)"

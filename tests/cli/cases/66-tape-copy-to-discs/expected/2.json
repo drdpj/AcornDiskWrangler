@@ -1,0 +1,87 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "00000000",
+                    "execute": false,
+                    "load": "00000000",
+                    "locked": false,
+                    "read": true,
+                    "write": true
+                },
+                "created": null,
+                "display": "$.EMPTY",
+                "kind": "file",
+                "modified": null,
+                "name": "EMPTY",
+                "path": [
+                    "EMPTY"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "00008023",
+                    "execute": false,
+                    "load": "00001900",
+                    "locked": false,
+                    "read": true,
+                    "write": true
+                },
+                "created": null,
+                "display": "$.GAME",
+                "kind": "file",
+                "modified": null,
+                "name": "GAME",
+                "path": [
+                    "GAME"
+                ],
+                "problem": null,
+                "size": 600,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "FFFF801F",
+                    "execute": false,
+                    "load": "FFFF0E00",
+                    "locked": false,
+                    "read": true,
+                    "type": "F0E",
+                    "write": true
+                },
+                "created": null,
+                "display": "$.LOADER",
+                "kind": "file",
+                "modified": "1901-05-13T02:22:25",
+                "name": "LOADER",
+                "path": [
+                    "LOADER"
+                ],
+                "problem": null,
+                "size": 300,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

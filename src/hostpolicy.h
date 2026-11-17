@@ -55,7 +55,8 @@ bool parseHex(const QJsonValue &v, quint32 *out);
 QString hex8(quint32 v);
 
 // DFS files named NAME or D.NAME, FAT names keep their extension apart, and (when asked) an Acorn .inf sidecar
-// beside every ADFS and DFS file, exactly as Extract to host writes it.
+// beside every ADFS, DFS and tape file, exactly as Extract to host writes it (a tape file's: access 04, execute only,
+// when it is protected, else 03).
 class AcornPolicy : public dw::xfer::HostPolicy {
 public:
     explicit AcornPolicy(bool writeInf) : m_inf(writeInf) {}

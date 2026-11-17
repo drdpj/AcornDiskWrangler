@@ -147,7 +147,7 @@ QMimeData *DropTree::makeMime(const QList<QTreeWidgetItem *> &items) const {
         return win->exportRefs(pane, refs, out, err);
     };
     auto *m = new dw::DragOutMime(exporter, RetroFiles::dragSpec(win && win->writeInfOnExtract(),
-                                  win ? QFileInfo(win->document()->image().path()).fileName() : QString(), pane));
+                                  win ? QFileInfo(win->document()->path()).fileName() : QString(), pane));
     m->setData(DW_MIME_ITEMS, payload);
     m->setData(DW_MIME_SOURCE, sourceTag());
     return m;
@@ -161,7 +161,7 @@ dw::ui::VolumePane::DropRules DropTree::dropRules() const {
     MainWindow *w = MainWindow::byId(sourceWindow());
     r.fromItself = w && (sourcePane() == PaneDfs0 || sourcePane() == PaneDfs1) && w->document()->dfs(0).attached() &&
                    w->document()->dfs(1).attached();
-    r.filesNotJson = w && !w->document()->image().isOpen();
+    r.filesNotJson = w && !w->document()->isOpen();
     return r;
 }
 
@@ -236,7 +236,7 @@ dw::ui::DiscWindow::ActionSpec MainWindow::actionSpec(Act a) const {
 // keyboard focus (which pane has it when the window opens) follows it.
 dw::ui::VolumePane *MainWindow::createPane(const QString &group) {
     auto *t = new DropTree(group == "ADFS" ? this : nullptr);
-    t->setDragSource(id(), group == "ADFS" ? PaneAdfs : group == "DOS" ? PaneDos : PaneDfs0);
+    t->setDragSource(id(), group == "ADFS" ? PaneAdfs : group == "DOS" ? PaneDos : group == "Tape" ? PaneTape : PaneDfs0);
     return t;
 }
 
@@ -248,11 +248,13 @@ dw::ui::PaneLayout MainWindow::paneLayout(const QString &group) const {
         load{"Load", "FFFFFFFF", true}, exec{"Exec", "FFFFFFFF", true}, length{"Length", "999999999", true},
         sector{"Sector", "9999999", true}, typeDate{"Type / date", "FFF   2026-12-31 23:59", false},
         size{"Size", "999999999", true}, cluster{"Cluster", "9999999", true},
-        modified{"Modified", "FFF   2026-12-31 23:59", false};
+        modified{"Modified", "FFF   2026-12-31 23:59", false},
+        blocks{"Blocks", "9999", true}, problem{"Problem", "block 99 header CRC", false};
     dw::ui::PaneLayout l;
     l.expand = dw::ui::PaneLayout::ExpandRoots;
     if (group == "ADFS") l.columns = {name, attr, load, exec, length, sector, typeDate};
     else if (group == "DOS") l.columns = {name, attr, size, cluster, modified};
+    else if (group == "Tape") l.columns = {name, attr, load, exec, length, blocks, problem};   // in tape order, never sorted
     else l.columns = {name, attr, load, exec, length, sector};       // both sides of a DFS disc, one root row each
     if (group == "DFS") {
         l.keepCurrent = true;
@@ -266,6 +268,7 @@ dw::ui::PaneLayout MainWindow::paneLayout(const QString &group) const {
 QString MainWindow::paneTitle(const QString &group) const {
     if (group == "ADFS") return m_img.adfsLocked() ? "ADFS (read-only)" : "ADFS";
     if (group == "DFS") return "DFS";
+    if (group == "Tape") return "Tape";
     switch (m_doc.info().kind) {
     case DiskInfo::AdfsDosHybrid: return "DOS Plus (640K hybrid)";
     case DiskInfo::DosAcorn800: return "DOS Plus (800K)";
@@ -275,8 +278,9 @@ QString MainWindow::paneTitle(const QString &group) const {
 }
 
 bool MainWindow::paneShown(const QString &group) const {
-    if (group == "ADFS") return !m_img.isOpen() || m_img.isAdfs();
+    if (group == "ADFS") return !m_doc.isOpen() || (m_img.isOpen() && m_img.isAdfs());   // (never beside a tape)
     if (group == "DOS") return m_doc.dosMount() >= 0;
+    if (group == "Tape") return m_doc.tapeMount() >= 0;
     return m_doc.dfsMount(0) >= 0 || m_doc.dfsMount(1) >= 0;
 }
 
@@ -293,6 +297,7 @@ MainWindow::MainWindow(QWidget *parent) : DiscWindow(parent) {
     m_tree = static_cast<DropTree *>(pane("ADFS"));
     m_dosTree = static_cast<DropTree *>(pane("DOS"));
     m_dfsTree = static_cast<DropTree *>(pane("DFS"));
+    m_tapeTree = static_cast<DropTree *>(pane("Tape"));
     m_tabs = tabWidget();
     m_tabs->tabBar()->hide();                   // no tab until a disc is open (the ADFS pane stays, to take drops)
 
@@ -448,7 +453,8 @@ void MainWindow::openDialog() {
     AppSettings s;
     QString p = QFileDialog::getOpenFileName(
         this, "Open disc image", s.value("lastDir").toString(),
-        "Disc images (" + dw::anyCase("*.dat *.img *.ima *.dsk *.hdf *.adf *.adl *.adm *.ads *.ssd *.dsd *.bin *.imd *.td0") + ");;All files (*)");
+        "Disc and tape images (" + dw::anyCase("*.dat *.img *.ima *.dsk *.hdf *.adf *.adl *.adm *.ads *.ssd *.dsd *.bin *.imd *.td0 *.uef") +
+            ");;Tape images (" + dw::anyCase("*.uef") + ");;All files (*)");
     if (p.isEmpty()) return;
     openInWindow(p);                            // each disc lives in its own window, so they can be dragged between
 }
@@ -486,6 +492,12 @@ bool MainWindow::openDocument(const QString &path, const dw::fs::Verdict &, cons
     if (info.kind == DiskInfo::AdfsNewMap) {
         QMessageBox::information(this, "Not supported",
                                  info.description + "\n\nADFS D/E (new map) discs are not supported yet.");
+        return false;
+    }
+    if (info.kind == DiskInfo::ForeignTape) {
+        QMessageBox::information(this, "Not an Acorn tape",
+                                 "This is " + info.description + ".\n\nAcorn Disk Wrangler reads BBC Micro and Electron "
+                                 "tapes (UEF files); no program of the family reads this kind of tape yet.");
         return false;
     }
     QString err;
@@ -526,6 +538,15 @@ void MainWindow::afterOpen(const QString &path) {
         pad = QString("  NOTE: the image file is %1 bytes shorter than a full disc; it will be padded with zeros when saved.")
                   .arg(m_img.fullSize() - m_img.fileSize());
     const Report &r = m_img.openReport();
+    if (m_doc.isTape()) {
+        const Acorn::Cfs::Tape &t = m_doc.cfs()->tapeRead();
+        int bad = 0;
+        for (const Acorn::Cfs::Item &i : t.items) if (i.type == Acorn::Cfs::Item::FileItem && !i.file.problems.isEmpty()) ++bad;
+        statusBar()->showMessage("Opened " + path + " - " + info.description +
+                                     (bad ? QString(", %1 with problems - see Tools > Check.").arg(bad) : QString(".")) +
+                                     "  Files can be copied from it; tapes can't be changed yet.", 15000);
+        return;
+    }
     if (m_img.isAdfs() && !r.ok()) {
         showReport("Image failed validation",
                    "This image's free space map / directory structure is damaged, so it has been opened "
@@ -668,6 +689,21 @@ void MainWindow::renameVolume() {
 // image's own kind. A copy of the image's own kind is made as it always was; a hard disc (and a disc nothing
 // recognised) is saved only as a copy of its own kind, in the dialog it always had.
 void MainWindow::saveAsDialog() {
+    if (m_doc.isTape()) {                                // a copy of the tape, UEF as it came (gzip or not), checked
+        QFileInfo fi(m_doc.path());
+        const QString p = QFileDialog::getSaveFileName(this, "Save as", fi.absolutePath() + "/" + fi.completeBaseName() + "-copy." + fi.suffix(),
+                                                       QString("UEF tape (*.%1);;All files (*)").arg(fi.suffix()));
+        if (p.isEmpty()) return;
+        const QString abs = QFileInfo(p).absoluteFilePath();
+        if (abs == fi.absoluteFilePath()) return;
+        for (MainWindow *w : allWindows())
+            if (w != this && w->m_doc.isOpen() && QFileInfo(w->m_doc.path()).absoluteFilePath() == abs) {
+                QMessageBox::warning(this, "Save as", "That file is open in another window."); return; }
+        QString err;
+        if (!m_doc.saveAs(p, dw::device::Kind::None, &err)) { QMessageBox::warning(this, "Save as", "Not saved: " + err); return; }
+        refresh(); updateUi();
+        return;
+    }
     if (!m_img.isOpen()) return;
     using dw::device::Kind;
     QFileInfo fi(m_img.path());
@@ -703,7 +739,7 @@ void MainWindow::saveAsDialog() {
         return;
     }
     for (MainWindow *w : allWindows())
-        if (w != this && w->m_img.isOpen() && QFileInfo(w->m_img.path()).absoluteFilePath() == abs) {
+        if (w != this && w->m_doc.isOpen() && QFileInfo(w->m_doc.path()).absoluteFilePath() == abs) {
             QMessageBox::warning(this, "Save as", "That file is open in another window."); return; }
     QString err;
     if (kind != own) {                                   // another kind: written with what is staged, checked, then opened
@@ -804,7 +840,7 @@ void MainWindow::newImageDialog() {
     if (QFileInfo(path).suffix().isEmpty()) path += "." + ext;
     QString abs = QFileInfo(path).absoluteFilePath();
     for (MainWindow *w : allWindows())
-        if (w->m_img.isOpen() && QFileInfo(w->m_img.path()).absoluteFilePath() == abs) {
+        if (w->m_doc.isOpen() && QFileInfo(w->m_doc.path()).absoluteFilePath() == abs) {
             QMessageBox::warning(this, "New disc image", "That file is open in another window. Close it first, or choose another name.");
             return;
         }
@@ -880,13 +916,20 @@ void MainWindow::about() {
 // always were: the ADFS report as it is, the DOS lines headed "DOS: ", each DFS drive's "DFS drive 0: " (or 2), and
 // the warning for an image that is shorter than a full disc.
 void MainWindow::checkImage() {
-    if (!m_img.isOpen()) return;
+    if (!m_doc.isOpen()) return;
     checkDisc();
 }
 
 void MainWindow::showCheck(const dw::fs::Report &, const QVector<dw::fs::Report> &perMount) {
     Report r;
     auto of = [&](int pane) { const int m = mountOf(pane); return m >= 0 && m < perMount.size() ? perMount[m] : Report(); };
+    if (m_doc.isTape()) {
+        r = of(PaneTape);
+        showReport("Tape check", r.warnings.isEmpty() ? "Every file on the tape was read with good CRCs."
+                                                      : "Some files on the tape have problems - see details. They can't be copied whole.",
+                   r, !r.warnings.isEmpty());
+        return;
+    }
     if (m_doc.adfsMount() >= 0) r = of(PaneAdfs);
     if (m_dos.attached()) {
         const Report dr = of(PaneDos);
@@ -920,7 +963,7 @@ void MainWindow::refresh() {
     m_doc.followDriveC();
     clearRowCache();
     DiscWindow::refresh();
-    m_tabs->tabBar()->setVisible(m_img.isOpen());
+    m_tabs->tabBar()->setVisible(m_doc.isOpen());
 }
 
 
@@ -960,6 +1003,7 @@ int MainWindow::paneOf(int mount) const {
     if (mount == m_doc.dosMount()) return PaneDos;
     if (mount == m_doc.dfsMount(1)) return PaneDfs1;
     if (mount == m_doc.dfsMount(0)) return PaneDfs0;
+    if (mount == m_doc.tapeMount()) return PaneTape;
     return -1;
 }
 
@@ -968,6 +1012,7 @@ int MainWindow::mountOf(int pane) const {
     case PaneAdfs: return m_doc.adfsMount();
     case PaneDos: return m_doc.dosMount();
     case PaneDfs1: return m_doc.dfsMount(1);
+    case PaneTape: return m_doc.tapeMount();
     default: return m_doc.dfsMount(0);
     }
 }
@@ -983,6 +1028,7 @@ QString MainWindow::rootLabel(int mount) const {
     case PaneDos: return dw::rootLabel("C:\\", m_dos.label());
     case PaneDfs1: return dw::rootLabel("Drive 2", m_doc.dfs(1).title());
     case PaneDfs0: return dw::rootLabel("Drive 0", m_doc.dfs(0).title());
+    case PaneTape: return dw::rootLabel("Tape", QFileInfo(m_doc.path()).fileName());
     }
     return QString();
 }
@@ -1009,6 +1055,10 @@ void MainWindow::decorateRow(QTreeWidgetItem *it, int mount, const dw::fs::Path 
             it->setData(0, RoleParent, 0);
             it->setData(0, RoleSector, 0);
             m_rowDir.insert(rowKey(mount, path), 0);
+        } else if (pane == PaneTape) {
+            it->setIcon(0, style()->standardIcon(QStyle::SP_DriveFDIcon));
+            it->setData(0, RoleParent, 0);
+            it->setData(0, RoleSector, 0);
         } else {
             const int side = pane == PaneDfs1 ? 1 : 0;
             it->setIcon(0, style()->standardIcon(QStyle::SP_DriveFDIcon));
@@ -1020,6 +1070,33 @@ void MainWindow::decorateRow(QTreeWidgetItem *it, int mount, const dw::fs::Path 
     }
     const QString parentKey = rowKey(mount, path.parent());
     const int pos = m_rowNext[parentKey]++;
+    if (pane == PaneTape) {                      // the entry says it all: its label, attributes and any problem
+        const bool file = entry->attrs.contains("load");
+        it->setText(0, entry->shown());
+        it->setText(1, entry->attrs.value("protected").toBool() ? "P" : "");
+        if (file) {
+            dw::setNumCell(it, 2, hex8(entry->attrs.value("load").toUInt()));
+            dw::setNumCell(it, 3, hex8(entry->attrs.value("exec").toUInt()));
+            dw::setNumCell(it, 5, QString::number(entry->attrs.value("blocks").toInt()));
+        }
+        dw::setNumCell(it, 4, QString::number(entry->size));
+        it->setToolTip(4, QString("%1 bytes (&%2)").arg(entry->size).arg(entry->size, 0, 16));
+        if (file) {
+            it->setText(6, entry->problem);
+        } else {
+            it->setText(6, "can't be read as files");
+            for (int c = 0; c < it->columnCount(); ++c) it->setForeground(c, Qt::gray);
+        }
+        if (!entry->problem.isEmpty() && file) it->setForeground(6, Qt::red);
+        if (entry->attrs.value("protected").toBool()) it->setToolTip(1, "Protected: *RUN and CHAIN only (*LOAD says \"Locked\")");
+        it->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
+        it->setData(0, RoleParent, 0);
+        it->setData(0, RoleName, entry->name);   // the unique name: what a drag or a copy names it by
+        it->setData(0, RoleIsDir, false);
+        it->setData(0, RoleSector, pos);
+        it->setData(0, RoleIsRoot, false);
+        return;
+    }
     if (pane == PaneAdfs) {
         const quint32 dirSector = m_rowDir.value(parentKey, RootSector);
         if (!m_adfsDirs.contains(dirSector)) {
@@ -1158,13 +1235,14 @@ quint32 MainWindow::targetDirForItem(QTreeWidgetItem *it) const {
 }
 
 QString MainWindow::title() const {                // as CP/M Disk Wrangler: "<file> * - <program>"
-    QString n = m_img.isOpen() ? QFileInfo(m_img.path()).fileName() : QString("no disc");
-    bool changed = m_img.isOpen() && (m_img.dirty() || m_img.needsPadding());
+    QString n = m_doc.isOpen() ? QFileInfo(m_doc.path()).fileName() : QString("no disc");
+    bool changed = m_doc.isOpen() && (m_doc.dirty() || m_img.needsPadding());
     return n + (changed ? " *" : "") + " - Acorn Disk Wrangler";
 }
 
 // The pane in use's reason (the document's words): the DOS or DFS volume shown, else the image and the ADFS side
 QString MainWindow::readOnlyReason() const {
+    if (m_doc.isTape()) return m_doc.readOnlyWhy(m_doc.tapeMount());
     if (!m_img.isOpen()) return "no disc";
     int ds = dfsSide();
     if (dosActive()) return m_doc.readOnlyWhy(m_doc.dosMount());
@@ -1173,10 +1251,11 @@ QString MainWindow::readOnlyReason() const {
 }
 
 void MainWindow::updateActions() {
-    bool has = m_img.isOpen(), ed = has && m_img.editable();
+    bool has = m_doc.isOpen(), ed = has && m_img.editable();
     int ds = dfsSide();
     bool dosPane = dosActive();
-    bool canEdit = dosPane ? dosEditable() : (ds >= 0 ? dfsEditable(ds) : (ed && m_img.isAdfs() && !m_img.adfsLocked()));
+    const bool tape = tapeActive();
+    bool canEdit = tape ? false : dosPane ? dosEditable() : (ds >= 0 ? dfsEditable(ds) : (ed && m_img.isAdfs() && !m_img.adfsLocked()));
     QTreeWidget *ct = currentTree();
     bool changed = m_img.dirty() || m_img.needsPadding();
     m_actSave->setEnabled(ed && changed);
@@ -1186,7 +1265,8 @@ void MainWindow::updateActions() {
     m_actNewDir->setEnabled(canEdit && ds < 0);      // DFS has no directories
     m_actCheck->setEnabled(has);
     m_actExtract->setEnabled(has);
-    bool sel = dosPane ? !dosSelected().isEmpty() : (ds >= 0 ? !dfsSelected().isEmpty() : !selectedObjects().isEmpty());
+    bool sel = tape ? !m_tapeTree->selectedItems().isEmpty()
+                    : dosPane ? !dosSelected().isEmpty() : (ds >= 0 ? !dfsSelected().isEmpty() : !selectedObjects().isEmpty());
     m_actCopy->setEnabled(has && sel);
     m_actPaste->setEnabled(canEdit && clipboardUsable());
     m_actDelete->setEnabled(canEdit && sel);
@@ -1208,7 +1288,17 @@ void MainWindow::updateActions() {
 
 // The same shape as CP/M Disk Wrangler's: what the disc is and its space, then anything unusual, " - " between.
 QStringList MainWindow::statusVariants() const {
-    if (!m_img.isOpen()) return {"Open a disc image (File > Open), or drop one here."};
+    if (!m_doc.isOpen()) return {"Open a disc image (File > Open), or drop one here."};
+    if (m_doc.isTape()) {
+        const Acorn::Cfs::Tape &t = m_doc.cfs()->tapeRead();
+        int unread = 0;
+        for (const Acorn::Cfs::Item &i : t.items) if (i.type == Acorn::Cfs::Item::Unrecognised) ++unread;
+        QString s = QString("%1 - %2 file%3, %4 blocks").arg(m_doc.tape().kind() == dw::tape::Kind::Uef ? m_doc.info().description : QString("Tape"))
+                        .arg(t.files()).arg(t.files() == 1 ? "" : "s").arg(t.blocks.size());
+        if (unread) s += QString("  -  %1 stretch%2 of unrecognised data").arg(unread).arg(unread == 1 ? "" : "es");
+        s += "  -  read-only: " + readOnlyReason();
+        return {s};
+    }
     int ds = dfsSide();
     bool dosPane = dosActive();
     QString s;
@@ -1246,6 +1336,7 @@ QStringList MainWindow::statusVariants() const {
 void MainWindow::presentStatus(const QStringList &variants) { m_status->setText(variants.value(0)); }
 
 QTreeWidget *MainWindow::currentTree() const {
+    if (tapeActive()) return m_tapeTree;
     if (dosActive()) return m_dosTree;
     if (dfsSide() >= 0) return m_dfsTree;
     return m_tree;
@@ -1257,6 +1348,13 @@ QTreeWidget *MainWindow::currentTree() const {
 // left out, dropSkipsFile): disc images go to dropImages, the rest is imported where they were dropped.
 void MainWindow::droppedOnDisc(dw::ui::VolumePane *pane, QTreeWidgetItem *target, const QStringList &paths) {
     if (pane == m_dosTree) { onDosDropped(paths, target); return; }
+    if (pane == m_tapeTree) {                    // disc images open in their own windows; nothing is added to a tape yet
+        if (!dropImages(PaneTape, paths, [this](const QStringList &) {
+                message("Read-only", "Files can't be added to a tape yet: " + readOnlyReason() + ".");
+            }))
+            message("Read-only", "Files can't be added to a tape yet: " + readOnlyReason() + ".");
+        return;
+    }
     if (pane == m_dfsTree) {
         int s = dfsTargetSide(target);
         if (!dropImages(s ? PaneDfs1 : PaneDfs0, paths, [this, s](const QStringList &r) { dfsImportPaths(s, r); }))
@@ -1272,7 +1370,7 @@ bool MainWindow::dropSkipsFile(const QString &path) const {
 }
 
 bool MainWindow::isHardDisc() const {
-    return m_img.isOpen() && m_doc.info().kind == DiskInfo::Adfs && m_img.fullSize() > 655360;
+    return m_img.isOpen() && m_doc.info().kind == DiskInfo::Adfs && m_img.fullSize() > 655360;   // (never a tape)
 }
 
 MainWindow *MainWindow::openInNewWindow(const QString &path) {
@@ -1348,7 +1446,7 @@ void MainWindow::addFolderDialog() {
 // Add files, Add folder, host files dropped or pasted on the ADFS pane: read by the core's one host reader with this
 // program's .inf rule (acornHostRead, as acorndw put reads them), then the kit's import session (importAll).
 void MainWindow::importPaths(const QStringList &paths, quint32 dir) {
-    if (!m_img.isOpen()) {
+    if (!m_doc.isOpen()) {
         if (!paths.isEmpty()) openFile(paths.first());
         return;
     }
@@ -1594,9 +1692,10 @@ static void noDates(QVector<dw::TransferItem> *items) {   // Extract has never s
 // every ADFS and DFS file when Write .inf is on). The selection of the pane in use, or with nothing selected, all of
 // it: the root of ADFS or DOS, the side in use of DFS. DFS files from both sides go into a folder per side.
 void MainWindow::extractSelected() {
-    if (!m_img.isOpen()) return;
+    if (!m_doc.isOpen()) return;
     const int ds = dfsSide();
     const bool dos = ds < 0 && dosActive();
+    const bool tape = tapeActive();
     AppSettings s;
     QString dest = QFileDialog::getExistingDirectory(this, ds >= 0 ? "Extract DFS files to folder"
                                                            : dos ? "Extract DOS files to folder" : "Extract to folder",
@@ -1615,9 +1714,11 @@ void MainWindow::extractSelected() {
                 if (m_doc.dfs(x.side).indexOf(x.dir, x.name) >= 0) items << Item(m_doc.dfsMount(x.side), dw::fs::Path({x.item->data(0, RoleName).toString()}));
         }
     } else {
-        const int mount = dos ? m_doc.dosMount() : m_doc.adfsMount();
+        const int mount = tape ? m_doc.tapeMount() : dos ? m_doc.dosMount() : m_doc.adfsMount();
         QList<QTreeWidgetItem *> rows;
-        if (dos) for (const DSel &x : dosSelected()) rows << x.item;
+        if (tape) {
+            for (QTreeWidgetItem *it : m_tapeTree->selectedItems()) if (!it->data(0, RoleIsRoot).toBool()) rows << it;
+        } else if (dos) for (const DSel &x : dosSelected()) rows << x.item;
         else for (const Sel &x : selectedObjects()) rows << x.item;
         if (rows.isEmpty()) {           // nothing selected: extract the whole disc
             QVector<dw::fs::Entry> root;

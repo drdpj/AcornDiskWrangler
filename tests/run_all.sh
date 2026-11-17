@@ -1,19 +1,22 @@
 #!/bin/bash
 # Acorn Disk Wrangler - Copyright (C) 2026 Daniel Jameson - GPL v3 or later
-# run_all.sh <build dir> <real images dir: scsi0.dat, M512_1.ADL, M512_3.IMG>
+# run_all.sh <build dir> <real images dir: scsi0.dat, M512_1.ADL, M512_3.IMG> [<real tapes dir: *.uef>]
 # Builds every test (with the qmake on PATH, as CP/M Disk Wrangler's run_all.sh: for Qt 6 put qmake6 first on PATH as
 # qmake) and runs them all with the right data: the self-tests, the independent checkers (acorncheck.py, sidecheck.py,
 # retrofilescheck.py), screenshot and xdragtest (under xvfb-run), the core's tests, clitest, convtest, the acorndw
 # golden cases (tests/cli/run_cli.sh) and the check that acorndw links no QtGui or QtWidgets. Prints a line per test
 # and ends "ALL PASSED" (exit 0) or "FAILED: <list>" (exit 1). Logs, screenshots (<build dir>/shots) and the made test
 # data (<build dir>/td) stay in the build dir. The real images are the owner's (not in the repo): see docs/testing.md.
+# The real tapes (UEF files, from The Stairway to Hell) are read from the third argument, by default the folder UEF
+# beside the real images (testdata/UEF); there must be some.
 # It also makes /tmp/drop/proj (the host files guitest2 and screenshot drop): don't run two at once.
 S=$(cd "$(dirname "$0")/.." && pwd)
 W=${1:?usage: run_all.sh <build dir> <real images dir>}; R=${2:?usage: run_all.sh <build dir> <real images dir>}
 for f in scsi0.dat M512_1.ADL M512_3.IMG; do [ -f "$R/$f" ] || { echo "missing $R/$f (the real images: see docs/testing.md)"; exit 2; }; done
 R=$(cd "$R" && pwd); Q=qmake
+U=${3:-$R/UEF}; ls "$U"/*.uef >/dev/null 2>&1 || { echo "no real tapes in $U (*.uef: see docs/testing.md)"; exit 2; }; U=$(cd "$U" && pwd)
 mkdir -p "$W"; W=$(cd "$W" && pwd); B=$W/b; T=$W/td; fail=()
-for d in td t shots wat side ct vt cv cli sa drag boot xd g2; do rm -rf "${W:?}/$d"; done; rm -f "$W"/*.log
+for d in td t shots wat side ct vt cv cli sa drag boot xd g2 tp tapes; do rm -rf "${W:?}/$d"; done; rm -f "$W"/*.log
 mkdir -p "$B" "$T" "$W/t"
 echo "$($Q --version | tail -1)"
 for p in "$S"/tests/*.pro "$S"/core/tests/settingstest.pro "$S"/core/tests/xfertest.pro "$S"/core/tests/uitest.pro "$S"/core/tests/devicetest.pro \
@@ -23,6 +26,7 @@ for p in "$S"/tests/*.pro "$S"/core/tests/settingstest.pro "$S"/core/tests/xfert
   (cd "$B/$t" && "$Q" "$p" >/dev/null 2>&1 && make -j"$(nproc)" >"$B/$t.log" 2>&1) || fail+=("build:$t")
 done
 python3 -I "$S/tests/make_testdata.py" all "$T" >/dev/null       # also makes /tmp/drop/proj: guitest2 and screenshot need it
+python3 -I "$S/tests/make_testdata.py" tape "$W/tp" >/dev/null   # a tape, apart: detecttest and agreetest take every file of $T
 "$B/mkimg/mkimg" "$T" >/dev/null; "$B/floptest/floptest" acorn800 "$T/g.a800" >/dev/null; "$B/floptest/floptest" hybrid640 "$T/f.hybrid" >/dev/null
 export QT_QPA_PLATFORM=offscreen
 run() { n=$1; shift; timeout 900 "$@" >"$W/$n.log" 2>&1; e=$?
@@ -54,6 +58,7 @@ run dostest "$B/dostest/dostest" "$(cpy "$R/scsi0.dat" hd.dat)"; rm -f "$W/t/hd.
 run guitest "$B/guitest/guitest" "$(cpy "$R/scsi0.dat" hd.dat)"; rm -f "$W/t/hd.dat"
 G=$W/g2; mkdir -p "$G"; cp "$T/blank40.dsd" "$G/a.dsd"; cp "$T/adfs_l.adl" "$G/b.adl"; mkfs.fat -C "$G/c.img" 720 >/dev/null
 cp "$R/scsi0.dat" "$G/d.dat"; cp "$T/trunc40.ssd" "$G/e.ssd"; cp "$T/f.hybrid" "$G/f.hybrid"; cp "$T/g.a800" "$G/g.a800"; cp "$R/M512_1.ADL" "$G/real640.adl"
+cp "$W/tp/t.uef" "$G/h.uef"
 run guitest2 "$B/guitest2/guitest2" "$G" "$G/real640.adl"; rm -rf "$G"
 mkdir -p "$W/side"; run sidetest "$B/sidetest/sidetest" "$W/side" "$(cpy "$R/M512_1.ADL" s640.adl)" "$(cpy "$R/M512_3.IMG" s800.img)"
 python3 -I "$S/tests/sidecheck.py" "$W/side" >"$W/sidecheck.log" 2>&1 && echo "pass sidecheck" || fail+=(sidecheck)
@@ -74,6 +79,11 @@ fi
 # step 5j: File > Save As writes ImageDisk, DSK, extended DSK and raw, the same bytes as acorndw convert (needs acorndw and $W/ct's TeleDisk files)
 [ -f "$S/tests/saveastest.pro" ] && { mkdir -p "$W/sa"; run saveastest "$B/saveastest/saveastest" "$W/sa" "$B/acorndw/acorndw" "$R/M512_1.ADL" "$W/ct"; rm -rf "$W/sa"; }
 rm -rf "$W/ct"                                       # ImageDisk, DSK and TeleDisk copies of Acorn discs (DiskWranglerCore v0.3.0 on)
+# tapes (series cfs-1): the cassette filing system on hand-made and real tapes, and the independent reader (cfs_check.py)
+run cfstest "$B/cfstest/cfstest" "$U"
+mkdir -p "$W/tapes"; "$B/cfstest/cfstest" --write-samples "$W/tapes"
+timeout 600 python3 -I "$S/tests/cfs_check.py" "$B/cfstest/cfstest" "$W/tapes" "$U" >"$W/cfscheck.log" 2>&1 \
+  && tail -1 "$W/cfscheck.log" | grep -qE "^([0-9]+) of \1 tapes" && echo "pass cfs_check ($(tail -1 "$W/cfscheck.log"))" || { echo "FAIL cfs_check (see $W/cfscheck.log)"; fail+=(cfs_check); }
 mkdir -p "$W/drag"; run dragtest "$B/dragtest/dragtest" "$W/drag"
 python3 -I "$S/tests/retrofilescheck.py" "$W"/drag/drag-* >"$W/rfc.log" 2>&1 && echo "pass retrofilescheck" || fail+=(retrofilescheck)
 mkdir -p "$W/boot"; run boottest "$B/boottest/boottest" "$W/boot" "$(cpy "$R/scsi0.dat" bhd.dat)"; rm -f "$W/t/bhd.dat"

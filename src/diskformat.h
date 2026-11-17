@@ -39,7 +39,9 @@ struct DiskInfo {
         DosAcorn800,    // Acorn DOS Plus 800K (no boot record)
         AdfsNewMap,     // ADFS D/E (new map): recognised but not supported
         AcornCpm,       // an Acorn Z80 CP/M disc: its DFS catalogue only fences CP/M's data off ($.CPMDISC); refused
-        TorchCpn        // a Torch CP/N disc (CP/M files in Torch's own filesystem); refused, CP/M Disk Wrangler opens it
+        TorchCpn,       // a Torch CP/N disc (CP/M files in Torch's own filesystem); refused, CP/M Disk Wrangler opens it
+        Tape,           // a UEF tape image: the BBC Micro's and Electron's cassette filing system (src/cfs.h)
+        ForeignTape     // a TZX, CDT or TAP tape (ZX Spectrum, Amstrad CPC): recognised, refused (no program of the family takes it yet)
     };
     Kind kind = Unknown;
     QString description;
@@ -56,6 +58,10 @@ struct DiskInfo {
     QStringList notes;
 };
 
+// A tape image is recognised by its contents before anything else (dw::tape::TapeFile::identify): a UEF file (gzip or
+// not) is Tape, Certain when its data holds cassette filing system blocks whose header CRC agrees, Likely when it holds
+// none (opened, everything "unrecognised"); TZX, CDT and TAP are ForeignTape, not supported.
+//
 // What a disc is, found by DiskWranglerCore's detection by tiers (core/diskwrangler/fs/detection.h): a probe for each
 // filesystem - ADFS (here), FAT and DFS (the core's modules) - and one for the CP/M discs that are CP/M Disk
 // Wrangler's (Torch CP/N here; Acorn Z80 CP/M in the DFS module). Every candidate's data is its DiskInfo.

@@ -102,6 +102,7 @@ public:
     bool dosEditable() const { return m_img.editable() && m_doc.dosOk(); }
     bool writeInfOnExtract() const;
     bool dosActive() const;
+    bool tapeActive() const;                             // a tape is open (its pane is the only one)
     QString readOnlyReason() const;                      // empty if the pane in use can be changed
     using DiscWindow::readOnlyReason;
 
@@ -123,7 +124,7 @@ public:
 
 protected:
     ActionSpec actionSpec(Act a) const override;
-    QStringList paneGroups() const override { return {"ADFS", "DOS", "DFS"}; }
+    QStringList paneGroups() const override { return {"ADFS", "DOS", "DFS", "Tape"}; }
     QString paneTitle(const QString &group) const override;
     void refreshChanged(const QVector<int> &mounts) override;
     bool paneShown(const QString &group) const override;
@@ -268,7 +269,7 @@ private:
     Adfs::OpenedDisc m_doc;
     Adfs::Image &m_img = m_doc.image();
     dw::fat::Volume &m_dos = m_doc.dos();
-    DropTree *m_tree = nullptr, *m_dosTree = nullptr, *m_dfsTree = nullptr;
+    DropTree *m_tree = nullptr, *m_dosTree = nullptr, *m_dfsTree = nullptr, *m_tapeTree = nullptr;
     QTabWidget *m_tabs = nullptr;
     QLabel *m_status;
     QAction *m_actOpen, *m_actSave, *m_actSaveAs, *m_actRevert, *m_actClose, *m_actQuit, *m_actCopy, *m_actPaste;

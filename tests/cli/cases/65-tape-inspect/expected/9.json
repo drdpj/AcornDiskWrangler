@@ -1,0 +1,125 @@
+{
+    "changes": [
+        {
+            "from": "EMPTY",
+            "note": null,
+            "op": "add",
+            "path": "EMPTY",
+            "vol": "tape"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "EMPTY.inf",
+            "vol": "tape"
+        },
+        {
+            "from": "GAME",
+            "note": null,
+            "op": "add",
+            "path": "GAME",
+            "vol": "tape"
+        },
+        {
+            "from": "GAME",
+            "note": null,
+            "op": "add",
+            "path": "GAME (2)",
+            "vol": "tape"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "GAME (2).inf",
+            "vol": "tape"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "GAME.inf",
+            "vol": "tape"
+        },
+        {
+            "from": "LOADER",
+            "note": null,
+            "op": "add",
+            "path": "LOADER",
+            "vol": "tape"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "LOADER.inf",
+            "vol": "tape"
+        }
+    ],
+    "command": "get",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.uef",
+    "ok": true,
+    "result": {
+        "manifest": null,
+        "written": [
+            {
+                "from": "EMPTY",
+                "host": "EMPTY",
+                "sidecar": false,
+                "size": 0
+            },
+            {
+                "from": null,
+                "host": "EMPTY.inf",
+                "sidecar": true,
+                "size": 41
+            },
+            {
+                "from": "GAME",
+                "host": "GAME",
+                "sidecar": false,
+                "size": 600
+            },
+            {
+                "from": "GAME",
+                "host": "GAME (2)",
+                "sidecar": false,
+                "size": 100
+            },
+            {
+                "from": null,
+                "host": "GAME (2).inf",
+                "sidecar": true,
+                "size": 41
+            },
+            {
+                "from": null,
+                "host": "GAME.inf",
+                "sidecar": true,
+                "size": 41
+            },
+            {
+                "from": "LOADER",
+                "host": "LOADER",
+                "sidecar": false,
+                "size": 300
+            },
+            {
+                "from": null,
+                "host": "LOADER.inf",
+                "sidecar": true,
+                "size": 41
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "tape",
+    "warnings": [
+    ]
+}

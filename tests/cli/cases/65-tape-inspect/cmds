@@ -1,0 +1,12 @@
+$TOOL info img.uef --json
+$TOOL check img.uef --json
+$TOOL ls img.uef --json
+$TOOL ls img.uef
+$TOOL attr img.uef '#2' --json
+$TOOL get img.uef GAME -
+$TOOL get img.uef 'GAME (2)' -
+$TOOL get img.uef '#3' -
+$TOOL get img.uef / out --json
+$TOOL get img.uef '#9' out --json
+$TOOL put img.uef host/NEW / --json
+$TOOL rm img.uef GAME --json

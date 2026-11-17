@@ -5,8 +5,9 @@ CONFIG += c++17
 TARGET = boottest
 INCLUDEPATH += ../src
 SOURCES += boottest.cpp ../src/mainwindow.cpp ../src/mainwindow_dos.cpp ../src/mainwindow_dfs.cpp ../src/viewer.cpp ../src/viewtext.cpp \
-           ../src/diskformat.cpp ../src/adfs.cpp ../src/adfsvolume.cpp ../src/newdisc.cpp ../src/dragout.cpp ../src/hostpolicy.cpp
+           ../src/diskformat.cpp ../src/adfs.cpp ../src/adfsvolume.cpp ../src/cfs.cpp ../src/cfsvolume.cpp ../src/newdisc.cpp ../src/dragout.cpp ../src/hostpolicy.cpp
 HEADERS += ../src/mainwindow.h ../src/mainwindow_p.h ../src/viewer.h ../src/viewtext.h ../src/diskformat.h ../src/adfs.h ../src/newdisc.h ../src/dragout.h ../src/hostpolicy.h
 !include(../core/diskwranglercore.pri): error("core/ is empty: run 'git submodule update --init'")
 include(../core/diskwrangler-dfs.pri)                # DFS and FAT are DiskWranglerCore modules (step 4)
 include(../core/diskwrangler-fat.pri)
+include(../core/diskwrangler-tape.pri)               # tape images (UEF): the cassette filing system

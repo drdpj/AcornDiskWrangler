@@ -5,7 +5,8 @@ version 3 or (at your option) any later version (see `LICENSE`). This file lists
 or test it, that comes from someone else, and on what terms.
 
 ## Included in the source
-Nothing. All the code, the icon and the documentation were written for this program.
+Nothing. All the code, the icon and the documentation were written for this program (one part of DiskWranglerCore
+follows another program's method, and is credited below: puff.c).
 
 **DiskWranglerCore** (`core/`, <https://github.com/drdpj/DiskWranglerCore>) is shared with
 **CP/M Disk Wrangler** (<https://github.com/drdpj/CPMDiskWrangler>), by the same author and under the same licence.
@@ -21,6 +22,23 @@ public-domain LZSS. LZHUF.C was published without any licence statement and has 
 freely for over thirty years; no terms are known that restrict this use. The decoder was written for CP/M Disk
 Wrangler (its tables are generated, not copied) and is distributed under the GPL; the credit is given because its
 structure follows LZHUF.C.
+
+The gzip reader in DiskWranglerCore's tape module (`core/diskwrangler/tape/gzip.cpp`), which opens compressed UEF
+tape images, was written from RFC 1951 and RFC 1952; its Huffman decoding - codes counted by length and decoded a bit at
+a time against those counts, without lookup tables - follows the method of **puff.c** by **Mark Adler** (part of zlib,
+<https://github.com/madler/zlib/tree/develop/contrib/puff>). No code was copied from it; the credit is given because
+the decoding follows its method, and its notice is:
+
+> Copyright (C) 2002-2013 Mark Adler, all rights reserved
+>
+> This software is provided 'as-is', without any express or implied warranty. In no event will the author be held
+> liable for any damages arising from the use of this software. Permission is granted to anyone to use this software
+> for any purpose, including commercial applications, and to alter it and redistribute it freely, subject to the
+> following restrictions: 1. The origin of this software must not be misrepresented; you must not claim that you wrote
+> the original software. If you use this software in a product, an acknowledgment in the product documentation would
+> be appreciated but is not required. 2. Altered source versions must be plainly marked as such, and must not be
+> misrepresented as being the original software. 3. This notice may not be removed or altered from any source
+> distribution.
 
 ## Not included: Acorn's DOSBOOT
 A new DOS Plus 640K disc needs Acorn's DOSBOOT boot code. It is **not** part of this program or its repository:
@@ -42,11 +60,21 @@ These were read for facts about formats or behaviour. No code or text was copied
 | Watford Electronics DFS manual, section 9.2 "Disc Catalogue" (1983; text at bbc.nvg.org `doc/WatfordDFS.txt`) | the 62-file disc's second catalogue in sectors 2-3 and its &AA recognition bytes | facts only |
 | BeebWiki, "Acorn DFS disc format" (<https://beebwiki.mdfs.net/Acorn_DFS_disc_format>) and J.G. Harston's DFS format notes (<https://mdfs.net/Docs/Comp/Disk/Format/DFS>) | the `!.!!!!!!!` guard entry some tools write, and telling a 62-file disc from a file whose data starts with &AA | facts only |
 | Feedback from Rob Smallshire, author of oaknut (GitHub issue #1) | public access, name character set, typed loads | - |
+| Acorn's MOS 1.20 ROM (the BBC Micro's OS; the copy jsbeeb ships, disassembled with MAME's `unidasm` and watched running in jsbeeb; not in the repo) | the cassette filing system: block layout, CRC, flags, how blocks make a file (`docs/disc-formats.md`, "Tapes") | facts only (the ROM is Acorn's) |
+| The UEF specification 0.10 (Thomas Harte, Fraser Ross, Greg Cook; document draft 28, 2006; in PlayUEF's `docs/UEFspecification.html`) | the UEF tape image format, read by DiskWranglerCore's tape module | facts only |
+| The TZX specification 1.20 (World of Spectrum, 2006) and CPCWiki's "Format:CDT tape image file format" page | TZX and CDT files, which the program recognises and names (it doesn't open them) | facts only |
+| PlayUEF (<https://github.com/8bitkick/PlayUEF>, GPL v3) | how another UEF reader takes the `&0112` gap's length (agreeing with the core's reading of the specification) | facts only; no code taken |
 
 ## Used only for testing (not included, not distributed)
 * **Real disc images**: from b-em's `discs/` folder (the Master Welcome disc, ARM Evaluation System discs 1-5,
   Master 512 Disc 1, the Pan*.dsd discs) and oaknut's test data (Acorn User Tau85), and the owner's own hard disc and Master 512 discs. They belong to their owners
   and are not part of this repository; the tests read them from outside it.
+* **Real tape images** from The Stairway to Hell (<http://www.stairwaytohell.com>, each with its `.txt`): they belong to
+  their owners and are not part of this repository; the tests read them from outside it.
+* **jsbeeb** (Matt Godbolt and contributors, <https://github.com/mattgodbolt/jsbeeb>, GPL v3 or later), driven
+  through **jsbeeb-mcp** (4.5.0) on **Node.js**: a BBC Micro emulator, used to run MOS 1.20 on the real tapes
+  (`*CAT`, `CHAIN ""`, breakpoints in the cassette code) while the tape format was settled. Nothing of it is in this
+  program.
 * **dosfstools** (`mkfs.fat`, `fsck.fat`; GPL v3+) and **mtools** (GPL v3+) are run by the tests as independent
   checks; **Xvfb** and **xdotool** drive the real drag-and-drop test on Linux. **Pillow** (HPND licence) made
   `icons/acorndiskwrangler.ico` from the PNGs and was used to check `icons/acorndiskwrangler.icns`.

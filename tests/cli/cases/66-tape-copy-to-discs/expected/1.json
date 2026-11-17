@@ -1,0 +1,45 @@
+{
+    "changes": [
+        {
+            "from": "GAME",
+            "note": null,
+            "op": "add",
+            "path": "$.GAME",
+            "vol": "ADFS"
+        },
+        {
+            "from": "LOADER",
+            "note": null,
+            "op": "add",
+            "path": "$.LOADER",
+            "vol": "ADFS"
+        },
+        {
+            "from": "EMPTY",
+            "note": null,
+            "op": "add",
+            "path": "$.EMPTY",
+            "vol": "ADFS"
+        }
+    ],
+    "command": "copy",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.adl",
+    "ok": true,
+    "result": {
+        "added": 3,
+        "dirs": 0,
+        "renamed": [
+        ],
+        "replaced": 0,
+        "skipped": 0
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "ADFS",
+    "warnings": [
+    ]
+}

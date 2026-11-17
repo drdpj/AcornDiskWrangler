@@ -329,6 +329,56 @@ int main(int argc,char**argv){
         printf("  drive 0 now:"); for(auto&f:A->document()->dfs(0).files()) printf(" %s",qPrintable(f.fullName())); printf("\n");
     }
 
+    // ---------------------------------------------------------------- a tape (series cfs-1): its own window and pane, in tape order,
+    // read-only; its files dragged onto an ADFS and a DFS window keep load and exec, and drop the protected flag
+    {
+        using Act=dw::ui::DiscWindow::Act;
+        MainWindow* T=openWin(d+"/h.uef");
+        DropTree* tt=static_cast<DropTree*>(T->pane("Tape"));
+        CHECK(T->document()->isTape()); CHECK(tabTexts(*T)==QStringList({"Tape"})); CHECK(!T->tabWidget()->tabBar()->isHidden());
+        printf("tape tabs: %s\n",qPrintable(tabTexts(*T).join("|")));
+        CHECK(T->windowTitle().startsWith("h.uef - "));
+        QTreeWidgetItem* root=tt->topLevelItemCount()==1 ? tt->topLevelItem(0) : nullptr;
+        CHECK(root && root->childCount()==4);
+        if(root && root->childCount()==4){
+            QStringList shown,names; for(int i=0;i<4;++i){ shown<<root->child(i)->text(0); names<<root->child(i)->data(0,RoleName).toString(); }
+            printf("tape rows: %s / %s\n",qPrintable(shown.join(",")),qPrintable(names.join(",")));
+            CHECK(shown==QStringList({"GAME","LOADER","GAME","EMPTY"}));              // in tape order, by their own names
+            CHECK(names==QStringList({"GAME","LOADER","GAME (2)","EMPTY"}));          // told apart underneath
+            CHECK(root->child(1)->text(1)=="P" && root->child(0)->text(1).isEmpty());
+            CHECK(root->child(0)->text(2).trimmed()=="00001900" && root->child(0)->text(4).trimmed()=="600" && root->child(0)->text(5).trimmed()=="3");
+        }
+        tt->clearSelection(); if(auto* it=find(tt,"GAME")) it->setSelected(true); pump();
+        CHECK(T->action(Act::Copy)->isEnabled() && T->action(Act::View)->isEnabled() && T->action(Act::Extract)->isEnabled());
+        CHECK(!T->action(Act::AddFiles)->isEnabled() && !T->action(Act::Delete)->isEnabled() && !T->action(Act::Rename)->isEnabled()
+              && !T->action(Act::Properties)->isEnabled() && !T->action(Act::Paste)->isEnabled() && !T->action(Act::Save)->isEnabled());
+        CHECK(!T->paneEditable(PaneTape) && T->readOnlyReason().contains("tape"));
+        // host files dropped on it: refused, nothing changes
+        whenModal<QMessageBox>([](QMessageBox* mb){ printf("  told: %s\n",qPrintable(mb->text())); mb->accept(); },"no read-only message");
+        dropFiles(*T,tt,{"/tmp/drop/proj/hello.txt"}); pump();
+        CHECK(!T->document()->dirty() && T->document()->cfs()->tapeRead().files()==4);
+        // onto ADFS: GAME and the protected LOADER (it arrives readable and writable, not execute-only)
+        drag(*T,tt,{"GAME","LOADER"},*B,wt::adfsTree(B));
+        { Dir r; QString e; B->document()->image().readDir(RootSector,&r,&e); int g=r.indexOf("GAME"), l=r.indexOf("LOADER");
+          CHECK(g>=0 && l>=0);
+          if(g>=0){ QByteArray a; B->document()->image().readFile(r.entries[g],&a,&e); CHECK(a.size()==600 && r.entries[g].load==0x1900 && r.entries[g].exec==0x8023); }
+          if(l>=0){ CHECK(r.entries[l].load==0xFFFF0E00 && r.entries[l].exec==0xFFFF801F && r.entries[l].length==300);
+                    CHECK(r.entries[l].attrString().contains('R') && r.entries[l].attrString().contains('W') && !r.entries[l].attrString().contains('E')); } }
+        // onto DFS: the second GAME (named GAME there) and EMPTY; addresses narrowed to 18 bits as DFS keeps them
+        drag(*T,tt,{"GAME (2)","EMPTY"},*E,wt::dfsTree(E));
+        { int i=E->document()->dfs(0).indexOf('$',"GAME"), j=E->document()->dfs(0).indexOf('$',"EMPTY");
+          CHECK(i>=0 && j>=0);
+          if(i>=0){ auto f=E->document()->dfs(0).files()[i]; CHECK(f.length==100 && f.load==0x3000 && f.exec==0x3000 && !f.locked); }
+          if(j>=0) CHECK(E->document()->dfs(0).files()[j].length==0); }
+        CHECK(!T->document()->dirty());                                          // a copy: the tape is untouched
+        // Edit > Copy on the tape, Paste in the DFS window: LOADER again, through the clipboard
+        tt->clearSelection(); if(auto* it=find(tt,"LOADER")) it->setSelected(true); pump();
+        T->copySelected(); pump();
+        E->tabWidget()->setCurrentWidget(wt::dfsTree(E)); wt::dfsTree(E)->setCurrentItem(E->dfsRoot(0)); pump();
+        E->paste(); pump();
+        { int i=E->document()->dfs(0).indexOf('$',"LOADER"); CHECK(i>=0 && E->document()->dfs(0).files()[i].load==0x30E00); }
+    }
+
     // ---------------------------------------------------------------- save everything, check the files
     for(MainWindow* w : {A,B,C,D,E,F,G}){ CHECK(w->save()); }
     CHECK(QFile(d+"/e.ssd").size()==102400);      // the truncated image was padded to a full disc

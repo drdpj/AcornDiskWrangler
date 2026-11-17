@@ -1,0 +1,65 @@
+{
+    "changes": [
+    ],
+    "command": "info",
+    "dryRun": false,
+    "error": {
+        "code": 6,
+        "kind": "unsupported",
+        "message": "a ZX Spectrum tape (TZX): this program can't open it",
+        "path": null
+    },
+    "exit": 6,
+    "image": "img.tzx",
+    "ok": false,
+    "result": {
+        "app": null,
+        "candidates": [
+            {
+                "description": "a ZX Spectrum tape (TZX)",
+                "evidence": [
+                ],
+                "fsId": "spectrum-tape",
+                "name": "Spectrum tape",
+                "notes": [
+                ],
+                "probe": "tape",
+                "safeToWrite": true,
+                "supported": false,
+                "tier": "certain"
+            }
+        ],
+        "chosen": {
+            "description": "a ZX Spectrum tape (TZX)",
+            "evidence": [
+            ],
+            "fsId": "spectrum-tape",
+            "name": "Spectrum tape",
+            "notes": [
+            ],
+            "probe": "tape",
+            "safeToWrite": true,
+            "supported": false,
+            "tier": "certain"
+        },
+        "container": {
+            "chunks": 1,
+            "gzip": false,
+            "kind": "tzx",
+            "name": "TZX",
+            "readOnly": true,
+            "size": 20,
+            "version": "1.20"
+        },
+        "owner": null,
+        "verdict": "open",
+        "volumes": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

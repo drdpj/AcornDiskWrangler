@@ -27,7 +27,10 @@
 #include <diskwrangler/fs/disc.h>
 #include <diskwrangler/fs/volume.h>
 
+#include <diskwrangler/tape/tapefile.h>
+
 #include "adfs.h"
+#include "cfsvolume.h"
 #include "diskformat.h"
 
 namespace Adfs {
@@ -90,7 +93,9 @@ private:
 // Everything an opened disc holds, the way the main window shows it: owns the Image and the volumes, and is the
 // window's dw::app::Document as well as what the command-line program opens.
 // mounts: ADFS ("ADFS", read-only on a hybrid) and DOS Plus ("DOS", $.DOS.DRIVE_C or the hybrid's FAT); "drive 0"
-// and "drive 2" (DFS); "DOS" alone for a FAT floppy. Groups (the window's tabs): "ADFS", "DOS", "DFS".
+// and "drive 2" (DFS); "DOS" alone for a FAT floppy; "tape" alone for a tape image (DiskInfo::Tape: the Disc's
+// staging is the TapeFile, not a container; read-only for now). Groups (the window's tabs): "ADFS", "DOS", "DFS",
+// "Tape".
 class OpenedDisc : public dw::app::Document {
 public:
     OpenedDisc();
@@ -121,6 +126,11 @@ public:
     int adfsMount() const;
     int dosMount() const;
     int dfsMount(int side) const;
+    int tapeMount() const;
+    // A tape image (DiskInfo::Tape): the file and its cassette filing system volume (null when no tape is open).
+    bool isTape() const { return m_tape.isOpen(); }
+    const dw::tape::TapeFile &tape() const { return m_tape; }
+    Acorn::CfsVolume *cfs() const { return m_cfs.get(); }
     // The window's checks after opening: a DOS or DFS volume that failed its check can be browsed but not changed.
     void setDosOk(bool ok) { m_dosOk = ok; }
     void setDfsOk(int side, bool ok) { m_dfsOk[side ? 1 : 0] = ok; }
@@ -132,9 +142,9 @@ public:
     bool followDriveC();
 
     // dw::app::Document
-    bool isOpen() const override { return m_img.isOpen(); }
-    QString path() const override { return m_img.path(); }
-    bool dirty() const override { return m_img.dirty(); }
+    bool isOpen() const override { return m_img.isOpen() || m_tape.isOpen(); }
+    QString path() const override { return m_tape.isOpen() ? m_tape.path() : m_img.path(); }
+    bool dirty() const override { return m_tape.isOpen() ? m_tape.hasPending() : m_img.dirty(); }
     bool save(bool backup, QString *err) override { return save(err, backup); }
     // The disc into another file. Of the same kind (or Kind::None): Image::moveToCopy, then the checked save into it.
     // Of another kind (a floppy only: convertible()): writeCopy with what is staged, then this document is the copy,
@@ -171,6 +181,8 @@ private:
     void reloadMounts();
     bool attachDriveC(QString *err);
     Image m_img;
+    dw::tape::TapeFile m_tape;
+    std::shared_ptr<Acorn::CfsVolume> m_cfs;
     DiskInfo m_info;
     bool m_window = false;
     bool m_dosOk = false, m_dfsOk[2] = {false, false};

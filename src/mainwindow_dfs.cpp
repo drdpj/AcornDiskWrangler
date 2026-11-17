@@ -85,6 +85,7 @@ int MainWindow::dropPane(const DropTree *t, QTreeWidgetItem *it) const {
 
 bool MainWindow::paneEditable(int pane) const {
     switch (pane) {
+    case PaneTape: return false;                 // tapes can't be changed yet (series cfs-2)
     case PaneAdfs: return m_img.editable() && m_img.isAdfs() && !m_img.adfsLocked();
     case PaneDos: return m_dos.attached() && dosEditable();
     default: return dfsEditable(pane == PaneDfs1 ? 1 : 0);
@@ -366,7 +367,8 @@ bool MainWindow::refItems(int pane, const QVector<DragRef> &refs, QVector<Item> 
             out->append(Item(m_doc.dfsMount(pane == PaneDfs1 || r.parent == 1 ? 1 : 0), dw::fs::Path({r.name})));
             continue;
         }
-        QTreeWidget *t = pane == PaneDos ? static_cast<QTreeWidget *>(m_dosTree) : static_cast<QTreeWidget *>(m_tree);
+        QTreeWidget *t = pane == PaneDos ? static_cast<QTreeWidget *>(m_dosTree)
+                       : pane == PaneTape ? static_cast<QTreeWidget *>(m_tapeTree) : static_cast<QTreeWidget *>(m_tree);
         QList<QTreeWidgetItem *> todo;
         for (int i = 0; i < t->topLevelItemCount(); ++i) todo << t->topLevelItem(i);
         bool found = false;
@@ -405,6 +407,9 @@ bool MainWindow::exportRefs(int pane, const QVector<DragRef> &refs, QVector<dw::
 // for ADFS and DFS, "fat", any family's "readonly").
 static bool fromAdfs(const dw::TransferItem &t) { return t.sourceFs == "adfs"; }
 static bool fromDfs(const dw::TransferItem &t) { return t.sourceFs == "dfs"; }
+// A tape file (cassette filing system): load and exec as ADFS keeps them; its protected flag (access "E") is dropped
+// on a disc, as the owner settled (plan tape.md, question 5): the file arrives readable and writable.
+static bool fromCfs(const dw::TransferItem &t) { return t.sourceFs == "cfs"; }
 
 // A DFS file's directory letter and name ("D.NAME": the letter is part of a DFS name). internal (copied in this
 // program: a drop from one of its windows, its clipboard): the letter is taken off whenever it isn't $, even one the
@@ -422,10 +427,10 @@ static QString itemName(const dw::TransferItem &t, bool internal) {
     return n;
 }
 
-// Load and exec of an ADFS or DFS file (false: a folder, or not both given).
+// Load and exec of an ADFS, DFS or tape file (false: a folder, or not both given).
 static bool acornAddr(const dw::TransferItem &t, quint32 *load, quint32 *exec) {
     *load = *exec = 0;
-    if (t.isDir || !(fromAdfs(t) || fromDfs(t))) return false;
+    if (t.isDir || !(fromAdfs(t) || fromDfs(t) || fromCfs(t))) return false;
     const QJsonObject acorn = t.attrs.value("acorn");
     return RetroFiles::parseHex(acorn["load"], load) && RetroFiles::parseHex(acorn["exec"], exec);
 }
@@ -617,6 +622,7 @@ dw::ui::ImportHooks MainWindow::importHooks(int mount) {
                 } else {
                     if (itemLocked(it)) flags |= FlagL;
                     if (fromDfs(it)) { load = dw::dfs::extendAddr(l); exec = dw::dfs::extendAddr(e); }
+                    else if (fromCfs(it)) { load = l; exec = e; }
                 }
             }
             if (!given && replacing) {                // a plain file over a file keeps its attributes, L too
@@ -822,7 +828,7 @@ void MainWindow::copySelected() {
     bool ok = refItems(pane, refs, &picked, &err) && exportForCopy(picked, &copied, &err);
     QApplication::restoreOverrideCursor();
     if (!ok) { QMessageBox::warning(this, "Copy", err); return; }
-    const int n = publishCopy(copied, RetroFiles::dragSpec(writeInfOnExtract(), QFileInfo(m_img.path()).fileName(), pane));
+    const int n = publishCopy(copied, RetroFiles::dragSpec(writeInfOnExtract(), QFileInfo(m_doc.path()).fileName(), pane));
     statusBar()->showMessage(QString("Copied %1 file%2 - Edit > Paste puts %3 into another disc, a folder on the desktop "
                                      "or another program.").arg(n).arg(n == 1 ? "" : "s").arg(n == 1 ? "it" : "them"), 8000);
 }
@@ -833,7 +839,8 @@ void MainWindow::paste() {
     quint32 dir = targetDirForItem(m_tree->currentItem());
     if (dosActive()) { pane = PaneDos; dir = dosTargetDir(m_dosTree->currentItem()); }
     else if (dfsSide() >= 0) { pane = dfsSide() ? PaneDfs1 : PaneDfs0; dir = 0; }
-    if (!m_img.isOpen()) return;
+    else if (tapeActive()) pane = PaneTape;
+    if (!m_doc.isOpen()) return;
     if (!paneEditable(pane)) { QMessageBox::warning(this, "Paste", "This disc is read-only: " + readOnlyReason() + "."); return; }
     PasteTo to;
     to.copied = [this, pane, dir](const QVector<dw::TransferItem> &items) { importAll(pane, dir, items, {}, true, true); };

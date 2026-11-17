@@ -40,6 +40,7 @@
 using namespace Adfs;
 
 bool MainWindow::dosActive() const { return m_dos.attached() && m_tabs->currentWidget() == m_dosTree; }
+bool MainWindow::tapeActive() const { return m_doc.isTape(); }
 
 QVector<MainWindow::DSel> MainWindow::dosSelected() const {
     QVector<DSel> v;

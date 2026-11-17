@@ -20,13 +20,16 @@
   make_testdata.py dfs <outdir>          blank/truncated/sequential DFS images
   make_testdata.py host                  host files for guitest2 in /tmp/drop/proj
   make_testdata.py pc <outdir>           PC floppies via mkfs.fat (needs dosfstools)
+  make_testdata.py tape <outdir>         t.uef: a BBC tape as MOS 1.20 saves it (GAME twice, a protected file, an empty
+                                         one), for guitest2 and the golden cases (not in "all": detection's tests take
+                                         every file of that folder)
   make_testdata.py mapname <image>       give a COPY of an ADFS image a disc name in its free space
                                          map ("OLDDISC", CR padded) for selftest's second argument
 
 ADFS floppies come from the C++ tool:  tests/mkimg <outdir>
 The Acorn 800K / 640K hybrid images come from:  tests/floptest acorn800|hybrid640 <out>
 """
-import os, random, subprocess, sys
+import os, random, struct, subprocess, sys
 
 def cat(sectors, title=b''):
     s0 = bytearray(256); s1 = bytearray(256)
@@ -73,6 +76,39 @@ def make_host(root='/tmp/drop/proj'):
     w('sub/nested/c.bin', b''); w('sub/nested/d.bin', rnd.randbytes(70000))
     w('long_filename_example1.dat', b'one' * 100); w('long_filename_example2.dat', b'two' * 100)
 
+def crc16(data):                       # MOS 1.20's CRC (&F7B0): CRC-16, polynomial &1021, from 0, high bit first
+    c = 0
+    for x in data:
+        c ^= x << 8
+        for _ in range(8):
+            c = ((c << 1) ^ 0x1021) & 0xFFFF if c & 0x8000 else (c << 1) & 0xFFFF
+    return c
+
+def uef_chunk(cid, body):
+    return struct.pack('<HI', cid, len(body)) + body
+
+def cfs_file(name, data, load, exec_, flag=0):
+    """A file as the MOS saves it: carrier, the dummy byte, then 256-byte blocks, each after its carrier, the last flagged."""
+    out = uef_chunk(0x0110, struct.pack('<H', 6000)) + uef_chunk(0x0100, b'\xaa')
+    n = max(1, (len(data) + 255) // 256)
+    for k in range(n):
+        d = data[k * 256:(k + 1) * 256]
+        h = name + b'\0' + struct.pack('<IIHHB', load, exec_, k, len(d), flag | (0x80 if k == n - 1 else 0)) + b'\0' * 4
+        b = b'*' + h + struct.pack('>H', crc16(h))
+        if d: b += d + struct.pack('>H', crc16(d))
+        out += uef_chunk(0x0110, struct.pack('<H', 1200 if k == 0 else 600)) + uef_chunk(0x0100, b)
+    return out + uef_chunk(0x0110, struct.pack('<H', 6000)) + uef_chunk(0x0112, struct.pack('<H', 2400))
+
+def make_tape(out):
+    os.makedirs(out, exist_ok=True)
+    rnd = random.Random(7)
+    body = b'UEF File!\0' + bytes([10, 0]) + uef_chunk(0x0000, b'make_testdata.py\0')
+    body += cfs_file(b'GAME', rnd.randbytes(600), 0x1900, 0x8023)
+    body += cfs_file(b'LOADER', rnd.randbytes(300), 0xFFFF0E00, 0xFFFF801F, flag=1)       # protected
+    body += cfs_file(b'GAME', rnd.randbytes(100), 0x3000, 0x3000)                          # the same name again
+    body += cfs_file(b'EMPTY', b'', 0, 0)
+    open(os.path.join(out, 't.uef'), 'wb').write(body)     # not compressed: the same bytes whatever zlib this machine has
+
 def make_pc(out):
     os.makedirs(out, exist_ok=True)
     for k in (360, 720, 1200, 1440):
@@ -98,5 +134,6 @@ if __name__ == '__main__':
     elif a[0] == 'dfs': make_dfs(a[1])
     elif a[0] == 'host': make_host()
     elif a[0] == 'pc': make_pc(a[1])
+    elif a[0] == 'tape': make_tape(a[1])
     elif a[0] == 'mapname': set_map_name(a[1])
     else: sys.exit(__doc__)

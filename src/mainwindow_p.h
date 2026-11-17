@@ -51,7 +51,7 @@ inline QString fmtSectors(quint32 s) {
 
 // ------------------------------------------------------------- panes and cross-disc copying
 
-enum Pane { PaneAdfs = 0, PaneDos = 1, PaneDfs0 = 2, PaneDfs1 = 3 };
+enum Pane { PaneAdfs = 0, PaneDos = 1, PaneDfs0 = 2, PaneDfs1 = 3, PaneTape = 4 };
 
 // One dragged item as identified inside its source window (parent dir sector/cluster + name).
 struct DragRef {

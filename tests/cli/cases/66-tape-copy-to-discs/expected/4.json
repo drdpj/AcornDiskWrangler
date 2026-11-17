@@ -1,0 +1,58 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img2.ssd",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "3801F",
+                    "load": "30E00",
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.LOADER",
+                "kind": "file",
+                "modified": null,
+                "name": "$.LOADER",
+                "path": [
+                    "$.LOADER"
+                ],
+                "problem": null,
+                "size": 300,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "03000",
+                    "load": "03000",
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.GAME",
+                "kind": "file",
+                "modified": null,
+                "name": "$.GAME",
+                "path": [
+                    "$.GAME"
+                ],
+                "problem": null,
+                "size": 100,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

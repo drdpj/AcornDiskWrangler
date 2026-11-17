@@ -1,0 +1,91 @@
+/*
+ * Acorn Disk Wrangler - view and edit Acorn disc images (ADFS, DFS, DOS Plus, PC FAT)
+ * Copyright (C) 2026 Daniel Jameson
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+// cfsvolume.h - a cassette tape (a UEF file, dw::tape::TapeFile) as a DiskWranglerCore dw::fs::Volume: its files in
+// tape order (Acorn::Cfs), read-only for now (series cfs-1). QtCore only.
+//
+// Two files on a tape may share a name (a BBC and an Electron version, a loader's parts). Each entry is named
+// uniquely - the first GAME is "GAME", the second "GAME (2)" - and labelled with its real name, which the window, ls
+// and a copy show (Entry::label). A path is one name: "GAME", "GAME (2)", or "#3", the third file on the tape
+// (parsePath); a bare name that is only another file's real name finds the first file of that name. '/' is a name
+// character ("M/C"). The data the cassette filing system can't read is an entry of its own, "unrecognised data
+// (chunks n-m)", read-only, its bytes as they are.
+//
+// Attributes: load and exec (retro-files "acorn"), protected (flag bit 0: *RUN only; it travels as access "E",
+// execute only, and a copy onto a disc drops it), and the number of blocks; position (the file's number on the tape,
+// what "#n" takes) for the command line's JSON.
+#pragma once
+
+#include <QVector>
+
+#include <diskwrangler/fs/volume.h>
+#include <diskwrangler/tape/tapefile.h>
+
+#include "cfs.h"
+
+namespace Acorn {
+
+class CfsNameRules : public dw::fs::NameRules {
+public:
+    // 1-10 characters of Latin-1, none of them &00 (the MOS ends a name there) or a control character.
+    bool valid(const QString &name, dw::fs::NodeKind kind, QString *why) const override;
+    QString fromHost(const QString &hostName, dw::fs::NodeKind kind) const override;
+};
+
+class CfsVolume : public dw::fs::Volume {
+public:
+    explicit CfsVolume(dw::tape::TapeFile *tape);          // the tape must outlive the volume
+    dw::tape::TapeFile *tape() const { return m_tape; }
+    const Cfs::Tape &tapeRead() const { return m_read; }
+
+    QString fsId() const override { return "cfs"; }
+    dw::fs::Caps caps() const override;
+    QVector<dw::fs::AttrSpec> fileAttrs() const override;
+    const dw::fs::NameRules &names() const override { return m_rules; }
+    dw::fs::VolumeInfo info() const override;
+
+    bool parsePath(const QString &text, dw::fs::Path *out, QString *err) const override;
+    QString displayPath(const dw::fs::Path &p) const override;
+
+    bool list(const dw::fs::Path &dir, QVector<dw::fs::Entry> *out, QString *err) const override;
+    bool stat(const dw::fs::Path &node, dw::fs::Entry *out, QString *err) const override;
+    bool read(const dw::fs::Path &file, QByteArray *out, QString *err) const override;
+    bool write(const dw::fs::Path &dir, const QString &name, const QByteArray &data, const dw::fs::AttrValues &attrs,
+               const QDateTime &when, bool replace, QString *err) override;
+    bool remove(const dw::fs::Path &node, QString *err) override;
+    bool setAttrs(const dw::fs::Path &node, const dw::fs::AttrValues &a, QString *err) override;
+    dw::fs::Report check() const override;
+    bool reload(QString *err) override;
+
+    // retro-files "acorn": load, exec, and access "E" for a protected file (execute only, as the format says of
+    // CFS), "WR" for any other
+    QMap<QString, QJsonObject> toRetro(const dw::fs::Entry &e) const override;
+
+    // The item an entry of the root names (by its unique name), or -1.
+    int itemIndex(const QString &name) const;
+    static QString unrecognisedLabel(const Cfs::Item &it);
+
+private:
+    dw::fs::Entry entry(int i) const;
+    bool find(const dw::fs::Path &p, int *index, QString *err) const;
+    dw::tape::TapeFile *m_tape;
+    Cfs::Tape m_read;
+    QStringList m_names;                                    // each item's unique name
+    CfsNameRules m_rules;
+};
+
+} // namespace Acorn
