@@ -209,7 +209,12 @@ real tapes (17 Nov 2026). The Electron's OS 1.00 has **not** been checked (no co
   or moved with its own chunks, so no other file's chunks change. A file that opened the tape with no carrier before
   it gets the 5.1 s leader when it moves (the MOS needs carrier before &2A). The base frequency (`&0113`) and baud rate
   (`&0117`) each chunk was played at are put back where moved chunks need them. Damaged files and unrecognised data
-  are kept as they are (never changed or removed; they move with the order).
+  are kept as they are (never changed or removed; they move with the order). Unrecognised data copied to another
+  tape takes its own chunks (from just after the item before it to its last; with the base frequency and baud rate
+  they were played at in front, when not the defaults) and they go on the end of that tape as they are: it stays
+  unrecognised data there. It travels as the retro-files namespace `uef`, key `chunks`: the UEF chunk records (id and
+  length little-endian, then the body) in base64. Anything but a tape ignores the namespace, so on a disc or the
+  computer the data arrives as a file of its bytes.
 - **Checked against MOS 1.20 in jsbeeb** (`design/test-scripts/jsbeeb/cfs-jsbeeb.mjs`, 18 Nov 2026): a tape made by
   `acorndw` with every kind of change loads (`*CAT` as `acorndw ls`; `CHAIN ""` of a BASIC program that `*LOAD`s data
   and `CHAIN`s the next, which `*RUN`s a protected machine-code file; `*LOAD` of it says "Locked"); files the MOS

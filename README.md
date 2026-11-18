@@ -49,7 +49,9 @@ A hard disc is saved as a same-kind copy.
 **Cassette tapes**: a BBC Micro or Electron tape image (`.uef`, compressed or not) opens in a window with one tab,
 **Tape**: its files in the order they are on the tape (two files may share a name; both show it), with their load and
 exec addresses, length, number of blocks, **P** for a protected file and any problem (a bad CRC, a missing block).
-Data a game's own loader wrote in a format of its own shows as *unrecognised data* and is kept as it is. Drag the files
+Data a game's own loader wrote in a format of its own shows as *unrecognised data* and is kept as it is: dragged to
+another tape it stays data (its chunks go on the end as they were); dragged anywhere else it becomes a file of its
+bytes, to look at. Drag the files
 onto a disc window or out to the computer, or Copy, Paste and Extract them, as from a disc (load and exec go with
 them; a disc copy drops the protected flag; a second `GAME` arrives on the computer as `GAME (2)`, its `.inf` saying
 `GAME`). Files dropped on a tape (from the computer, a disc or another tape), Add files and Paste go on its end,

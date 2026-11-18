@@ -307,6 +307,33 @@ QVector<dw::tape::Chunk> saveChunks(const QVector<QByteArray> &blocks, bool afte
     return c;
 }
 
+QByteArray packChunks(const QVector<dw::tape::Chunk> &chunks) {
+    QByteArray b;
+    for (const dw::tape::Chunk &c : chunks) {
+        const quint32 n = quint32(c.body.size());
+        b.append(char(c.id & 0xFF)).append(char((c.id >> 8) & 0xFF));
+        for (int k = 0; k < 4; ++k) b.append(char((n >> (8 * k)) & 0xFF));
+        b.append(c.body);
+    }
+    return b;
+}
+
+bool unpackChunks(const QByteArray &bytes, QVector<dw::tape::Chunk> *out) {
+    out->clear();
+    qint64 at = 0;
+    while (at < bytes.size()) {
+        if (bytes.size() - at < 6) return false;
+        const int id = uchar(bytes[int(at)]) | (uchar(bytes[int(at + 1)]) << 8);
+        quint32 n = 0;
+        for (int k = 0; k < 4; ++k) n |= quint32(uchar(bytes[int(at + 2 + k)])) << (8 * k);
+        at += 6;
+        if (n > quint64(bytes.size() - at)) return false;
+        out->append(dw::tape::Chunk(id, bytes.mid(int(at), int(n))));
+        at += n;
+    }
+    return true;
+}
+
 namespace {
 
 // What the chunks before a point leave set: the base frequency (&0113) and the baud rate (&0117).
@@ -366,13 +393,36 @@ QVector<dw::tape::Chunk> Edit::join(const QVector<Seg> &segs) const {
         }
         if (s.fresh) {
             out += s.chunks;
-            cur = Mode();
+            cur = modeBefore(s.chunks, s.chunks.size());
         } else {
             for (int i = s.first; i <= s.last; ++i) out << m_chunks[i];
             cur = modeBefore(m_chunks, s.last + 1);
         }
     }
     return out;
+}
+
+QVector<dw::tape::Chunk> Edit::itemChunks(int item) const {
+    QVector<dw::tape::Chunk> c;
+    if (!m_ok || item < 0 || item >= m_spans.size()) return c;
+    const Span s = m_spans[item];
+    for (int i = s.first; i <= s.last; ++i)
+        if (m_chunks[i].id == dw::tape::Chunk::Tail) return {};
+    const Mode m = modeBefore(m_chunks, s.first);
+    if (m.hz != Mode().hz) c << dw::tape::uef::baseFrequency(m.hz);
+    if (m.baud != Mode().baud) {
+        QByteArray b;
+        b.append(char(m.baud & 0xFF)).append(char((m.baud >> 8) & 0xFF));
+        c << dw::tape::Chunk(0x0117, b);
+    }
+    for (int i = s.first; i <= s.last; ++i) c << m_chunks[i];
+    return c;
+}
+
+bool Edit::appendChunks(const QVector<dw::tape::Chunk> &chunks, QVector<dw::tape::Chunk> *out, QString *why) const {
+    if (!usable(why)) return false;
+    *out = join({old(0, m_chunks.size() - 1), made(chunks)});
+    return true;
 }
 
 bool Edit::append(const QVector<QByteArray> &blocks, QVector<dw::tape::Chunk> *out, QString *why) const {

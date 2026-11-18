@@ -29,11 +29,13 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonObject>
 #include <QTemporaryDir>
 #include <cstdio>
 
 #include <diskwrangler/tape/records.h>
 #include <diskwrangler/tape/tapefile.h>
+#include <diskwrangler/xfer/transferitem.h>
 
 #include "adfsvolume.h"
 #include "cfs.h"
@@ -413,7 +415,9 @@ static void handMade(const QString &dir) {
               "listed as " + es.value(0).name + ", with a problem (read-only)");
         QByteArray d;
         CHECK(v.read(dw::fs::Path({es[0].name}), &d, &err) && d == bytes(300, 40) + bytes(50, 41), "its bytes, as they are");
-        CHECK(v.toRetro(es[0]).isEmpty(), "no load or exec to carry");
+        const QMap<QString, QJsonObject> rf = v.toRetro(es[0]);
+        CHECK(rf.keys() == QStringList({"uef"}) && !CfsVolume::rawChunks(rf).isEmpty(),
+              "no load or exec to carry, only its chunks (namespace uef)");
     }
 
     printf("detection and the document\n");
@@ -678,6 +682,96 @@ static void writing(const QString &dir, QMap<QString, QByteArray> *written) {
             }
         }
         CHECK(slow300 && new1200 && names(w).last() == "NEW", "SLOW still at 300 baud, NEW at 1200: " + names(w).join(" "));
+    }
+
+    printf("writing: unrecognised data copied to another tape stays data\n");
+    {
+        // unrecognised data copied as a drop copies it (toRetro on the source; placeIncoming, fromRetro and write on
+        // the target): the framing sample's two runs, with a file between them (two runs side by side are one), and
+        // data played at 300 baud and 1210 Hz, which must play at those again
+        TapeFile src, slow;
+        openTape(samples()["framing"], &src);
+        {
+            QVector<Chunk> t;
+            t.append(uef::text(0x0000, "cfstest"));
+            t.append(raw(0x0113, uef::putFloat(1210)));
+            t.append(raw(0x0117, le(300, 2)));
+            t.append(uef::carrier(1200));
+            t.append(uef::data(bytes(200, 90), 8, 'E', 1));
+            t.append(uef::carrier(600));
+            openTape(uefFile(t), &slow);
+        }
+        CfsVolume from(&src), from300(&slow);
+        TapeFile dst;
+        dst.createBlank(dw::tape::Kind::Uef, true);
+        CfsVolume to(&dst);
+        auto codings = [](const TapeFile &t, const Cfs::Item &i) {
+            const int first = i.type == Cfs::Item::FileItem ? i.file.first : i.first;
+            const int last = i.type == Cfs::Item::FileItem ? i.file.last : i.last;
+            QStringList l;
+            for (const dw::tape::Piece &p : dw::tape::pieces(t))
+                if (p.type == dw::tape::Piece::Data && p.first <= last && p.last >= first)
+                    l << QString("%1/%2").arg(p.coding.baud).arg(p.coding.baseHz);
+            l.removeDuplicates();
+            return l.join(",");
+        };
+        QStringList want, got;
+        QVector<QByteArray> data;
+        auto copy = [&](const CfsVolume &v, const TapeFile &t, int k) {
+            QVector<dw::fs::Entry> es;
+            v.list(dw::fs::Path(), &es, &err);
+            const Cfs::Item &it = v.tapeRead().items.value(k);
+            CHECK(k < es.size() && it.type == Cfs::Item::Unrecognised, "unrecognised data to copy");
+            if (k >= es.size()) return;
+            dw::TransferItem x;
+            x.name = es[k].name;
+            x.attrs = v.toRetro(es[k]);
+            x.sourceFs = v.fsId();
+            CHECK(v.read(dw::fs::Path({es[k].name}), &x.data, &err), "read " + err);
+            const dw::fs::Placement pl = to.placeIncoming(x, dw::fs::Path());
+            dw::fs::Entry ex;
+            CHECK(pl.warning.isEmpty() && !to.stat(dw::fs::Path({pl.name}), &ex, &err), "placed under a name nothing has: " + pl.name);
+            CHECK(to.write(dw::fs::Path(), pl.name, x.data, to.fromRetro(x.attrs, dw::fs::NodeKind::File), QDateTime(), false, &err),
+                  "added " + err);
+            CHECK(!to.write(dw::fs::Path(), pl.name, x.data, to.fromRetro(x.attrs, dw::fs::NodeKind::File), QDateTime(), true, &err),
+                  "never in place of something: " + err);
+            want << QString("%1 bytes %2").arg(it.bytes).arg(codings(t, it));
+            data << x.data;
+        };
+        auto add = [&](const QString &name) {
+            CHECK(to.write(dw::fs::Path(), name, bytes(20, 80), {}, QDateTime(), false, &err), name + " added " + err);
+            want << name + " 1200/1200";
+        };
+        copy(from, src, 2);
+        add("MID");
+        copy(from, src, 6);
+        add("MID2");
+        copy(from300, slow, 0);
+        add("NEW");
+        QVector<dw::fs::Entry> es;
+        to.list(dw::fs::Path(), &es, &err);
+        QVector<QByteArray> now;
+        for (int k = 0; k < to.tapeRead().items.size(); ++k) {
+            const Cfs::Item &it = to.tapeRead().items[k];
+            if (it.type == Cfs::Item::Unrecognised) {
+                got << QString("%1 bytes %2").arg(it.bytes).arg(codings(dst, it));
+                QByteArray d;
+                to.read(dw::fs::Path({es[k].name}), &d, &err);
+                now << d;
+            } else {
+                got << QString("%1 %2").arg(Cfs::nameText(it.file.name)).arg(codings(dst, it));
+            }
+        }
+        CHECK(got == want && want.size() == 6 && want[4].endsWith("300/1210"),
+              QString("each run as data at its own rates, the files at 1200: %1 | %2").arg(got.join("; "), want.join("; ")));
+        CHECK(now == data, "the same bytes");
+        CHECK(to.check().ok(), "a clean check");
+        // anywhere else (a disc) it's a file of its bytes: the namespace is one only a tape takes
+        dw::TransferItem plain;
+        plain.name = "unrecognised data (chunks 7-9)";
+        plain.attrs["uef"] = QJsonObject{{"chunks", "not chunks"}};
+        CHECK(to.placeIncoming(plain, dw::fs::Path()).name != "unrecognised data" && to.fromRetro(plain.attrs, dw::fs::NodeKind::File).isEmpty(),
+              "chunks that don't unpack: an ordinary file");
     }
 
     printf("writing: a file that opened the tape with no carrier before it\n");

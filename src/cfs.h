@@ -123,6 +123,11 @@ QVector<QByteArray> encodeFile(const QByteArray &name, quint32 load, quint32 exe
 // (&0110) between them, and the trailer; with silence first (&0116) if afterOthers.
 QVector<dw::tape::Chunk> saveChunks(const QVector<QByteArray> &blocks, bool afterOthers);
 
+// Chunks as UEF chunk records (id and length, little-endian, then the body), and back: false for records that don't
+// run exactly to the end, or for a chunk that isn't a UEF chunk (Chunk::Tail).
+QByteArray packChunks(const QVector<dw::tape::Chunk> &chunks);
+bool unpackChunks(const QByteArray &bytes, QVector<dw::tape::Chunk> *out);
+
 // Changes to a tape's chunks. Each item owns the chunks from just after the item before it to its own last chunk: its
 // lead, its dummy byte, and the trailer and silence of the file before it (the first item's start after the
 // information chunks the tape opens with, such as its origin). What follows the last item stays at the end. The base
@@ -142,6 +147,11 @@ public:
     // moved: the first one after it that isn't). A file whose chunks have no carrier before its first block (one that
     // opened the tape) gets the MOS's leader in front of it.
     bool move(const QVector<int> &items, int before, QVector<dw::tape::Chunk> *out, QString *why) const;
+    // An item's own chunks to take to another tape, with the base frequency and baud rate they were played at in front
+    // (when not the defaults); empty if any of them is the unreadable end of the file.
+    QVector<dw::tape::Chunk> itemChunks(int item) const;
+    // Chunks from itemChunks (of another tape) added at the end, as they are.
+    bool appendChunks(const QVector<dw::tape::Chunk> &chunks, QVector<dw::tape::Chunk> *out, QString *why) const;
 
     struct Span { int first, last; };
     const QVector<Span> &spans() const { return m_spans; }

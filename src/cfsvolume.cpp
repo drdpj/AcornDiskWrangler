@@ -93,6 +93,13 @@ dw::fs::VolumeInfo CfsVolume::info() const {
     return v;
 }
 
+// The chunks a "uef" namespace carries (unrecognised data from another tape), packed; empty if none or not valid.
+QByteArray CfsVolume::rawChunks(const QMap<QString, QJsonObject> &families) {
+    const QByteArray b = QByteArray::fromBase64(families.value("uef").value("chunks").toString().toLatin1());
+    QVector<dw::tape::Chunk> c;
+    return Cfs::unpackChunks(b, &c) && !c.isEmpty() ? b : QByteArray();
+}
+
 QString CfsVolume::unrecognisedLabel(const Cfs::Item &it) {
     return it.first == it.last ? QString("unrecognised data (chunk %1)").arg(it.first)
                                : QString("unrecognised data (chunks %1-%2)").arg(it.first).arg(it.last);
@@ -232,6 +239,15 @@ QVector<QByteArray> CfsVolume::reblock(int i, const QByteArray &name, quint32 lo
 bool CfsVolume::write(const Path &dir, const QString &name, const QByteArray &data, const dw::fs::AttrValues &attrs, const QDateTime &,
                       bool replace, QString *err) {
     if (!dir.isRoot()) { if (err) *err = "a tape has no directories"; return false; }
+    if (attrs.contains("uefChunks")) {                  // another tape's unrecognised data, at the end as it was
+        QVector<dw::tape::Chunk> raw, out;
+        if (replace || !Cfs::unpackChunks(attrs.value("uefChunks").toByteArray(), &raw) || raw.isEmpty()) {
+            if (err) *err = replace ? "unrecognised data is added, never put in place of a file" : "the unrecognised data's chunks are damaged";
+            return false;
+        }
+        if (!Cfs::Edit(m_tape->chunks(), m_read).appendChunks(raw, &out, err)) return false;
+        return apply(out, err);
+    }
     QString why;
     if (!m_rules.valid(name, NodeKind::File, &why)) { if (err) *err = name + ": " + why; return false; }
     const Cfs::Edit edit(m_tape->chunks(), m_read);
@@ -326,6 +342,10 @@ dw::fs::Report CfsVolume::check() const {
 
 dw::fs::AttrValues CfsVolume::fromRetro(const QMap<QString, QJsonObject> &families, NodeKind) const {
     dw::fs::AttrValues v;
+    if (const QByteArray c = rawChunks(families); !c.isEmpty()) {
+        v["uefChunks"] = c;
+        return v;
+    }
     const QJsonObject a = families.value("acorn");
     bool ok = false;
     const quint32 load = a["load"].toString().toUInt(&ok, 16);
@@ -342,6 +362,11 @@ dw::fs::AttrValues CfsVolume::fromRetro(const QMap<QString, QJsonObject> &famili
 dw::fs::Placement CfsVolume::placeIncoming(const dw::TransferItem &item, const Path &targetDir) const {
     dw::fs::Placement p;
     p.dir = targetDir;
+    if (!item.isDir && !rawChunks(item.attrs).isEmpty()) {
+        // another tape's unrecognised data: added as it is, named by where it lands (no file can have this name)
+        p.name = "unrecognised data";
+        return p;
+    }
     QString n = item.name;
     if (item.sourceFs == "dfs" && n.startsWith("$.")) n = n.mid(2);
     p.name = m_rules.fromHost(n, item.isDir ? NodeKind::Dir : NodeKind::File);
@@ -351,7 +376,19 @@ dw::fs::Placement CfsVolume::placeIncoming(const dw::TransferItem &item, const P
 
 QMap<QString, QJsonObject> CfsVolume::toRetro(const Entry &e) const {
     QMap<QString, QJsonObject> m;
-    if (e.isDir() || !e.attrs.contains("load")) return m;
+    if (e.isDir()) return m;
+    const int i = itemIndex(e.name);
+    if (i >= 0 && m_read.items[i].type == Cfs::Item::Unrecognised && m_tape->kind() == dw::tape::Kind::Uef) {
+        // unrecognised data takes its chunks along, for another tape to keep them as they are
+        const QVector<dw::tape::Chunk> c = Cfs::Edit(m_tape->chunks(), m_read).itemChunks(i);
+        if (!c.isEmpty()) {
+            QJsonObject u;
+            u["chunks"] = QString::fromLatin1(Cfs::packChunks(c).toBase64());
+            m["uef"] = u;
+        }
+        return m;
+    }
+    if (!e.attrs.contains("load")) return m;
     QJsonObject a;
     a["load"] = QString("%1").arg(e.attrs.value("load").toUInt(), 8, 16, QChar('0')).toUpper();
     a["exec"] = QString("%1").arg(e.attrs.value("exec").toUInt(), 8, 16, QChar('0')).toUpper();
