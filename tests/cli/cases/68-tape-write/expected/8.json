@@ -1,0 +1,27 @@
+{
+    "changes": [
+        {
+            "from": "PLAIN",
+            "note": null,
+            "op": "rename",
+            "path": "V1.0",
+            "vol": "tape"
+        }
+    ],
+    "command": "mv",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.uef",
+    "ok": true,
+    "result": {
+        "from": "PLAIN",
+        "to": "V1.0"
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "tape",
+    "warnings": [
+    ]
+}

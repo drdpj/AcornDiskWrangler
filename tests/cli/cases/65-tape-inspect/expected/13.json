@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "put",
+    "dryRun": false,
+    "error": {
+        "code": 1,
+        "kind": "failed",
+        "message": "GAME is a file, not a directory",
+        "path": null
+    },
+    "exit": 1,
+    "image": "img.uef",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "tape",
+    "warnings": [
+    ]
+}

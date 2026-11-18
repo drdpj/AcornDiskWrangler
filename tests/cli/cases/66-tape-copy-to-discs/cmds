@@ -3,4 +3,7 @@ $TOOL copy img.uef img.adl GAME LOADER EMPTY --json
 $TOOL ls img.adl --json
 $TOOL copy img.uef img2.ssd 'GAME (2)' LOADER --json
 $TOOL ls img2.ssd --json
+# back onto the tape: GAME is there already (exit 5); replaced in place, it keeps its place and its protected-less flags
 $TOOL copy img.adl img.uef GAME --json
+$TOOL copy img.adl img.uef GAME --replace --json
+$TOOL ls img.uef --json

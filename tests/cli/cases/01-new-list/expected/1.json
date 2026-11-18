@@ -144,6 +144,14 @@
                 "suffix": "img",
                 "titleMax": 11,
                 "titleWhat": "Volume label"
+            },
+            {
+                "doubleSided": false,
+                "id": "uef",
+                "name": "Tape (UEF) - BBC Micro and Electron cassette",
+                "suffix": "uef",
+                "titleMax": 0,
+                "titleWhat": ""
             }
         ]
     },

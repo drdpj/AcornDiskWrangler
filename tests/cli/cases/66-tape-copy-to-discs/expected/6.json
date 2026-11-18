@@ -1,0 +1,31 @@
+{
+    "changes": [
+        {
+            "from": "$.GAME",
+            "note": null,
+            "op": "replace",
+            "path": "GAME",
+            "vol": "tape"
+        }
+    ],
+    "command": "copy",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.uef",
+    "ok": true,
+    "result": {
+        "added": 0,
+        "dirs": 0,
+        "renamed": [
+        ],
+        "replaced": 1,
+        "skipped": 0
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "tape",
+    "warnings": [
+    ]
+}

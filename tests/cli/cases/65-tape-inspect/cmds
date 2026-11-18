@@ -8,5 +8,7 @@ $TOOL get img.uef 'GAME (2)' -
 $TOOL get img.uef '#3' -
 $TOOL get img.uef / out --json
 $TOOL get img.uef '#9' out --json
-$TOOL put img.uef host/NEW / --json
-$TOOL rm img.uef GAME --json
+# changes the tape refuses, leaving it as it was (series cfs-2 made tapes writable: 68-tape-write)
+$TOOL mv img.uef GAME ELEVENCHARS --json
+$TOOL rm img.uef '#9' --json
+$TOOL put img.uef host/NEW GAME --json

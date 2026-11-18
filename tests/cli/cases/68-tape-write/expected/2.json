@@ -1,0 +1,45 @@
+{
+    "changes": [
+        {
+            "from": "host/DATA",
+            "note": null,
+            "op": "add",
+            "path": "DATA",
+            "vol": "tape"
+        },
+        {
+            "from": "host/RUNME",
+            "note": null,
+            "op": "add",
+            "path": "RUNME",
+            "vol": "tape"
+        },
+        {
+            "from": "host/PLAIN",
+            "note": null,
+            "op": "add",
+            "path": "PLAIN",
+            "vol": "tape"
+        }
+    ],
+    "command": "put",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.uef",
+    "ok": true,
+    "result": {
+        "added": 3,
+        "dirs": 0,
+        "renamed": [
+        ],
+        "replaced": 0,
+        "skipped": 0
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "tape",
+    "warnings": [
+    ]
+}

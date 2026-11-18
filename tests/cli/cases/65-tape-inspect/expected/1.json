@@ -56,7 +56,7 @@
             "gzip": false,
             "kind": "uef",
             "name": "UEF",
-            "readOnly": true,
+            "readOnly": false,
             "size": 1449,
             "version": "0.10"
         },
@@ -70,7 +70,7 @@
                     "dirs": false,
                     "maxEntriesPerDir": -1,
                     "namespaces": false,
-                    "rename": false,
+                    "rename": true,
                     "renameAcrossDirs": false,
                     "settableDates": false,
                     "title": false
@@ -81,7 +81,7 @@
                         "choices": [
                         ],
                         "dirs": false,
-                        "editable": false,
+                        "editable": true,
                         "key": "load",
                         "label": "Load",
                         "type": "hex"
@@ -91,7 +91,7 @@
                         "choices": [
                         ],
                         "dirs": false,
-                        "editable": false,
+                        "editable": true,
                         "key": "exec",
                         "label": "Exec",
                         "type": "hex"
@@ -101,7 +101,7 @@
                         "choices": [
                         ],
                         "dirs": false,
-                        "editable": false,
+                        "editable": true,
                         "key": "protected",
                         "label": "Protected",
                         "type": "bool"
@@ -136,8 +136,8 @@
                     "total": 1000
                 },
                 "label": "tape",
-                "readOnly": true,
-                "readOnlyWhy": "tape images can't be changed yet",
+                "readOnly": false,
+                "readOnlyWhy": null,
                 "vol": "tape",
                 "volumeAttrSpecs": [
                 ],

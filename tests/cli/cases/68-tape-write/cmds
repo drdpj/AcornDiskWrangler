@@ -1,0 +1,26 @@
+# a new tape (gzip), files added at its end as the MOS saves them, changed in place, removed, renamed
+$TOOL new img.uef --format=uef --json
+$TOOL put img.uef host/DATA host/RUNME host/PLAIN / --json
+# DATA again: it exists (exit 5); replaced by a plain file of five blocks, in its place, its addresses kept
+$TOOL put img.uef host/DATA / --json
+$TOOL put img.uef host/big/DATA / --replace --json
+$TOOL put img.uef host/BIGGER / --json
+$TOOL rm img.uef BIGGER --json
+$TOOL attr img.uef DATA --set exec=00003200 --json
+$TOOL mv img.uef PLAIN V1.0 --json
+$TOOL ls img.uef --json
+$TOOL check img.uef --json
+# a name with a '.' out to the computer and back: the .inf quotes it, and it comes back whole, not as "0"
+$TOOL get img.uef V1.0 RUNME out --json
+$TOOL new img2.uef --format=uef --quiet
+$TOOL put img2.uef out/V1.0 out/RUNME / --json
+$TOOL ls img2.uef --json
+# tape to tape keeps the protected flag; a name already on the tape is a clash, as on a disc (exit 5)
+$TOOL attr img.uef DATA --set protected=true --json
+$TOOL copy img.uef img2.uef DATA --json
+$TOOL copy img.uef img2.uef V1.0 --json
+$TOOL copy img.uef img2.uef V1.0 --replace --json
+$TOOL ls img2.uef --json
+# both GAMEs removed (the second goes first, so the first is still GAME when its turn comes)
+$TOOL rm img3.uef GAME 'GAME (2)' --json
+$TOOL ls img3.uef --json

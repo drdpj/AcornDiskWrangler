@@ -1,0 +1,62 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img3.uef",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "blocks": 2,
+                    "exec": "FFFF801F",
+                    "load": "FFFF0E00",
+                    "position": 1,
+                    "protected": true
+                },
+                "created": null,
+                "display": "LOADER",
+                "kind": "file",
+                "modified": null,
+                "name": "LOADER",
+                "path": [
+                    "LOADER"
+                ],
+                "problem": null,
+                "size": 300,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "blocks": 1,
+                    "exec": "00000000",
+                    "load": "00000000",
+                    "position": 2,
+                    "protected": false
+                },
+                "created": null,
+                "display": "EMPTY",
+                "kind": "file",
+                "modified": null,
+                "name": "EMPTY",
+                "path": [
+                    "EMPTY"
+                ],
+                "problem": null,
+                "size": 0,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "tape",
+    "warnings": [
+    ]
+}

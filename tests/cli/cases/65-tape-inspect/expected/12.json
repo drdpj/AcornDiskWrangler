@@ -4,12 +4,12 @@
     "command": "rm",
     "dryRun": false,
     "error": {
-        "code": 6,
-        "kind": "unsupported",
-        "message": "read-only: tape: tape images can't be changed yet",
+        "code": 2,
+        "kind": "usage",
+        "message": "#9: the tape has 4 files",
         "path": null
     },
-    "exit": 6,
+    "exit": 2,
     "image": "img.uef",
     "ok": false,
     "result": {

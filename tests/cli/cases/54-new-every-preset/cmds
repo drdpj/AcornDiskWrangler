@@ -50,3 +50,7 @@ $TOOL check img_pc-1200.img --json
 $TOOL new img_pc-1440.img --format=pc-1440 --title=Tpc-1440 --json
 $TOOL info img_pc-1440.img --json
 $TOOL check img_pc-1440.img --json
+# a tape (not img*: its gzip bytes depend on the zlib that made them, so it isn't hashed, and info would show its size)
+$TOOL new tape_uef.uef --format=uef --json
+$TOOL check tape_uef.uef --json
+$TOOL ls tape_uef.uef --json

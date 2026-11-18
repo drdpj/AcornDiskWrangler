@@ -1,0 +1,31 @@
+{
+    "changes": [
+        {
+            "from": "V1.0",
+            "note": null,
+            "op": "replace",
+            "path": "V1.0",
+            "vol": "tape"
+        }
+    ],
+    "command": "copy",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img2.uef",
+    "ok": true,
+    "result": {
+        "added": 0,
+        "dirs": 0,
+        "renamed": [
+        ],
+        "replaced": 1,
+        "skipped": 0
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "tape",
+    "warnings": [
+    ]
+}

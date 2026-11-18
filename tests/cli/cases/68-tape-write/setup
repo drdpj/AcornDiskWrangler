@@ -1,0 +1,16 @@
+#!/bin/bash
+# host files for a new tape: DATA (700 bytes, a .inf with its addresses), RUNME (a .inf with access 04: protected),
+# PLAIN (no .inf), big/DATA (to replace DATA: 1200 bytes, five blocks, no .inf), BIGGER (added, then removed)
+# and a tape as MOS 1.20 saves it, with GAME twice (make_testdata.py tape), for rm of both
+python3 -I "$TESTS/make_testdata.py" tape . >/dev/null
+mv t.uef img3.uef
+mkdir -p host/big
+python3 -I - <<'PY'
+open("host/DATA", "wb").write(bytes((i * 37 + 11) & 255 for i in range(700)))
+open("host/DATA.inf", "w").write("DATA 00003000 00003100\n")
+open("host/RUNME", "wb").write(bytes(range(40)))
+open("host/RUNME.inf", "w").write("RUNME 00006000 00006000 00000028 04\n")
+open("host/PLAIN", "wb").write(b"10 PRINT \"PLAIN\"\n")
+open("host/big/DATA", "wb").write(bytes((i * 101 + 7) & 255 for i in range(1200)))
+open("host/BIGGER", "wb").write(bytes(range(256)) * 2)
+PY

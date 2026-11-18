@@ -1,0 +1,25 @@
+{
+    "changes": [
+    ],
+    "command": "check",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "tape_uef.uef",
+    "ok": true,
+    "result": {
+        "errors": [
+        ],
+        "info": [
+            "0 files, 0 blocks"
+        ],
+        "warnings": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

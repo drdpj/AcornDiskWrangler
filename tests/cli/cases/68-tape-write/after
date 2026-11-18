@@ -1,0 +1,3 @@
+$TOOL ls img.uef --json
+$TOOL ls img2.uef --json
+$TOOL ls img3.uef --json

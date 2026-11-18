@@ -1,0 +1,8 @@
+# the data as put, and the .inf of the dotted name quoted
+grep -q '^"V1.0" ' out/V1.0.inf
+python3 -I - <<'PY'
+import subprocess, os
+tool = os.environ["TOOL"]
+got = subprocess.run([tool, "get", "img.uef", "DATA", "-"], capture_output=True).stdout
+assert got == open("host/big/DATA", "rb").read(), "DATA reads back as replaced"
+PY

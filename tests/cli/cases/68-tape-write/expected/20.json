@@ -1,0 +1,33 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": null,
+            "op": "remove",
+            "path": "GAME (2)",
+            "vol": "tape"
+        },
+        {
+            "from": null,
+            "note": null,
+            "op": "remove",
+            "path": "GAME",
+            "vol": "tape"
+        }
+    ],
+    "command": "rm",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img3.uef",
+    "ok": true,
+    "result": {
+        "removed": 2
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "tape",
+    "warnings": [
+    ]
+}

@@ -1,0 +1,26 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "exec=00003200",
+            "op": "attr",
+            "path": "DATA",
+            "vol": "tape"
+        }
+    ],
+    "command": "attr",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.uef",
+    "ok": true,
+    "result": {
+        "changed": 1
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "tape",
+    "warnings": [
+    ]
+}

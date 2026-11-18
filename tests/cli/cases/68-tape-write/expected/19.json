@@ -1,0 +1,83 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img2.uef",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "blocks": 1,
+                    "exec": "00000000",
+                    "load": "00000000",
+                    "position": 1,
+                    "protected": false
+                },
+                "created": null,
+                "display": "V1.0",
+                "kind": "file",
+                "modified": null,
+                "name": "V1.0",
+                "path": [
+                    "V1.0"
+                ],
+                "problem": null,
+                "size": 17,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "blocks": 1,
+                    "exec": "00006000",
+                    "load": "00006000",
+                    "position": 2,
+                    "protected": true
+                },
+                "created": null,
+                "display": "RUNME",
+                "kind": "file",
+                "modified": null,
+                "name": "RUNME",
+                "path": [
+                    "RUNME"
+                ],
+                "problem": null,
+                "size": 40,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "blocks": 5,
+                    "exec": "00003200",
+                    "load": "00003000",
+                    "position": 3,
+                    "protected": true
+                },
+                "created": null,
+                "display": "DATA",
+                "kind": "file",
+                "modified": null,
+                "name": "DATA",
+                "path": [
+                    "DATA"
+                ],
+                "problem": null,
+                "size": 1200,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "tape",
+    "warnings": [
+    ]
+}

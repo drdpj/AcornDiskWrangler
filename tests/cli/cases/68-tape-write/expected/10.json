@@ -1,0 +1,25 @@
+{
+    "changes": [
+    ],
+    "command": "check",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.uef",
+    "ok": true,
+    "result": {
+        "errors": [
+        ],
+        "info": [
+            "3 files, 7 blocks"
+        ],
+        "warnings": [
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

@@ -1,0 +1,31 @@
+{
+    "changes": [
+        {
+            "from": "host/BIGGER",
+            "note": null,
+            "op": "add",
+            "path": "BIGGER",
+            "vol": "tape"
+        }
+    ],
+    "command": "put",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.uef",
+    "ok": true,
+    "result": {
+        "added": 1,
+        "dirs": 0,
+        "renamed": [
+        ],
+        "replaced": 0,
+        "skipped": 0
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "tape",
+    "warnings": [
+    ]
+}

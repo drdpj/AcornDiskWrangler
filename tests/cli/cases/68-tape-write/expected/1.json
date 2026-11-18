@@ -1,0 +1,30 @@
+{
+    "changes": [
+        {
+            "from": null,
+            "note": "uef",
+            "op": "new",
+            "path": "img.uef",
+            "vol": ""
+        }
+    ],
+    "command": "new",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.uef",
+    "ok": true,
+    "result": {
+        "file": "img.uef",
+        "format": "uef",
+        "volumes": [
+            "tape"
+        ]
+    },
+    "saved": true,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": null,
+    "warnings": [
+    ]
+}

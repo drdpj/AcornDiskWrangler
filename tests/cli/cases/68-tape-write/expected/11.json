@@ -1,0 +1,73 @@
+{
+    "changes": [
+        {
+            "from": "RUNME",
+            "note": null,
+            "op": "add",
+            "path": "RUNME",
+            "vol": "tape"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "RUNME.inf",
+            "vol": "tape"
+        },
+        {
+            "from": "V1.0",
+            "note": null,
+            "op": "add",
+            "path": "V1.0",
+            "vol": "tape"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "V1.0.inf",
+            "vol": "tape"
+        }
+    ],
+    "command": "get",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.uef",
+    "ok": true,
+    "result": {
+        "manifest": null,
+        "written": [
+            {
+                "from": "RUNME",
+                "host": "RUNME",
+                "sidecar": false,
+                "size": 40
+            },
+            {
+                "from": null,
+                "host": "RUNME.inf",
+                "sidecar": true,
+                "size": 41
+            },
+            {
+                "from": "V1.0",
+                "host": "V1.0",
+                "sidecar": false,
+                "size": 17
+            },
+            {
+                "from": null,
+                "host": "V1.0.inf",
+                "sidecar": true,
+                "size": 37
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "tape",
+    "warnings": [
+    ]
+}
