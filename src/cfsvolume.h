@@ -26,8 +26,9 @@
 // and a copy show (Entry::label). A path is one name: "GAME", "GAME (2)", or "#3", the third file on the tape
 // (parsePath); a bare name that is only another file's real name finds the first file of that name. '/' is a name
 // character ("M/C"). The data the cassette filing system can't read is an entry of its own, "unrecognised data
-// (chunks n-m)", read-only, its bytes as they are (copied to another tape, its chunks as they are: rawChunks); so is a file with a problem (a bad CRC, a missing block). Both move
-// with the others (move()) but are never changed or removed.
+// (chunks n-m)", read-only, its bytes as they are; so is a file with a problem (a bad CRC, a missing block). Both move
+// with the others (move()) but are never changed or removed, and a copy to another tape takes their chunks as they
+// are (rawChunks).
 //
 // Attributes: load and exec (retro-files "acorn"), protected (flag bit 0: *RUN only; it travels as access "E",
 // execute only, and a copy onto a disc drops it; an item whose access is E without R arrives protected), and the
@@ -91,9 +92,10 @@ public:
     // The item an entry of the root names (by its unique name), or -1.
     int itemIndex(const QString &name) const;
     static QString unrecognisedLabel(const Cfs::Item &it);
-    // Unrecognised data travels with its chunks (retro-files namespace "uef", key "chunks": UEF chunk records in
-    // base64, with the base frequency and baud rate they were played at in front). Dropped on a tape, they are added
-    // at the end as they are; anywhere else the data arrives as a file of its bytes.
+    // Unrecognised data and a damaged file travel with their chunks (retro-files namespace "uef", key "chunks": UEF
+    // chunk records in base64, with the base frequency and baud rate they were played at in front). Dropped on a tape,
+    // they are added at the end as they are; anywhere else they arrive as a file of their bytes (a damaged file with
+    // its load and exec).
     static QByteArray rawChunks(const QMap<QString, QJsonObject> &families);
 
 private:

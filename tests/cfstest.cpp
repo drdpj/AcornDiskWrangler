@@ -774,6 +774,42 @@ static void writing(const QString &dir, QMap<QString, QByteArray> *written) {
               "chunks that don't unpack: an ordinary file");
     }
 
+    printf("writing: damaged files copied to another tape stay as they were\n");
+    {
+        // every file of the damaged sample copied, in order, as a drop copies them: the new tape reads the same,
+        // problem for problem
+        TapeFile src;
+        openTape(samples()["damaged"], &src);
+        CfsVolume from(&src);
+        TapeFile dst;
+        dst.createBlank(dw::tape::Kind::Uef, true);
+        CfsVolume to(&dst);
+        QVector<dw::fs::Entry> es;
+        from.list(dw::fs::Path(), &es, &err);
+        QStringList names;
+        for (const dw::fs::Entry &e : es) {
+            dw::TransferItem x;
+            x.name = e.shown();
+            x.attrs = from.toRetro(e);
+            x.sourceFs = from.fsId();
+            from.read(dw::fs::Path({e.name}), &x.data, &err);
+            CHECK(x.attrs.contains("uef") && x.attrs.contains("acorn"), e.name + ": its chunks, and its load and exec for a disc");
+            const dw::fs::Placement pl = to.placeIncoming(x, dw::fs::Path());
+            dw::fs::Entry ex;
+            names << pl.name;
+            CHECK(!to.stat(dw::fs::Path({pl.name}), &ex, &err), "placed under a name nothing has: " + pl.name);
+            CHECK(to.write(dw::fs::Path(), pl.name, x.data, to.fromRetro(x.attrs, dw::fs::NodeKind::File), QDateTime(), false, &err),
+                  e.name + " added " + err);
+        }
+        CHECK(names.value(0) == "HDR (damaged)", "named for the report: " + names.join(", "));
+        auto strip = [](QStringList l) {
+            for (QString &x : l) x = x.section(" chunks ", 0, 0) + " " + x.section(" data ", 1);
+            return l;
+        };
+        CHECK(es.size() == 8 && strip(dump(dst)) == strip(dump(src)),
+              "the same files with the same problems:\n" + dump(dst).join("\n") + "\nnot\n" + dump(src).join("\n"));
+    }
+
     printf("writing: a file that opened the tape with no carrier before it\n");
     {
         QString why;

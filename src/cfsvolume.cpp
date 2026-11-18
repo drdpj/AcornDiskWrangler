@@ -363,8 +363,9 @@ dw::fs::Placement CfsVolume::placeIncoming(const dw::TransferItem &item, const P
     dw::fs::Placement p;
     p.dir = targetDir;
     if (!item.isDir && !rawChunks(item.attrs).isEmpty()) {
-        // another tape's unrecognised data: added as it is, named by where it lands (no file can have this name)
-        p.name = "unrecognised data";
+        // another tape's unrecognised data or damaged file: added as it is, under a name no entry can have (what
+        // it is called comes from its own chunks)
+        p.name = item.attrs.contains("acorn") ? item.name + " (damaged)" : QString("unrecognised data");
         return p;
     }
     QString n = item.name;
@@ -377,16 +378,16 @@ dw::fs::Placement CfsVolume::placeIncoming(const dw::TransferItem &item, const P
 QMap<QString, QJsonObject> CfsVolume::toRetro(const Entry &e) const {
     QMap<QString, QJsonObject> m;
     if (e.isDir()) return m;
+    // unrecognised data and a damaged file take their chunks along, for another tape to keep them as they are
     const int i = itemIndex(e.name);
-    if (i >= 0 && m_read.items[i].type == Cfs::Item::Unrecognised && m_tape->kind() == dw::tape::Kind::Uef) {
-        // unrecognised data takes its chunks along, for another tape to keep them as they are
+    const bool asItIs = i >= 0 && (m_read.items[i].type == Cfs::Item::Unrecognised || !m_read.items[i].file.problems.isEmpty());
+    if (asItIs && m_tape->kind() == dw::tape::Kind::Uef) {
         const QVector<dw::tape::Chunk> c = Cfs::Edit(m_tape->chunks(), m_read).itemChunks(i);
         if (!c.isEmpty()) {
             QJsonObject u;
             u["chunks"] = QString::fromLatin1(Cfs::packChunks(c).toBase64());
             m["uef"] = u;
         }
-        return m;
     }
     if (!e.attrs.contains("load")) return m;
     QJsonObject a;
