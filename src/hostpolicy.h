@@ -38,6 +38,10 @@ struct InfData {
     quint32 load = 0, exec = 0;
     quint8 flags = Adfs::FlagR | Adfs::FlagW;
 };
+// A name with '.' in it that isn't D.NAME (a tape file's "V1.0": the cassette filing system has no directories) is
+// kept whole, where the core's reader would take the dots as ADFS levels and keep the last ("0"), when the .inf
+// quotes it (as Extract writes a tape name with a '.' or a space) or it is the host file's own name (less the " (2)"
+// a repeated name was given on the host).
 bool readInf(const QString &hostPath, InfData *out);
 
 // How both of this program's readers of host files (the window's Add files, drops and pastes, and acorndw put) use the

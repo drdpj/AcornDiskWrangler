@@ -16,18 +16,22 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 // cfsvolume.h - a cassette tape (a UEF file, dw::tape::TapeFile) as a DiskWranglerCore dw::fs::Volume: its files in
-// tape order (Acorn::Cfs), read-only for now (series cfs-1). QtCore only.
+// tape order (Acorn::Cfs). QtCore only. Since series cfs-2 it changes the tape as the BBC's MOS would have written it:
+// a file added goes at the end, saved as *SAVE saves (Cfs::saveChunks); a file replaced, renamed or given new
+// attributes is written again where it is, keeping its lead and trailer; a file removed or moved takes its own chunks
+// (Cfs::Edit) and leaves every other file's chunks as they were.
 //
 // Two files on a tape may share a name (a BBC and an Electron version, a loader's parts). Each entry is named
 // uniquely - the first GAME is "GAME", the second "GAME (2)" - and labelled with its real name, which the window, ls
 // and a copy show (Entry::label). A path is one name: "GAME", "GAME (2)", or "#3", the third file on the tape
 // (parsePath); a bare name that is only another file's real name finds the first file of that name. '/' is a name
 // character ("M/C"). The data the cassette filing system can't read is an entry of its own, "unrecognised data
-// (chunks n-m)", read-only, its bytes as they are.
+// (chunks n-m)", read-only, its bytes as they are; so is a file with a problem (a bad CRC, a missing block). Both move
+// with the others (move()) but are never changed or removed.
 //
 // Attributes: load and exec (retro-files "acorn"), protected (flag bit 0: *RUN only; it travels as access "E",
-// execute only, and a copy onto a disc drops it), and the number of blocks; position (the file's number on the tape,
-// what "#n" takes) for the command line's JSON.
+// execute only, and a copy onto a disc drops it; an item whose access is E without R arrives protected), and the
+// number of blocks; position (the file's number on the tape, what "#n" takes) for the command line's JSON.
 #pragma once
 
 #include <QVector>
@@ -67,13 +71,22 @@ public:
     bool write(const dw::fs::Path &dir, const QString &name, const QByteArray &data, const dw::fs::AttrValues &attrs,
                const QDateTime &when, bool replace, QString *err) override;
     bool remove(const dw::fs::Path &node, QString *err) override;
+    // A new name for a file (two files may share a name on a tape, as the MOS allows).
+    bool rename(const dw::fs::Path &from, const dw::fs::Path &to, QString *err) override;
     bool setAttrs(const dw::fs::Path &node, const dw::fs::AttrValues &a, QString *err) override;
+    // Files (or unrecognised data) moved, in their tape order, to just before the entry `before` (empty: to the end of
+    // the tape). Like the other changes, only in a Disc::transact.
+    bool move(const QVector<dw::fs::Path> &nodes, const dw::fs::Path &before, QString *err);
     dw::fs::Report check() const override;
     bool reload(QString *err) override;
 
     // retro-files "acorn": load, exec, and access "E" for a protected file (execute only, as the format says of
     // CFS), "WR" for any other
     QMap<QString, QJsonObject> toRetro(const dw::fs::Entry &e) const override;
+    dw::fs::AttrValues fromRetro(const QMap<QString, QJsonObject> &families, dw::fs::NodeKind kind) const override;
+    // A DFS file in $ comes without its letter ("$.GAME" -> "GAME"); any other letter stays ("A.GAME", as *SAVE
+    // "A.GAME" names it on a tape); the rest by the name rules (at most 10 characters).
+    dw::fs::Placement placeIncoming(const dw::TransferItem &item, const dw::fs::Path &targetDir) const override;
 
     // The item an entry of the root names (by its unique name), or -1.
     int itemIndex(const QString &name) const;
@@ -82,6 +95,11 @@ public:
 private:
     dw::fs::Entry entry(int i) const;
     bool find(const dw::fs::Path &p, int *index, QString *err) const;
+    bool changeable(int i, QString *err) const;          // a file with no problem
+    // The item's blocks again with a new name, addresses or protected flag, each block keeping its other flag bits
+    // and its spare bytes.
+    QVector<QByteArray> reblock(int i, const QByteArray &name, quint32 load, quint32 exec, bool prot) const;
+    bool apply(const QVector<dw::tape::Chunk> &chunks, QString *err);
     dw::tape::TapeFile *m_tape;
     Cfs::Tape m_read;
     QStringList m_names;                                    // each item's unique name

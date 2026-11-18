@@ -180,6 +180,22 @@ bool MainWindow::dosProperties(const QVector<Item> &items, PropertiesEdit *edit)
 // D.NAME), then one Disc::transact over Volume::rename, and the pane's rows again.
 void MainWindow::renameSelected() {
     if (dfsSide() >= 0) { dfsRename(); return; }
+    if (tapeActive()) {                          // a tape file: its own name, 1-10 characters (another file may have it too)
+        QList<QTreeWidgetItem *> sel;
+        for (QTreeWidgetItem *it : m_tapeTree->selectedItems()) if (!it->data(0, RoleIsRoot).toBool()) sel << it;
+        if (sel.size() != 1) { statusBar()->showMessage("Select a single file to rename.", 4000); return; }
+        const dw::ui::PaneRow row = dw::ui::VolumePane::rowOf(sel[0]);
+        dw::fs::Entry e;
+        QString err, why;
+        if (!m_doc.cfs()->stat(row.path, &e, &err)) { message("Rename", err); return; }
+        bool ok = false;
+        const QString n = QInputDialog::getText(this, "Rename", "New name (max 10 characters):", QLineEdit::Normal, e.shown(), &ok);
+        if (!ok || n.isEmpty() || n == e.shown()) return;
+        if (!m_doc.cfs()->names().valid(n, dw::fs::NodeKind::File, &why)) { QMessageBox::warning(this, "Rename", QString("'%1': %2").arg(n, why)); return; }
+        renameRow(row, dw::fs::Path({n}));
+        updateUi();
+        return;
+    }
     bool dos = dosActive();
     QList<QTreeWidgetItem *> items = (dos ? m_dosTree : m_tree)->selectedItems();
     if (items.size() == 1 && items[0]->data(0, RoleIsRoot).toBool()) { renameVolume(); return; }

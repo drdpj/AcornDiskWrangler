@@ -28,6 +28,7 @@
 #include <QFileDialog>
 #include <QDialogButtonBox>
 #include <QLineEdit>
+#include <QCheckBox>
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QMimeData>
@@ -329,8 +330,9 @@ int main(int argc,char**argv){
         printf("  drive 0 now:"); for(auto&f:A->document()->dfs(0).files()) printf(" %s",qPrintable(f.fullName())); printf("\n");
     }
 
-    // ---------------------------------------------------------------- a tape (series cfs-1): its own window and pane, in tape order,
-    // read-only; its files dragged onto an ADFS and a DFS window keep load and exec, and drop the protected flag
+    // ---------------------------------------------------------------- a tape (series cfs-1, cfs-2): its own window and pane, in tape
+    // order; its files dragged onto an ADFS and a DFS window keep load and exec, and drop the protected flag; files dropped on
+    // it go on its end; rows dragged within it move; rename, properties, delete; saved and read back
     {
         using Act=dw::ui::DiscWindow::Act;
         MainWindow* T=openWin(d+"/h.uef");
@@ -350,13 +352,10 @@ int main(int argc,char**argv){
         }
         tt->clearSelection(); if(auto* it=find(tt,"GAME")) it->setSelected(true); pump();
         CHECK(T->action(Act::Copy)->isEnabled() && T->action(Act::View)->isEnabled() && T->action(Act::Extract)->isEnabled());
-        CHECK(!T->action(Act::AddFiles)->isEnabled() && !T->action(Act::Delete)->isEnabled() && !T->action(Act::Rename)->isEnabled()
-              && !T->action(Act::Properties)->isEnabled() && !T->action(Act::Paste)->isEnabled() && !T->action(Act::Save)->isEnabled());
-        CHECK(!T->paneEditable(PaneTape) && T->readOnlyReason().contains("tape"));
-        // host files dropped on it: refused, nothing changes
-        whenModal<QMessageBox>([](QMessageBox* mb){ printf("  told: %s\n",qPrintable(mb->text())); mb->accept(); },"no read-only message");
-        dropFiles(*T,tt,{"/tmp/drop/proj/hello.txt"}); pump();
-        CHECK(!T->document()->dirty() && T->document()->cfs()->tapeRead().files()==4);
+        CHECK(T->action(Act::AddFiles)->isEnabled() && T->action(Act::Delete)->isEnabled() && T->action(Act::Rename)->isEnabled()
+              && T->action(Act::Properties)->isEnabled() && !T->action(Act::Save)->isEnabled());
+        CHECK(!T->action(Act::AddFolder)->isEnabled() && !T->action(Act::NewDirectory)->isEnabled());   // a tape has no folders
+        CHECK(T->paneEditable(PaneTape) && T->readOnlyReason().isEmpty());
         // onto ADFS: GAME and the protected LOADER (it arrives readable and writable, not execute-only)
         drag(*T,tt,{"GAME","LOADER"},*B,wt::adfsTree(B));
         { Dir r; QString e; B->document()->image().readDir(RootSector,&r,&e); int g=r.indexOf("GAME"), l=r.indexOf("LOADER");
@@ -377,6 +376,51 @@ int main(int argc,char**argv){
         E->tabWidget()->setCurrentWidget(wt::dfsTree(E)); wt::dfsTree(E)->setCurrentItem(E->dfsRoot(0)); pump();
         E->paste(); pump();
         { int i=E->document()->dfs(0).indexOf('$',"LOADER"); CHECK(i>=0 && E->document()->dfs(0).files()[i].load==0x30E00); }
+
+        // writing (series cfs-2). A host file dropped on the tape: added at its end
+        auto rowsOf=[&]{ QStringList l; QTreeWidgetItem* r=tt->topLevelItemCount()==1?tt->topLevelItem(0):nullptr;
+                         for(int i=0;r&&i<r->childCount();++i) l<<r->child(i)->text(0); return l; };
+        auto settle=[&](int n){ for(int i=0;i<40 && rowsOf().size()!=n;++i){ pump(); QTest::qWait(50); } };
+        dropFiles(*T,tt,{"/tmp/drop/proj/hello.txt"}); settle(5);
+        printf("tape after a drop: %s\n",qPrintable(rowsOf().join(",")));
+        CHECK(rowsOf()==QStringList({"GAME","LOADER","GAME","EMPTY","hello"}) && T->document()->dirty() && T->action(Act::Save)->isEnabled());
+        CHECK(T->windowTitle().startsWith("h.uef * - "));
+        // a DFS file dragged from another window: added too, as K.prog2 (a letter other than $ stays in the name)
+        drag(*A,wt::dfsTree(A),{"K.prog2"},*T,tt); settle(6);
+        CHECK(rowsOf().value(5)=="K.prog2");
+        // a name on the tape already: asked, as on a disc (No: nothing added)
+        whenModal<QMessageBox>([](QMessageBox* mb){ printf("  asked: %s\n",qPrintable(mb->text())); mb->button(QMessageBox::No)->click(); },"no replace question");
+        drag(*E,wt::dfsTree(E),{"$.LOADER"},*T,tt); pump(); QTest::qWait(200); pump();
+        CHECK(rowsOf().size()==6);
+        // rows dragged within the tape: EMPTY and hello onto the first GAME, so before it
+        drag(*T,tt,{"EMPTY","hello"},*T,tt,"GAME"); pump();
+        printf("tape after a move: %s\n",qPrintable(rowsOf().join(",")));
+        CHECK(rowsOf()==QStringList({"EMPTY","hello","GAME","LOADER","GAME","K.prog2"}));
+        // rename (F2): hello is HELLO
+        tt->clearSelection(); if(auto* it=find(tt,"hello")) { tt->setCurrentItem(it); tt->clearSelection(); it->setSelected(true); } pump();
+        whenModal<QInputDialog>([](QInputDialog* dlg){ dlg->setTextValue("HELLO"); dlg->accept(); },"no rename dialog");
+        T->action(Act::Rename)->trigger(); pump();
+        CHECK(rowsOf().value(1)=="HELLO");
+        // properties: HELLO protected, load &1900
+        tt->clearSelection(); if(auto* it=find(tt,"HELLO")) it->setSelected(true); pump();
+        whenModal<QDialog>([](QDialog* dlg){
+            auto* cb=dlg->findChild<QCheckBox*>(); QList<QLineEdit*> le=dlg->findChildren<QLineEdit*>();
+            if(cb && le.size()==3){ cb->setChecked(true); le[1]->setText("1900"); dlg->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Ok)->click(); }
+            else { printf("  (tape properties: %d fields)\n",int(le.size())); dlg->reject(); } },"no properties dialog");
+        QMetaObject::invokeMethod(T,"editProperties",Qt::DirectConnection); pump();
+        { dw::fs::Entry e; QString err; CHECK(T->document()->cfs()->stat(dw::fs::Path({"HELLO"}),&e,&err) && e.attrs.value("protected").toBool() &&
+                                               e.attrs.value("load").toUInt()==0x1900); }
+        // delete both GAMEs (the second is removed first, so the first keeps its name)
+        tt->clearSelection(); for(const char* n:{"GAME","GAME (2)"}) if(auto* it=find(tt,n)) it->setSelected(true); pump();
+        autoYes(); T->action(Act::Delete)->trigger(); pump();
+        printf("tape after a delete: %s\n",qPrintable(rowsOf().join(",")));
+        CHECK(rowsOf()==QStringList({"EMPTY","HELLO","LOADER","K.prog2"}));
+        // saved (as it was: plain UEF), and read back from the file
+        CHECK(T->save() && !T->document()->dirty());
+        { dw::tape::TapeFile f; QString err; CHECK(f.open(d+"/h.uef",&err) && !f.gzip());
+          const Acorn::Cfs::Tape r=Acorn::Cfs::read(dw::tape::pieces(f)); QStringList n;
+          for(const auto& i:r.items) n<<QString::fromLatin1(i.file.name);
+          CHECK(n==QStringList({"EMPTY","HELLO","LOADER","K.prog2"}) && r.items.value(1).file.isProtected() && r.items.value(1).file.data.size()>0); }
     }
 
     // ---------------------------------------------------------------- save everything, check the files

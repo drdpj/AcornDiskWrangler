@@ -94,8 +94,8 @@ private:
 // window's dw::app::Document as well as what the command-line program opens.
 // mounts: ADFS ("ADFS", read-only on a hybrid) and DOS Plus ("DOS", $.DOS.DRIVE_C or the hybrid's FAT); "drive 0"
 // and "drive 2" (DFS); "DOS" alone for a FAT floppy; "tape" alone for a tape image (DiskInfo::Tape: the Disc's
-// staging is the TapeFile, not a container; read-only for now). Groups (the window's tabs): "ADFS", "DOS", "DFS",
-// "Tape".
+// staging is the TapeFile, not a container; read-only when its end is damaged, it holds data but no BBC Micro file, or
+// the file can't be written). Groups (the window's tabs): "ADFS", "DOS", "DFS", "Tape".
 class OpenedDisc : public dw::app::Document {
 public:
     OpenedDisc();
@@ -131,6 +131,9 @@ public:
     bool isTape() const { return m_tape.isOpen(); }
     const dw::tape::TapeFile &tape() const { return m_tape; }
     Acorn::CfsVolume *cfs() const { return m_cfs.get(); }
+    // The tape into another file, UEF compressed (gz) or not, with its staged changes, through the checked save; the
+    // document goes on with the new file.
+    bool saveTapeAs(const QString &path, bool gz, QString *err);
     // The window's checks after opening: a DOS or DFS volume that failed its check can be browsed but not changed.
     void setDosOk(bool ok) { m_dosOk = ok; }
     void setDfsOk(int side, bool ok) { m_dfsOk[side ? 1 : 0] = ok; }
@@ -180,11 +183,13 @@ public:
 private:
     void reloadMounts();
     bool attachDriveC(QString *err);
+    bool sameFiles(const dw::tape::TapeFile &written, QString *err) const;
     Image m_img;
     dw::tape::TapeFile m_tape;
     std::shared_ptr<Acorn::CfsVolume> m_cfs;
     DiskInfo m_info;
     bool m_window = false;
+    QString m_tapeReadOnly;                              // why the tape can't be changed (empty: it can)
     bool m_dosOk = false, m_dfsOk[2] = {false, false};
     std::shared_ptr<dw::fat::Volume> m_dos;
     std::shared_ptr<dw::dfs::Disc> m_dfs[2];

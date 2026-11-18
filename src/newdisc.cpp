@@ -25,6 +25,8 @@
 #include <diskwrangler/fs/dfs/dfs.h>
 #include <diskwrangler/fs/fat/fat.h>
 #include <diskwrangler/fs/presets.h>
+#include <diskwrangler/tape/records.h>
+#include <diskwrangler/tape/tapefile.h>
 
 #include "adfs.h"
 #include <diskwrangler/fs/dfs/dfs.h>
@@ -80,6 +82,15 @@ static void addOwnPresets(dw::fs::PresetRegistry &r) {
               "copied from an existing DOS Plus 640K disc or a DOSBOOT file";
     h.extra["needsDosboot"] = true;
     r.add(h);
+    dw::fs::Preset t;                                   // a cassette tape: no size, no sides, no title
+    t.id = "uef";
+    t.name = "Tape (UEF) - BBC Micro and Electron cassette";
+    t.fsId = "cfs";
+    t.source = "acorn";
+    t.containers = QStringList{"uef"};
+    t.suffix = "uef";
+    t.notes = "A UEF tape image (gzip), to which files are saved as the BBC Micro's MOS saves them";
+    r.add(t);
 }
 
 void addPresets(dw::fs::PresetRegistry &r) {
@@ -94,7 +105,7 @@ static const struct { Type type; const char *id; } offered[] = {
     {DfsSs40, "dfs-ss40"}, {DfsSs80, "dfs-ss80"}, {DfsDs40, "dfs-ds40"}, {DfsDs80, "dfs-ds80"},
     {WatSs40, "wat-ss40"}, {WatSs80, "wat-ss80"}, {WatDs40, "wat-ds40"}, {WatDs80, "wat-ds80"},
     {Acorn800, "dos-800"}, {Acorn640, "dos-640"},
-    {Pc360, "pc-360"}, {Pc720, "pc-720"}, {Pc1200, "pc-1200"}, {Pc1440, "pc-1440"}};
+    {Pc360, "pc-360"}, {Pc720, "pc-720"}, {Pc1200, "pc-1200"}, {Pc1440, "pc-1440"}, {Uef, "uef"}};
 
 const QVector<TypeInfo> &types() {
     static const QVector<TypeInfo> t = [] {
@@ -221,6 +232,18 @@ bool create(const QString &path, Type t, const QString &titleIn, bool sequential
     if (title.size() > ti.titleMax) { *err = QString("the %1 can be at most %2 characters").arg(QString(ti.titleWhat).toLower()).arg(ti.titleMax); return false; }
     if (!ti.doubleSided) sequential = false;
 
+    if (t == Uef) {                 // a tape: a file of chunks, made and checked by the core's tape module
+        if (!title.isEmpty()) { *err = "a tape has no title"; return false; }
+        dw::tape::TapeFile tape;
+        tape.createBlank(dw::tape::Kind::Uef, true);
+        if (!tape.setChunks({dw::tape::uef::text(0x0000, "Acorn Disk Wrangler")}, err) || !tape.saveAs(path, true, err)) return false;
+        if (detectDisk(path).kind != DiskInfo::Tape) {
+            QFile::remove(path);
+            *err = "internal error: the new tape was not detected as one";
+            return false;
+        }
+        return true;
+    }
     QByteArray img;                 // the disc in its own sector numbering
     dw::device::SideOrder sides;
     DiskInfo::Kind kind = DiskInfo::Unknown;
@@ -285,6 +308,7 @@ bool create(const QString &path, Type t, const QString &titleIn, bool sequential
         kind = DiskInfo::DosPc; dosLabel = true;          // always interleaved: no side layout
         break;
     }
+    case Uef: break;                                      // (made above)
     }
     sides.sequential = sequential;
     QByteArray file = dw::device::layoutFile(img, sides);

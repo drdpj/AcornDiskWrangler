@@ -52,7 +52,12 @@ exec addresses, length, number of blocks, **P** for a protected file and any pro
 Data a game's own loader wrote in a format of its own shows as *unrecognised data* and is kept as it is. Drag the files
 onto a disc window or out to the computer, or Copy, Paste and Extract them, as from a disc (load and exec go with
 them; a disc copy drops the protected flag; a second `GAME` arrives on the computer as `GAME (2)`, its `.inf` saying
-`GAME`). Tapes can't be changed yet. A ZX Spectrum or Amstrad CPC tape (TZX, CDT, TAP) is named, not opened.
+`GAME`). Files dropped on a tape (from the computer, a disc or another tape), Add files and Paste go on its end,
+saved as the BBC Micro saves them (the MOS's leader, its gaps between blocks, 256-byte blocks); drag rows up and down
+to change the order (`CHAIN ""` loads the next file on the tape); Rename, Properties (load, exec, protected) and
+Delete work as on a disc, changing only that file on the tape. Save writes the tape back as it came (compressed or
+not); Save As offers both. **File > New disc image** makes an empty tape (Tape (UEF)). A file with a problem and the
+unrecognised data are kept as they are. A ZX Spectrum or Amstrad CPC tape (TZX, CDT, TAP) is named, not opened.
 
 The format is worked out from the disc's contents, then its name and size. **File > New disc image** makes a blank
 disc of any of these types. A new DOS Plus 640K disc needs Acorn's DOSBOOT boot code, which isn't included: point
@@ -153,7 +158,8 @@ then `$.ELITE`), never `games.ssd:$.ELITE`.
 
 A tape is read the same way: `acorndw ls game.uef` lists its files in tape order, `acorndw get game.uef '#3' out/`
 extracts the third file on the tape (a second file called `GAME` is also `'GAME (2)'`), and
-`acorndw copy game.uef games.ssd GAME` puts a tape file onto a disc.
+`acorndw copy game.uef games.ssd GAME` puts a tape file onto a disc. `acorndw new tape.uef --format=uef` makes an
+empty tape; `put` adds files to its end, and `rm`, `mv` and `attr` change them, as on a disc.
 
 `acorndw new --list` lists the formats that `--format` takes.
 
@@ -199,9 +205,10 @@ The full reference, with every command and option, is in
 * DFS images saved with their blank end trimmed off open normally and are saved full length.
 * Discs with non-standard or copy-protected tracks aren't handled.
 * The viewer shows the first 1 MiB of a very large file.
-* Tapes are read-only: files can be copied from a tape but not added to one yet. Tapes recorded as sound (WAV, CSW)
-  and the Acorn Atom's tapes aren't read; the Electron's OS hasn't been checked against the BBC's (the Electron tapes
-  tried read the same).
+* Tapes: those recorded as sound (WAV, CSW) and the Acorn Atom's aren't read; the Electron's OS hasn't been checked
+  against the BBC's (the Electron tapes tried read the same). Tapes written here were checked by loading them on a
+  BBC Micro's MOS 1.20 in an emulator (jsbeeb), not on a real cassette recorder. `acorndw` has no command to change
+  the order of a tape's files (the window does it).
 * A new DOS Plus 640K disc hasn't yet been tried on a real Master 512.
 
 ## Building from source

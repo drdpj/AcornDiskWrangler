@@ -21,7 +21,9 @@
 //   cfstest [UEF_DIR]                 hand-made tapes, every rule of docs/disc-formats.md "Tapes"; then every real tape in
 //                                     UEF_DIR opened, listed and read
 //   cfstest --dump FILE               the tape as tests/cfs_check.py prints it (the independent reader compares)
-//   cfstest --write-samples DIR       the hand-made tapes, for cfs_check.py
+//   cfstest --write-samples DIR       the hand-made tapes and the tapes this program wrote, for cfs_check.py
+//   cfstest --moved FILE              a tape whose files were moved (files D B C A; A opened the tape with no carrier
+//                                     before it), for design/test-scripts/jsbeeb/cfs-jsbeeb.mjs
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
@@ -37,6 +39,7 @@
 #include "cfs.h"
 #include "cfsvolume.h"
 #include "diskformat.h"
+#include "newdisc.h"
 
 using namespace Acorn;
 using dw::tape::Chunk;
@@ -337,8 +340,6 @@ static void handMade(const QString &dir) {
         CHECK(rf["acorn"]["load"] == "FFFF0E00" && rf["acorn"]["exec"] == "FFFF801F" && rf["acorn"]["access"] == "E",
               "retro-files: load, exec, and E (execute only) for a protected file");
         CHECK(v.toRetro(es[0])["acorn"]["access"] == "WR", "  and WR for any other");
-        CHECK(!v.write(dw::fs::Path(), "NEW", "x", {}, QDateTime(), false, &err) && !v.remove(dw::fs::Path({"GAME"}), &err),
-              "read-only for now: " + err);
         CHECK(v.check().ok() && v.check().warnings.isEmpty(), "a clean check");
 
         TapeFile plain;
@@ -442,10 +443,10 @@ static void handMade(const QString &dir) {
               "a TZX: " + (v.bestCandidate() ? v.bestCandidate()->description : QString("nothing")));
         Adfs::OpenedDisc od;
         CHECK(od.open(dir + "/standard.uef", diskInfo(*detectCandidates(dir + "/standard.uef").bestCandidate()), &err) && od.isTape() &&
-                  od.isOpen() && od.tapeMount() == 0 && od.disc().mounts().size() == 1 && od.disc().mounts()[0].readOnly,
-              "the document: one read-only tape mount " + err);
+                  od.isOpen() && od.tapeMount() == 0 && od.disc().mounts().size() == 1 && !od.disc().mounts()[0].readOnly,
+              "the document: one tape mount, writable " + err);
         CHECK(od.disc().container() == nullptr && od.disc().staged() != nullptr, "its Disc stages on the tape, not a container");
-        CHECK(!od.readOnlyWhy(0).isEmpty() && !od.dirty() && od.save(&err), "nothing to save: " + od.readOnlyWhy(0));
+        CHECK(od.readOnlyWhy(0).isEmpty() && !od.dirty() && od.save(&err), "nothing to save");
         CHECK(od.saveAs(dir + "/copy.uef", dw::device::Kind::None, &err) && QFileInfo(od.path()).fileName() == "copy.uef",
               "Save As: a copy, which the document goes on with " + err);
         TapeFile a, b;
@@ -458,6 +459,239 @@ static void handMade(const QString &dir) {
         CHECK(!od.writeCopy(dir + "/x.ssd", dw::device::Kind::Raw, QString(), false, &err), "never converted into a disc: " + err);
         CHECK(!od.open(dir + "/spec.tzx", diskInfo(*detectCandidates(dir + "/spec.tzx").bestCandidate()), &err) && !od.isOpen(),
               "a TZX isn't opened: " + err);
+    }
+}
+
+// ----- writing (series cfs-2)
+
+static QString ids(const QVector<Chunk> &c) {
+    QStringList l;
+    for (const Chunk &k : c) l << QString::number(k.id, 16);
+    return l.join(" ");
+}
+
+static quint32 le16(const QByteArray &b, int at) { return uchar(b[at]) | (uchar(b[at + 1]) << 8); }
+
+static QStringList names(const CfsVolume &v) {
+    QVector<dw::fs::Entry> es;
+    QString e;
+    v.list(dw::fs::Path(), &es, &e);
+    QStringList n;
+    for (const dw::fs::Entry &x : es) n << x.shown();
+    return n;
+}
+
+// Chunks with no carrier before the first block: a tape that starts straight with a file (A), then B, C and D.
+static QVector<Chunk> unled() {
+    QVector<Chunk> t;
+    BlockSpec s;
+    s.name = "A"; s.flag = 0x80; s.data = bytes(100, 60); s.load = 0x3000; s.exec = 0x3000;
+    t.append(uef::data(block(s)));
+    s.name = "B"; s.data = bytes(256, 61);
+    t.append(uef::carrier(1200)); t.append(uef::data(block(s)));
+    s.name = "C"; s.flag = 0; s.data = bytes(256, 62);
+    t.append(uef::carrier(1200)); t.append(uef::data(block(s)));
+    s.number = 1; s.flag = 0x80; s.data = bytes(44, 63);
+    t.append(uef::carrier(600)); t.append(uef::data(block(s)));
+    s = BlockSpec(); s.name = "D"; s.flag = 0x80; s.data = QByteArray(); s.load = 0x3000; s.exec = 0x3000;
+    t.append(uef::carrier(1200)); t.append(uef::data(block(s)));
+    t.append(uef::carrier(1200));
+    return t;
+}
+
+// The unled tape with D moved to the front and A to the end: D B C A.
+static QByteArray movedTape(QString *why) {
+    TapeFile t;
+    t.createBlank(dw::tape::Kind::Uef, false);
+    QString e;
+    t.setChunks(unled(), &e);
+    CfsVolume v(&t);
+    if (!v.move({dw::fs::Path({"D"})}, dw::fs::Path({"A"}), &e) || !v.move({dw::fs::Path({"A"})}, dw::fs::Path(), &e)) {
+        *why = e;
+        return QByteArray();
+    }
+    return t.serialize();
+}
+
+static void writing(const QString &dir, QMap<QString, QByteArray> *written) {
+    QString err;
+    QDir().mkpath(dir);
+
+    printf("writing: blocks and files as *SAVE makes them\n");
+    {
+        BlockSpec s;
+        s.name = "GAME"; s.load = 0x1900; s.exec = 0x8023; s.flag = 0x80; s.data = bytes(100, 50);
+        CHECK(Cfs::encodeBlock("GAME", 0x1900, 0x8023, 0, bytes(100, 50), 0x80) == block(s),
+              "a block: &2A, name, &00, addresses, number, length, flag, 4 zero bytes, CRCs (this test's own CRC)");
+        s.data = QByteArray();
+        CHECK(Cfs::encodeBlock("GAME", 0x1900, 0x8023, 0, QByteArray(), 0x80) == block(s), "a block with no data has no data CRC");
+        auto shape = [](const QVector<QByteArray> &b) {
+            QStringList l;
+            for (const QByteArray &x : b) {
+                const int n = x.indexOf('\0', 1);
+                l << QString("%1:%2:%3").arg(le16(x, n + 9)).arg(le16(x, n + 11)).arg(uchar(x[n + 13]), 2, 16, QChar('0'));
+            }
+            return l.join(" ");
+        };
+        CHECK(shape(Cfs::encodeFile("E", 0, 0, QByteArray(), false)) == "0:0:80", "an empty file: one block, no data, last");
+        CHECK(shape(Cfs::encodeFile("F", 0, 0, bytes(256, 1), false)) == "0:256:80", "256 bytes: one full block, last");
+        CHECK(shape(Cfs::encodeFile("F", 0, 0, bytes(513, 1), false)) == "0:256:00 1:256:00 2:1:80", "513 bytes: 256, 256, 1");
+        CHECK(shape(Cfs::encodeFile("F", 0, 0, bytes(300, 1), true)) == "0:256:01 1:44:81", "protected: bit 0 in every block");
+        const QVector<Chunk> c = Cfs::saveChunks(Cfs::encodeFile("F", 0, 0, bytes(300, 1), false), false);
+        CHECK(ids(c) == "111 100 110 100 110" && le16(c[0].body, 0) == 2400 && le16(c[0].body, 2) == 12240 &&
+                  le16(c[2].body, 0) == 2160 && le16(c[4].body, 0) == 12720,
+              "a save: 1 s, the dummy byte, 5.1 s; block; 0.9 s; block; 5.3 s: " + ids(c));
+        const QVector<Chunk> d = Cfs::saveChunks(Cfs::encodeFile("F", 0, 0, bytes(3, 1), false), true);
+        CHECK(ids(d) == "116 111 100 110" && uef::getFloat(d[0].body, 0) == 1.0, "after other files: a second of silence first");
+    }
+
+    printf("writing: a new tape and the volume's changes\n");
+    const QString path = dir + "/w.uef";
+    CHECK(NewDisc::create(path, NewDisc::Uef, QString(), false, &err), "File > New image: a tape " + err);
+    {
+        TapeFile t;
+        CHECK(t.open(path, &err) && t.gzip() && t.chunks().size() == 1 && t.chunks()[0].id == 0, "gzip, its origin chunk only");
+        const dw::fs::Verdict v = detectCandidates(path);
+        CHECK(v.bestCandidate() && v.bestCandidate()->tier == dw::fs::Tier::Certain && diskInfo(*v.bestCandidate()).kind == DiskInfo::Tape,
+              "an empty tape is a tape, certain (not unrecognised data)");
+    }
+    Adfs::OpenedDisc od;
+    CHECK(od.open(path, diskInfo(*detectCandidates(path).bestCandidate()), &err) && od.readOnlyWhy(od.tapeMount()).isEmpty(),
+          "it opens writable " + err);
+    CfsVolume *v = od.cfs();
+    auto run = [&](const std::function<bool(QString *)> &f) { return od.disc().transact(f, &err); };
+    auto put = [&](const QString &n, const QByteArray &d, quint32 load, bool prot = false) {
+        return run([&](QString *e) { return v->write(dw::fs::Path(), n, d, {{"load", load}, {"exec", load}, {"protected", prot}}, QDateTime(), false, e); });
+    };
+    CHECK(put("ONE", bytes(600, 70), 0x1900) && put("TWO", bytes(10, 71), 0x2000, true) && put("THREE", QByteArray(), 0) &&
+              put("ONE", bytes(5, 72), 0x5000),
+          "four files added, a second ONE among them " + err);
+    CHECK(names(*v) == QStringList({"ONE", "TWO", "THREE", "ONE"}), "in the order added: " + names(*v).join(" "));
+    QByteArray d;
+    CHECK(v->read(dw::fs::Path({"ONE"}), &d, &err) && d == bytes(600, 70) && v->read(dw::fs::Path({"ONE (2)"}), &d, &err) &&
+              d == bytes(5, 72), "each reads back");
+    dw::fs::Entry e;
+    CHECK(v->stat(dw::fs::Path({"TWO"}), &e, &err) && e.attrs.value("protected").toBool() && e.attrs.value("load").toUInt() == 0x2000,
+          "TWO protected, load &2000");
+    CHECK(od.dirty() && v->check().warnings.isEmpty(), "staged, and a clean check");
+    const QVector<Chunk> before = od.tape().chunks();
+    {   // the first file's chunks are untouched by what came after it
+        const QVector<dw::tape::Piece> ps = dw::tape::pieces(od.tape());
+        CHECK(ids(before.mid(1, 7)) == "111 100 110 100 110 100 110" && ids(before.mid(8, 4)) == "116 111 100 110",
+              "laid out as the MOS saves: " + ids(before));
+    }
+    // a failed change leaves nothing
+    CHECK(!run([&](QString *e) { return v->write(dw::fs::Path(), "ELEVENCHARS", "x", {}, QDateTime(), false, e); }) &&
+              od.tape().chunks() == before, "a name that is too long: refused, nothing changed: " + err);
+    // rename: only that file's block chunks change
+    CHECK(run([&](QString *e) { return v->rename(dw::fs::Path({"TWO"}), dw::fs::Path({"V1.0"}), e); }), "TWO renamed V1.0 " + err);
+    {
+        const QVector<Chunk> &now = od.tape().chunks();
+        int diff = 0;
+        for (int i = 0; i < now.size() && i < before.size(); ++i) diff += now[i] != before[i];
+        CHECK(now.size() == before.size() && diff == 1 && names(*v).value(1) == "V1.0", QString("one chunk changed (%1)").arg(diff));
+        CHECK(v->stat(dw::fs::Path({"V1.0"}), &e, &err) && e.attrs.value("protected").toBool(), "  and it is still protected");
+    }
+    // attributes, keeping a block's other flag bits and spare bytes
+    CHECK(run([&](QString *e) { return v->setAttrs(dw::fs::Path({"ONE"}), {{"load", 0xFFFF0E00u}, {"protected", true}}, e); }) &&
+              v->stat(dw::fs::Path({"ONE"}), &e, &err) && e.attrs.value("load").toUInt() == 0xFFFF0E00 &&
+              e.attrs.value("exec").toUInt() == 0x1900 && e.attrs.value("protected").toBool() && e.attrs.value("blocks").toInt() == 3,
+          "ONE: load &FFFF0E00, protected, exec kept, three blocks " + err);
+    // a replacement with another number of blocks: the file's chunks from its first block to its last
+    CHECK(run([&](QString *e) { return v->write(dw::fs::Path(), "ONE", bytes(1000, 73), {}, QDateTime(), true, e); }) &&
+              v->read(dw::fs::Path({"ONE"}), &d, &err) && d == bytes(1000, 73) && v->stat(dw::fs::Path({"ONE"}), &e, &err) &&
+              e.attrs.value("blocks").toInt() == 4 && e.attrs.value("load").toUInt() == 0xFFFF0E00 && e.attrs.value("protected").toBool(),
+          "ONE replaced by 1000 bytes: four blocks, its attributes kept " + err);
+    CHECK(names(*v) == QStringList({"ONE", "V1.0", "THREE", "ONE"}), "  in its place: " + names(*v).join(" "));
+    // remove, move
+    CHECK(run([&](QString *e) { return v->remove(dw::fs::Path({"THREE"}), e); }) && names(*v) == QStringList({"ONE", "V1.0", "ONE"}),
+          "THREE removed: " + names(*v).join(" "));
+    CHECK(run([&](QString *e) { return v->move({dw::fs::Path({"ONE (2)"})}, dw::fs::Path({"ONE"}), e); }) &&
+              v->read(dw::fs::Path({"ONE"}), &d, &err) && d == bytes(5, 72), "the second ONE moved to the front: it is ONE now");
+    CHECK(run([&](QString *e) { return v->move({dw::fs::Path({"ONE"}), dw::fs::Path({"V1.0"})}, dw::fs::Path(), e); }) &&
+              names(*v) == QStringList({"ONE", "ONE", "V1.0"}) && v->read(dw::fs::Path({"ONE"}), &d, &err) && d == bytes(1000, 73) &&
+              v->read(dw::fs::Path({"V1.0"}), &d, &err) && d == bytes(10, 71),
+          "two moved to the end, in their order: " + names(*v).join(" "));
+    // save: read back, and opened again it reads the same
+    const QStringList dumped = dump(od.tape());
+    CHECK(od.save(&err, true) && !od.dirty() && QFileInfo::exists(path + ".bak"), "saved, with a .bak " + err);
+    {
+        TapeFile t;
+        CHECK(t.open(path, &err) && t.gzip() && dump(t) == dumped, "opened again: the same files, still gzip");
+        (*written)["written"] = t.serialize();
+    }
+    CHECK(od.saveTapeAs(dir + "/plain.uef", false, &err) && od.path() == dir + "/plain.uef" && !od.tape().gzip(), "Save As, uncompressed " + err);
+    {
+        QFile f(dir + "/plain.uef");
+        f.open(QIODevice::ReadOnly);
+        CHECK(f.read(10) == QByteArray("UEF File!\0", 10), "  a plain UEF file");
+    }
+    od.close();
+
+    printf("writing: what is kept as it is\n");
+    {
+        TapeFile t;
+        openTape(samples()["damaged"], &t);
+        CfsVolume w(&t);
+        CHECK(!w.rename(dw::fs::Path({"HDR"}), dw::fs::Path({"X"}), &err) && !w.remove(dw::fs::Path({"DATA"}), &err),
+              "a damaged file can't be renamed or removed: " + err);
+        TapeFile n;
+        openTape(samples()["nothing"], &n);
+        CfsVolume u(&n);
+        QVector<dw::fs::Entry> es;
+        u.list(dw::fs::Path(), &es, &err);
+        CHECK(!u.remove(dw::fs::Path({es[0].name}), &err), "unrecognised data can't be removed: " + err);
+        QFile f(dir + "/nothing.uef");
+        f.open(QIODevice::WriteOnly);
+        f.write(samples()["nothing"]);
+        f.close();
+        Adfs::OpenedDisc o;
+        CHECK(o.open(dir + "/nothing.uef", diskInfo(*detectCandidates(dir + "/nothing.uef").bestCandidate()), &err) &&
+                  o.disc().mounts()[0].readOnly && !o.readOnlyWhy(0).isEmpty(), "a tape of no BBC files is read-only: " + o.readOnlyWhy(0));
+    }
+
+    printf("writing: base frequency and baud rate kept for every chunk\n");
+    {
+        // SLOW at 300 baud, the rest at 1200; appended and removed files mustn't change what anything plays at
+        TapeFile t;
+        openTape(samples()["framing"], &t);
+        const QStringList was = dump(t);
+        CfsVolume w(&t);
+        CHECK(w.remove(dw::fs::Path({"FMT8N1"}), &err), "FMT8N1 removed " + err);
+        QStringList now = dump(t), want = was;
+        want.removeAt(1);
+        for (QString &l : want) l = l.section(" chunks ", 0, 0) + " " + l.section(" data ", 1);
+        for (QString &l : now) l = l.section(" chunks ", 0, 0) + " " + l.section(" data ", 1);
+        for (int i = 0; i < want.size(); ++i) want[i] = want[i].section(' ', 2);
+        for (int i = 0; i < now.size(); ++i) now[i] = now[i].section(' ', 2);
+        CHECK(now == want, "the others read as before");
+        CHECK(w.move({dw::fs::Path({"SLOW"})}, dw::fs::Path(), &err), "SLOW (300 baud) moved to the end " + err);
+        CHECK(w.write(dw::fs::Path(), "NEW", bytes(20, 80), {}, QDateTime(), false, &err), "a file added after it");
+        bool slow300 = false, new1200 = false;
+        const Cfs::Tape r = Cfs::read(dw::tape::pieces(t));
+        for (const dw::tape::Piece &p : dw::tape::pieces(t)) {
+            if (p.type != dw::tape::Piece::Data) continue;
+            for (const Cfs::Item &i : r.items) {
+                if (i.type != Cfs::Item::FileItem || p.first > i.file.last || p.last < i.file.first) continue;
+                if (i.file.name == "SLOW") slow300 = p.coding.baud == 300;
+                if (i.file.name == "NEW") new1200 = p.coding.baud == 1200 && p.coding.baseHz == 1200;
+            }
+        }
+        CHECK(slow300 && new1200 && names(w).last() == "NEW", "SLOW still at 300 baud, NEW at 1200: " + names(w).join(" "));
+    }
+
+    printf("writing: a file that opened the tape with no carrier before it\n");
+    {
+        QString why;
+        const QByteArray m = movedTape(&why);
+        TapeFile t;
+        CHECK(!m.isEmpty() && openTape(m, &t), "moved: " + why);
+        CfsVolume w(&t);
+        CHECK(names(w) == QStringList({"D", "B", "C", "A"}), "D B C A: " + names(w).join(" "));
+        const Cfs::Tape r = w.tapeRead();
+        CHECK(t.chunks()[r.items[3].file.first - 1].id == 0x0110 && le16(t.chunks()[r.items[3].file.first - 1].body, 0) == Cfs::Mos::LeaderCycles,
+              "A got the MOS's leader in front of it");
+        (*written)["moved"] = m;
     }
 }
 
@@ -496,9 +730,22 @@ int main(int argc, char **argv) {
         for (const QString &l : dump(t)) printf("%s\n", qPrintable(l));
         return 0;
     }
+    if (a.size() == 2 && a[0] == "--moved") {
+        QString why;
+        const QByteArray m = movedTape(&why);
+        QFile f(a[1]);
+        if (m.isEmpty() || !f.open(QIODevice::WriteOnly) || f.write(m) != m.size()) { fprintf(stderr, "%s\n", qPrintable(why)); return 1; }
+        return 0;
+    }
     if (a.size() == 2 && a[0] == "--write-samples") {
         QDir().mkpath(a[1]);
-        const QMap<QString, QByteArray> s = samples();
+        QMap<QString, QByteArray> s = samples();
+        {
+            QTemporaryDir tmp;
+            const int was = fails;
+            writing(tmp.path(), &s);                     // (its checks print; a failure there fails the samples)
+            if (fails != was) return 1;
+        }
         for (auto it = s.begin(); it != s.end(); ++it) {
             QFile f(a[1] + "/" + it.key() + ".uef");
             if (!f.open(QIODevice::WriteOnly) || f.write(it.value()) != it.value().size()) return 1;
@@ -507,6 +754,8 @@ int main(int argc, char **argv) {
     }
     QTemporaryDir tmp;
     handMade(tmp.path() + "/tapes");
+    QMap<QString, QByteArray> written;
+    writing(tmp.path() + "/writing", &written);
     if (!a.isEmpty()) realTapes(a[0]);
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails ? 1 : 0;

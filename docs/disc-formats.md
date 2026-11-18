@@ -141,7 +141,7 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
 - The BBC BASIC token table and line-number encoding (`viewtext.cpp`) are from memory,
   checked on hand-made programs and one real program; report oddities rather than guess.
 
-## Tapes: the cassette filing system (series cfs-1)
+## Tapes: the cassette filing system (series cfs-1, cfs-2)
 A tape image is a UEF file (gzip or not); DiskWranglerCore's tape module reads its chunks and turns them into tones,
 gaps and data (`core/diskwrangler/tape/`); `src/cfs.cpp` reads the BBC Micro's files from the data. Every rule below
 was read from **MOS 1.20** (the BBC B's OS, SHA-1 `0d9bcaf6a393c9ce2359ed700ddb53c232c2c45d`, the copy jsbeeb ships;
@@ -162,8 +162,10 @@ real tapes (17 Nov 2026). The Electron's OS 1.00 has **not** been checked (no co
   header CRC (2): the 19 bytes go to &03BE-&03D0. Numbers little-endian. Then, if the length isn't 0 (&F7DF), the
   data and its CRC. Only the length's **low byte** counts the data (&F601 `CPY &03C8`; 0 with a non-zero high byte
   is 256), so a block holds at most 256 bytes.
-- **The flag**: bit 7 the last block (&F225, &F6F7, &F867); bit 0 **protected** (&F1ED-&F1F6: `*LOAD` of it stops
-  with "Locked"; `*RUN` and `CHAIN` load it and set `*FX200,3`, &F204). **Bit 6** ("empty block" in later documents)
+- **The flag**: bit 7 the last block (&F225, &F6F7, &F867); bit 0 **protected** (&F1ED-&F1F6: only `*RUN` loads it,
+  and sets `*FX200,3`, &F204; any other load, `*LOAD` and BASIC's `CHAIN` among them, stops with "Locked": the flag
+  pulled at &F1F1 says whether the load is a `*RUN`. cfs-1 wrote here that `CHAIN` loads it too; jsbeeb showed
+  "Locked at line 30" for a `CHAIN` of a protected file, 18 Nov 2026). **Bit 6** ("empty block" in later documents)
   is neither set nor tested anywhere in MOS 1.20. `*SAVE` (&F2C8-&F2F0) gives every block 256 bytes and flag 0 but
   the last, which gets what is left (0 for an empty file: one block, no data) and flag &80; a `BPUT` file (&F478)
   ends with a block of whatever is in the buffer, maybe 0 bytes, and has load and exec &FFFFFFFF.
@@ -187,8 +189,33 @@ real tapes (17 Nov 2026). The Electron's OS 1.00 has **not** been checked (no co
   these rules, with its own UEF parsing) and by the program, row for row; Life of Repton's `*CAT` in jsbeeb gave the
   same names, block counts and lengths for the 11 files it was run through (both REPTON3s among them); `CHAIN ""` of
   Gomoku in jsbeeb loaded GOMOKU, which then loaded M/C, as listed.
-- **Not yet**: writing (series `cfs-2`: the MOS's leader, gaps and dummy byte are at &F7F7-&F807, &F892-&F8A8 and
-  &FBE2-&FBFB); the Electron's OS; the Atom's tapes; tapes recorded at the pulse level (UEF `&0102` is framed into
+- **Writing** (series cfs-2), as `*SAVE` does it (&F7EC-&F874, read in the ROM and measured in jsbeeb by catching
+  what the MOS sends to the cassette, 18 Nov 2026). "RECORD then RETURN" starts the motor (&85 to the serial ULA);
+  RETURN sends the dummy byte &AA (&FBE2-&FBFB). Before block 0: 5 waits of 51 frames, **5.1 s** of carrier (&F7FF,
+  &F892-&F8A8; the line idles high while the 6850 sends nothing). After each block's CRC: two more turns of the
+  transmit interrupt (&F855, &F858; it sends the last byte again, so a real recording has a byte or two after the CRC,
+  cut off by the 6850's reset at &F85B), then 0.2 s (&F85E). Before each later block: 5 waits of &C7 + 1 frames
+  (&F804), and &C7 is 6 (&FB2D) unless &03D1 holds another gap (&FB22): with the 0.2 s, **0.9 s**
+  between blocks. After the last block: the 0.2 s and another **5.1 s** (&F86D), then the motor stops (&F246). The 4
+  spare bytes are 0 (&F7ED-&F7F5). So a file written here is the chunks `&0111` (1 s of carrier, &AA, 5.1 s:
+  `Cfs::Mos`), `&0100` per block with `&0110` of 0.9 s between, `&0110` of 5.3 s, and a file added after others has
+  `&0116` of 1 s of silence first (the motor stopped; how long is the user's, as is the carrier before RETURN). The
+  bytes after a CRC are not written (they are the 6850's leftovers, and the MOS ignores them).
+- **Changing a tape** (`Cfs::Edit`): each file owns the chunks from the end of the file before it to its own last
+  block (its silence, dummy byte and leader, with the trailer of the file before it); the information chunks a tape
+  opens with stay first and what follows the last file stays last. A file is added at the end; replaced, renamed or
+  given new attributes where it is (block for block if the number of blocks is the same, keeping the carrier between
+  them and each block's other flag bits and spare bytes; otherwise its blocks again, the MOS's 0.9 s between); removed
+  or moved with its own chunks, so no other file's chunks change. A file that opened the tape with no carrier before
+  it gets the 5.1 s leader when it moves (the MOS needs carrier before &2A). The base frequency (`&0113`) and baud rate
+  (`&0117`) each chunk was played at are put back where moved chunks need them. Damaged files and unrecognised data
+  are kept as they are (never changed or removed; they move with the order).
+- **Checked against MOS 1.20 in jsbeeb** (`design/test-scripts/jsbeeb/cfs-jsbeeb.mjs`, 18 Nov 2026): a tape made by
+  `acorndw` with every kind of change loads (`*CAT` as `acorndw ls`; `CHAIN ""` of a BASIC program that `*LOAD`s data
+  and `CHAIN`s the next, which `*RUN`s a protected machine-code file; `*LOAD` of it says "Locked"); files the MOS
+  `*SAVE`s (BASIC `SAVE`, 1000, 512 and 0 bytes, an `OPENOUT` / `BPUT` file) come back byte for byte with their
+  addresses; and a tape whose files were moved loads in its new order, byte for byte.
+- **Not yet**: the Electron's OS; the Atom's tapes; tapes recorded at the pulse level (UEF `&0102` is framed into
   bytes here; TZX and WAV aren't Acorn's).
 
 ## Behaviour that follows from the formats

@@ -10,8 +10,9 @@ the window works and how to build and test. Two companion documents hold the det
 ## What this is
 A Qt 6 / Qt 5.15 (C++17) desktop tool for editing Acorn 8-bit disc images: ADFS old-map hard discs and S/M/L
 floppies, DFS (.ssd/.dsd), PC FAT floppies, Acorn DOS Plus 800K, the Acorn 640K ADFS/DOS hybrid, and the FAT16 DOS
-Plus partition in `$.DOS.DRIVE_C` on an ADFS hard disc; and (series cfs-1, read-only for now) BBC Micro and Electron
-cassette tapes in UEF files, whose files can be copied onto discs and the computer. One disc per window; files can be dragged between windows.
+Plus partition in `$.DOS.DRIVE_C` on an ADFS hard disc; and (series cfs-1 and cfs-2) BBC Micro and Electron cassette
+tapes in UEF files, whose files can be copied onto discs and the computer, and which can be made and changed (files
+added, replaced, renamed, removed and moved, saved as the BBC's MOS saves them). One disc per window; files can be dragged between windows.
 Its sibling is CP/M Disk Wrangler (github.com/drdpj/CPMDiskWrangler): the two look and behave alike and share some
 files (see Build).
 
@@ -35,9 +36,9 @@ files (see Build).
 | `core/diskwrangler/fs/fat/` | DiskWranglerCore's FAT module (was `dosfs.cpp`): `dw::fat::Volume`: FAT12/FAT16 on a `Linear` - an `Image`'s, a whole floppy or the DRIVE_C file in it (BPB, table-driven `Format`, Acorn layouts); browse/add/mkdir/delete/rename/label/check; `fatprobe` (detection), `fatvolume` (the `dw::fs::Volume` adapter) |
 | `core/diskwrangler/fs/dfs/` | DiskWranglerCore's DFS module (was `dfs.cpp`): `dw::dfs::Disc`: one side of a DFS disc on an `Image`'s `Linear` (catalogue in sectors 0-1, plus 2-3 on a Watford 62-file disc); a .dsd = two `Disc`s. Also `.inf` sidecars (`inf.h`), addresses, the directory-letter mapping for copies to ADFS (`placeLetter`), Acorn Z80 CP/M's catalogue, `dfsprobe` (detection), `dfsvolume` (the adapter) |
 | `diskformat.h/.cpp` | detection by tiers (`core/diskwrangler/fs/detection.h`): a tape first, by its contents (`detectTape`: UEF -> `Tape`, Certain with good blocks, Likely with none; TZX / CDT / TAP -> `ForeignTape`, refused), then probes for ADFS and Torch CP/N here, FAT and DFS from the core; `detectCandidates(path, force)` -> `dw::fs::Verdict` (open, ask which, or hand to CP/M Disk Wrangler), each candidate's data a `DiskInfo` (kind, full size, DFS layout, side layout + whether the side order was confirmed); `detectDisk` = the best one's. Decides how a file is opened. `tests/legacydetect.cpp` is the detection before step 4, for `agreetest` |
-| `cfs.h/.cpp` | `Acorn::Cfs`: the cassette filing system, as MOS 1.20 reads it (docs/disc-formats.md "Tapes"): the core's tape pieces (`core/diskwrangler/tape/records.h`) -> bytes as the serial ULA hands them over (8N1 only; carrier and gaps) -> blocks (&2A, header, CRC-16 &1021) -> files and "unrecognised data". QtCore only |
-| `cfsvolume.h/.cpp` | `Acorn::CfsVolume`: a tape as a `dw::fs::Volume` (`fsId` "cfs"): files in tape order (`Caps::ordered`), each named uniquely (`GAME`, `GAME (2)`) and labelled with its own name (`Entry::label`), `#n` in `parsePath`, '/' a name character; load, exec, protected (retro-files access "E"), blocks, position. Read-only until series cfs-2 |
-| `adfsvolume.h/.cpp` | DiskWranglerCore's filesystem interface: `AdfsVolume` (an `Image` as a `dw::fs::Volume`) and `Adfs::OpenedDisc` (an opened disc as a `dw::fs::Disc`: ADFS + DOS, DFS drives 0 and 2, or FAT; or a tape: `DiskInfo::Tape`, the `Disc` staged on a `dw::tape::TapeFile` with one "tape" mount in group "Tape", `isTape()`, `cfs()`). `OpenedDisc` is the window's document (`dw::app::Document`) and `acorndw`'s opened image alike, so both save through the same checks: the volumes a change touches, the side order (`setConvertSides`), Save As into another kind (`writeCopy`, also `acorndw convert`) |
+| `cfs.h/.cpp` | `Acorn::Cfs`: the cassette filing system, as MOS 1.20 reads it (docs/disc-formats.md "Tapes"): the core's tape pieces (`core/diskwrangler/tape/records.h`) -> bytes as the serial ULA hands them over (8N1 only; carrier and gaps) -> blocks (&2A, header, CRC-16 &1021) -> files and "unrecognised data"; and back (cfs-2): `encodeBlock`, `encodeFile`, `saveChunks` (a file as `*SAVE` writes it, `Cfs::Mos`'s timings) and `Cfs::Edit` (a tape's chunks with a file added, replaced, removed or moved, each file owning its own chunks, the base frequency and baud rate kept). QtCore only |
+| `cfsvolume.h/.cpp` | `Acorn::CfsVolume`: a tape as a `dw::fs::Volume` (`fsId` "cfs"): files in tape order (`Caps::ordered`), each named uniquely (`GAME`, `GAME (2)`) and labelled with its own name (`Entry::label`), `#n` in `parsePath`, '/' a name character; load, exec, protected (retro-files access "E"; an item with E and no R arrives protected), blocks, position. Writes through `Cfs::Edit` (`write` appends or replaces in place, `remove`, `rename`, `setAttrs`, and `move` for the window's reordering); damaged files and unrecognised data are never changed. `placeIncoming` takes a DFS file's `$.` off |
+| `adfsvolume.h/.cpp` | DiskWranglerCore's filesystem interface: `AdfsVolume` (an `Image` as a `dw::fs::Volume`) and `Adfs::OpenedDisc` (an opened disc as a `dw::fs::Disc`: ADFS + DOS, DFS drives 0 and 2, or FAT; or a tape: `DiskInfo::Tape`, the `Disc` staged on a `dw::tape::TapeFile` with one "tape" mount in group "Tape", `isTape()`, `cfs()`, read-only only when its end is damaged, it holds data but no BBC file, or the file can't be written; `save` is `Disc::commitWith` over `TapeFile::commit`, read back and compared file for file, `saveTapeAs(path, gz)`). `OpenedDisc` is the window's document (`dw::app::Document`) and `acorndw`'s opened image alike, so both save through the same checks: the volumes a change touches, the side order (`setConvertSides`), Save As into another kind (`writeCopy`, also `acorndw convert`) |
 | `newdisc.h/.cpp` | `NewDisc::create()`: blank images of every format (File > New image); pure QtCore, checks its own output with `detectDisk`. The 640K DOS Plus disc needs a `bootSource` (an existing 640K disc to copy the boot track from, or a DOSBOOT file): DOSBOOT is Acorn's code and must never be put in the repo |
 | `mainwindow.h/.cpp` | the main window on DiskWranglerCore's window kit (`MainWindow` derives from `dw::ui::DiscWindow`; see *GUI architecture*): `DropTree` (the kit's `VolumePane` plus drag and drop), the panes and their rows (`paneLayout`, `decorateRow`), opening, Save / Save As / Revert, side order, boot option, disc name, Check, New directory, Delete, Extract, ADFS Properties |
 | `mainwindow_dos.cpp` | the DOS pane: its selection, DOS Properties, Rename and the viewer |
@@ -99,19 +100,28 @@ files (see Build).
   fills its hooks with its own dialogs, texts and rules. The tests reach the window through the kit (`document()` typed
   as `Adfs::OpenedDisc`, `pane(group)`, `openFile`, `DiscWindow::all()`; `tests/windowhelp.h` has the casts); the
   window has no forwards for them.
-- **Tapes** (series cfs-1). A tape is the same window and document as a disc: `OpenedDisc` in its tape mode, one pane
+- **Tapes** (series cfs-1, cfs-2). A tape is the same window and document as a disc: `OpenedDisc` in its tape mode, one pane
   group "Tape" (`PaneTape`, `m_tapeTree`, `tapeActive()`), columns Name Attr (P = protected) Load Exec Length Blocks
   Problem, rows in tape order by each file's own name (`RoleName` holds the unique name, which drags, Copy and the
   host use). "Is a disc open" is `m_doc.isOpen()`, never `m_img.isOpen()` (the ADFS image is closed under a tape).
-  Read-only: Extract, View, Copy and drags out work; files dropped on it are refused (disc images still open in their
-  own windows); Save As copies the UEF as it came; Check lists each file's problems. A copy onto ADFS or DFS keeps
-  load and exec (`fromCfs` in the import hooks) and drops the protected flag (owner's rule; `acorndw` does the same
-  in `Backend::prepareIncoming`). A TZX / CDT / TAP file is named and not opened.
+  Extract, View, Copy and drags out work as on a disc. Writable (cfs-2; `paneEditable(PaneTape)` = the document's
+  `readOnlyWhy` is empty): host files dropped, added (`tapeImportPaths`) or pasted, and files dropped from other
+  windows, go on the end of the tape through the kit's import with no hooks of this program (`importHooks` returns
+  the bare hooks for the tape: the volume's `placeIncoming` and `fromRetro` are the rules); disc images dropped on it
+  still open in their own windows. Rows dragged within the tape move (`DropRules::fromItself` for a writable tape;
+  the `internalDrop` handler sees `tapeRowsFromHere` and calls `moveTapeRows`, one transaction, before the row
+  dropped on, or to the end). Rename (`renameSelected`'s tape branch), Properties (`tapeProperties`: name, P, load,
+  exec), Delete (`deleteItems` gives the rows last on the tape first: removing a file renames the `GAME (2)` after
+  it). Save is the document's checked save; Save As offers "UEF tape, compressed" and "uncompressed" (the filter
+  chosen), `saveTapeAs`. Check lists each file's problems. A copy onto ADFS or DFS keeps load and exec (`fromCfs` in
+  the import hooks) and drops the protected flag (owner's rule; `acorndw` does the same in
+  `Backend::prepareIncoming`); tape to tape keeps it. A TZX / CDT / TAP file is named and not opened. File > New
+  image's "Tape (UEF)" (`NewDisc::Uef`, preset `uef`) makes an empty gzip UEF.
 - **Panes.** `paneGroups()` = "ADFS", "DOS", "DFS", "Tape", shown as tabs that come and go with the disc (`paneShown`,
   `paneTitle`; with no disc the tab bar is hidden and only the empty ADFS pane shows, to take drops); each mount of
   the document is in one group (`paneOf(mount)` / `mountOf(pane)`, never `if (pane == ...)` in the kit). `refresh()` follows `$.DOS.DRIVE_C` (`OpenedDisc::followDriveC`) and makes every pane again;
   `refreshChanged` after a change remakes every pane for an ADFS change (it may move DRIVE_C) and only its own pane
-  for a DOS or DFS change.
+  for a DOS, DFS or tape change.
 - **Every refresh deletes and rebuilds the tree items.** Never hold a `QTreeWidgetItem*` across an operation that
   refreshes (this caused a use-after-free in a test); keep names/sector numbers instead. The rows are made by the
   kit in the volume's `list()` order and written by `decorateRow` from this program's own classes (`Adfs::Image`, the

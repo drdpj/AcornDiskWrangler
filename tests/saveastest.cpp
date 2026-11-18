@@ -158,6 +158,7 @@ int main(int argc, char **argv) {
     struct Preset { NewDisc::Type type; QString name; QString suffix; bool seq; };
     QVector<Preset> presets;
     for (const NewDisc::TypeInfo &t : NewDisc::types()) {
+        if (t.type == NewDisc::Uef) continue;             // a tape has no disc kinds to be saved as (cfstest: its Save As)
         presets.append({t.type, t.name, t.suffix, false});
         if (t.doubleSided) presets.append({t.type, t.name, t.suffix, true});
     }

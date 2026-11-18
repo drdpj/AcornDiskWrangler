@@ -360,9 +360,8 @@ void OpenedDisc::close() {
     m_img.close();
     m_cfs.reset();
     m_tape.close();
+    m_tapeReadOnly.clear();
 }
-
-static const char *TapeReadOnly = "tape images can't be changed yet";
 
 int OpenedDisc::tapeMount() const {
     for (int i = 0; i < m_disc.mounts().size(); ++i) if (m_disc.mounts()[i].group == "Tape") return i;
@@ -408,10 +407,14 @@ bool OpenedDisc::open(const QString &path, const DiskInfo &info, QString *err) {
         return false;
     case DiskInfo::Tape:                          // the Disc's transactions stage on the tape file
         if (!m_tape.open(path, err)) { close(); return false; }
-        m_tape.setWritable(false);
         m_disc.setStaged(&m_tape);
         m_cfs = std::make_shared<Acorn::CfsVolume>(&m_tape);
-        m_disc.addMount({"tape", m_cfs, true, TapeReadOnly, "Tape"});
+        if (!m_tape.readOnlyWhy().isEmpty()) m_tapeReadOnly = "the end of the file is damaged: " + m_tape.readOnlyWhy();
+        else if (m_cfs->tapeRead().files() == 0 && !m_cfs->tapeRead().items.isEmpty())
+            m_tapeReadOnly = "nothing on it is a BBC Micro file, so it may be another machine's tape";
+        else if (!QFileInfo(path).isWritable()) m_tapeReadOnly = "the tape file can't be written";
+        m_tape.setWritable(m_tapeReadOnly.isEmpty());
+        m_disc.addMount({"tape", m_cfs, !m_tapeReadOnly.isEmpty(), m_tapeReadOnly, "Tape"});
         return true;
     default: break;
     }
@@ -491,10 +494,14 @@ void OpenedDisc::reloadMounts() {
 }
 
 bool OpenedDisc::save(QString *err, bool backup) {
-    if (m_tape.isOpen()) {
+    if (m_tape.isOpen()) {                        // the checked save (commitWith checks the tape first), read back
         if (!m_tape.hasPending()) return true;
-        *err = TapeReadOnly;
-        return false;
+        dw::tape::TapeFile::SaveOptions o;
+        o.backup = backup;
+        o.verify = [this](dw::tape::TapeFile &w, QString *e) { return sameFiles(w, e); };
+        const bool ok = m_disc.commitWith([&](QString *e) { return m_tape.commit(o, e); }, err);
+        reloadMounts();
+        return ok;
     }
     // Adfs::Image keeps its own saving sequence (the map checks, padding, the side-order conversion, the
     // changed-on-disc refusal, and the checks above); the command line checks every mount first
@@ -511,11 +518,7 @@ bool OpenedDisc::save(QString *err, bool backup) {
 }
 
 bool OpenedDisc::saveAs(const QString &path, dw::device::Kind kind, QString *err) {
-    if (m_tape.isOpen()) {                        // a copy of the tape, as it was opened (gzip or not), checked
-        if (!m_tape.saveAs(path, m_tape.gzip(), err)) return false;
-        reloadMounts();
-        return true;
-    }
+    if (m_tape.isOpen()) return saveTapeAs(path, m_tape.gzip(), err);   // UEF as it was opened (gzip or not)
     if (kind == dw::device::Kind::None || kind == m_img.containerKind()) return m_img.moveToCopy(path, err) && save(err, false);
     if (!writeCopy(path, kind, QString(), true, err)) return false;
     DiskInfo unknown;
@@ -523,6 +526,36 @@ bool OpenedDisc::saveAs(const QString &path, dw::device::Kind kind, QString *err
     if (!open(path, v.bestCandidate() ? diskInfo(*v.bestCandidate()) : unknown, err)) return false;
     m_dosOk = m_dos->attached() && m_dos->check().ok();
     for (int s = 0; s < 2; ++s) m_dfsOk[s] = m_dfs[s]->attached() && m_dfs[s]->check().ok();
+    return true;
+}
+
+// The files a written tape holds, read again, are the files of the tape in memory: names, addresses, flags and data,
+// in order.
+bool OpenedDisc::sameFiles(const dw::tape::TapeFile &written, QString *err) const {
+    const Acorn::Cfs::Tape a = Acorn::Cfs::read(dw::tape::pieces(m_tape)), b = Acorn::Cfs::read(dw::tape::pieces(written));
+    bool same = a.items.size() == b.items.size();
+    for (int i = 0; same && i < a.items.size(); ++i) {
+        const Acorn::Cfs::File &x = a.items[i].file, &y = b.items[i].file;
+        same = a.items[i].type == b.items[i].type && x.name == y.name && x.load == y.load && x.exec == y.exec &&
+               x.flag == y.flag && x.data == y.data && x.blocks == y.blocks && x.problems == y.problems;
+    }
+    if (!same) *err = "the tape written doesn't hold the same files when read back";
+    return same;
+}
+
+bool OpenedDisc::saveTapeAs(const QString &path, bool gz, QString *err) {
+    if (!m_tape.isOpen()) { *err = "no tape"; return false; }
+    const dw::fs::Report r = m_disc.validateAll();
+    if (!r.ok()) { *err = "The tape failed its check, so NOTHING was written.\n\n" + r.errors.join("\n"); return false; }
+    if (!m_tape.saveAs(path, gz, err, [this](dw::tape::TapeFile &w, QString *e) { return sameFiles(w, e); })) return false;
+    // the new file may be writable where the old one wasn't
+    if (m_tapeReadOnly == "the tape file can't be written" && QFileInfo(path).isWritable()) {
+        m_tapeReadOnly.clear();
+        m_tape.setWritable(true);
+        m_disc.mounts()[tapeMount()].readOnly = false;
+        m_disc.mounts()[tapeMount()].readOnlyWhy.clear();
+    }
+    reloadMounts();
     return true;
 }
 
@@ -621,7 +654,7 @@ void OpenedDisc::revert() {
 }
 
 QString OpenedDisc::readOnlyWhy(int mount) const {
-    if (m_tape.isOpen()) return TapeReadOnly;
+    if (m_tape.isOpen()) return m_tapeReadOnly;
     if (!m_img.isOpen()) return "no disc";
     if (!m_img.editable())
         return m_img.isAdfs() && !m_img.openReport().ok() ? "the free space map or directories are damaged (Tools > Check disc)"

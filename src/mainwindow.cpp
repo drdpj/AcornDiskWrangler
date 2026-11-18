@@ -159,8 +159,9 @@ QMimeData *DropTree::makeMime(const QList<QTreeWidgetItem *> &items) const {
 dw::ui::VolumePane::DropRules DropTree::dropRules() const {
     DropRules r;
     MainWindow *w = MainWindow::byId(sourceWindow());
-    r.fromItself = w && (sourcePane() == PaneDfs0 || sourcePane() == PaneDfs1) && w->document()->dfs(0).attached() &&
-                   w->document()->dfs(1).attached();
+    r.fromItself = w && (((sourcePane() == PaneDfs0 || sourcePane() == PaneDfs1) && w->document()->dfs(0).attached() &&
+                          w->document()->dfs(1).attached()) ||
+                         (sourcePane() == PaneTape && w->paneEditable(PaneTape)));    // rows moved within a tape
     r.filesNotJson = w && !w->document()->isOpen();
     return r;
 }
@@ -401,10 +402,27 @@ MainWindow::MainWindow(QWidget *parent) : DiscWindow(parent) {
         }
     });
     connect(m_actRenameVol, &QAction::triggered, this, &MainWindow::renameVolume);
-    for (DropTree *t : {m_tree, m_dosTree, m_dfsTree}) {
+    for (DropTree *t : {m_tree, m_dosTree, m_dfsTree, m_tapeTree}) {
         connect(t, &QTreeWidget::currentItemChanged, this, &MainWindow::updateUi);   // which DFS side is in use
         // items dragged in from another disc/window (resolved now, handled after the drop returns)
         connect(t, &DropTree::internalDrop, this, [this, t](const QByteArray &payload, QTreeWidgetItem *it) {
+            if (t == m_tapeTree && tapeRowsFromHere(payload)) {     // rows moved within the tape: before the row dropped on
+                QStringList names;
+                QDataStream ds(payload);
+                quint64 win = 0;
+                qint32 srcPane = 0, n = 0;
+                ds >> win >> srcPane >> n;
+                for (int i = 0; i < n && ds.status() == QDataStream::Ok; ++i) {
+                    quint32 par = 0;
+                    QString nm;
+                    bool isDir = false;
+                    ds >> par >> nm >> isDir;
+                    names << nm;
+                }
+                const QString before = it && !it->data(0, RoleIsRoot).toBool() ? it->data(0, RoleName).toString() : QString();
+                QTimer::singleShot(0, this, [this, names, before] { moveTapeRows(names, before); });
+                return;
+            }
             int pane = dropPane(t, it);
             quint32 dir = dropTarget(pane, it);
             QTimer::singleShot(0, this, [this, pane, dir, payload] { onInternalDrop(pane, dir, payload); });
@@ -439,7 +457,7 @@ MainWindow::MainWindow(QWidget *parent) : DiscWindow(parent) {
 // ---------------------------------------------------------------- open/save
 
 bool MainWindow::confirmDiscard() {
-    if (!m_img.dirty()) return true;
+    if (!m_doc.dirty()) return true;
     auto b = QMessageBox::question(this, "Unsaved changes",
                                    "The image has unsaved changes. Save them first?",
                                    QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
@@ -542,9 +560,11 @@ void MainWindow::afterOpen(const QString &path) {
         const Acorn::Cfs::Tape &t = m_doc.cfs()->tapeRead();
         int bad = 0;
         for (const Acorn::Cfs::Item &i : t.items) if (i.type == Acorn::Cfs::Item::FileItem && !i.file.problems.isEmpty()) ++bad;
+        const QString ro = m_doc.readOnlyWhy(m_doc.tapeMount());
         statusBar()->showMessage("Opened " + path + " - " + info.description +
                                      (bad ? QString(", %1 with problems - see Tools > Check.").arg(bad) : QString(".")) +
-                                     "  Files can be copied from it; tapes can't be changed yet.", 15000);
+                                     (ro.isEmpty() ? QString("  Files dropped on it are added at the end; drag them to change the order.")
+                                                   : "  Read-only: " + ro + "."), 15000);
         return;
     }
     if (m_img.isAdfs() && !r.ok()) {
@@ -689,18 +709,22 @@ void MainWindow::renameVolume() {
 // image's own kind. A copy of the image's own kind is made as it always was; a hard disc (and a disc nothing
 // recognised) is saved only as a copy of its own kind, in the dialog it always had.
 void MainWindow::saveAsDialog() {
-    if (m_doc.isTape()) {                                // a copy of the tape, UEF as it came (gzip or not), checked
+    if (m_doc.isTape()) {                                // UEF, compressed or not (the filter chosen), with the changes, checked
         QFileInfo fi(m_doc.path());
+        const QString gz = "UEF tape, compressed (*.uef)", plain = "UEF tape, uncompressed (*.uef)";
+        QString filter = m_doc.tape().gzip() ? gz : plain;
         const QString p = QFileDialog::getSaveFileName(this, "Save as", fi.absolutePath() + "/" + fi.completeBaseName() + "-copy." + fi.suffix(),
-                                                       QString("UEF tape (*.%1);;All files (*)").arg(fi.suffix()));
+                                                       gz + ";;" + plain, &filter);
         if (p.isEmpty()) return;
         const QString abs = QFileInfo(p).absoluteFilePath();
-        if (abs == fi.absoluteFilePath()) return;
         for (MainWindow *w : allWindows())
             if (w != this && w->m_doc.isOpen() && QFileInfo(w->m_doc.path()).absoluteFilePath() == abs) {
                 QMessageBox::warning(this, "Save as", "That file is open in another window."); return; }
         QString err;
-        if (!m_doc.saveAs(p, dw::device::Kind::None, &err)) { QMessageBox::warning(this, "Save as", "Not saved: " + err); return; }
+        QApplication::setOverrideCursor(Qt::WaitCursor);
+        const bool ok = m_doc.saveTapeAs(p, filter == gz, &err);
+        QApplication::restoreOverrideCursor();
+        if (!ok) { QMessageBox::warning(this, "Save as", "Not saved: " + err); return; }
         refresh(); updateUi();
         return;
     }
@@ -808,13 +832,19 @@ void MainWindow::newImageDialog() {
         const NewDisc::TypeInfo &t = NewDisc::info(NewDisc::Type(type->currentData().toInt()));
         titleLabel->setText(QString(t.titleWhat) + ":");
         title->setMaxLength(t.titleMax);
+        const bool tape = t.type == NewDisc::Uef;           // a tape has no title and no sides
+        titleLabel->setVisible(!tape);
+        title->setVisible(!tape);
         sideBox->setEnabled(t.doubleSided);
         bool hyb = t.type == NewDisc::Acorn640;
         bootLabel->setVisible(hyb);
         bootBox->setVisible(hyb);
         note->setText(hyb ? "Set up like Acorn's DOS Plus 640K discs, with no DOS files.\n"
                             "DOSBOOT is Acorn's boot code, so it is copied from a disc you have:\n"
-                            "a DOS Plus 640K image (its boot track is copied exactly) or a DOSBOOT file." : QString());
+                            "a DOS Plus 640K image (its boot track is copied exactly) or a DOSBOOT file."
+                      : tape ? "An empty cassette tape. Files added to it are saved as the BBC Micro saves them,\n"
+                               "one after another; their order on the tape can be changed by dragging."
+                             : QString());
         note->setVisible(!note->text().isEmpty());
     };
     connect(type, QOverload<int>::of(&QComboBox::currentIndexChanged), &dlg, upd);
@@ -833,9 +863,11 @@ void MainWindow::newImageDialog() {
     const NewDisc::TypeInfo &t = NewDisc::info(NewDisc::Type(type->currentData().toInt()));
     QString ext = t.suffix;
     // suggest a file name from the title: "Games Disc" -> "Games Disc.adl"
-    QString base = title->text().trimmed().isEmpty() ? QString("untitled") : dw::hostSafeName(title->text().trimmed());
-    QString path = QFileDialog::getSaveFileName(this, "Create disc image", st.value("lastDir").toString() + "/" + base + "." + ext,
-                                                QString("Disc image (*.%1);;All files (*)").arg(ext));
+    const bool tape = t.type == NewDisc::Uef;
+    QString base = tape || title->text().trimmed().isEmpty() ? QString("untitled") : dw::hostSafeName(title->text().trimmed());
+    QString path = QFileDialog::getSaveFileName(this, tape ? "Create tape image" : "Create disc image",
+                                                st.value("lastDir").toString() + "/" + base + "." + ext,
+                                                QString("%1 (*.%2);;All files (*)").arg(tape ? "Tape image" : "Disc image", ext));
     if (path.isEmpty()) return;
     if (QFileInfo(path).suffix().isEmpty()) path += "." + ext;
     QString abs = QFileInfo(path).absoluteFilePath();
@@ -846,7 +878,7 @@ void MainWindow::newImageDialog() {
         }
     bool sequential = t.doubleSided && seq->isChecked();
     QString err;
-    if (!NewDisc::create(path, t.type, title->text(), sequential, &err, boot->text())) {
+    if (!NewDisc::create(path, t.type, tape ? QString() : title->text(), sequential, &err, boot->text())) {
         QMessageBox::critical(this, "New disc image", "Could not create the image:\n" + err);
         return;
     }
@@ -855,7 +887,7 @@ void MainWindow::newImageDialog() {
 }
 
 bool MainWindow::save() {
-    if (!m_img.isOpen() || !(m_img.dirty() || m_img.needsPadding())) return true;
+    if (!m_doc.isOpen() || !(m_doc.dirty() || m_img.needsPadding())) return true;
     QString err;
     bool converting = m_doc.convertPending();
     QApplication::setOverrideCursor(Qt::WaitCursor);
@@ -868,12 +900,13 @@ bool MainWindow::save() {
         return false;
     }
     refresh(); updateUi();
-    statusBar()->showMessage("Saved. Free space map and directories re-checked: OK.", 6000);
+    statusBar()->showMessage(m_doc.isTape() ? "Saved. The tape was read back: the same files."
+                                            : "Saved. Free space map and directories re-checked: OK.", 6000);
     return true;
 }
 
 void MainWindow::revert() {
-    if (!m_img.dirty()) return;
+    if (!m_doc.dirty()) return;
     if (QMessageBox::question(this, "Revert", "Discard all unsaved changes?") != QMessageBox::Yes) return;
     m_doc.revert();
     refresh(); updateUi();
@@ -968,16 +1001,17 @@ void MainWindow::refresh() {
 
 
 // After a change (Delete): an ADFS change can move or remove $.DOS.DRIVE_C, so every pane is made again; a DOS or DFS
-// change only its own pane, the others left as they are (their selection and current row too), as always.
+// change only its own pane, the others left as they are (their selection and current row too), as always; a tape its own.
 void MainWindow::refreshChanged(const QVector<int> &mounts) {
     bool all = mounts.isEmpty();
     for (int m : mounts) all = all || paneOf(m) == PaneAdfs || paneOf(m) < 0;
     if (all) { refresh(); return; }
-    bool dos = false, dfs = false;
-    for (int m : mounts) (paneOf(m) == PaneDos ? dos : dfs) = true;
+    bool dos = false, dfs = false, tape = false;
+    for (int m : mounts) (paneOf(m) == PaneDos ? dos : paneOf(m) == PaneTape ? tape : dfs) = true;
     clearRowCache();
     if (dos) m_dosTree->refresh();
     if (dfs) m_dfsTree->refresh();
+    if (tape) m_tapeTree->refresh();
     updateUi();
 }
 
@@ -1088,7 +1122,7 @@ void MainWindow::decorateRow(QTreeWidgetItem *it, int mount, const dw::fs::Path 
             for (int c = 0; c < it->columnCount(); ++c) it->setForeground(c, Qt::gray);
         }
         if (!entry->problem.isEmpty() && file) it->setForeground(6, Qt::red);
-        if (entry->attrs.value("protected").toBool()) it->setToolTip(1, "Protected: *RUN and CHAIN only (*LOAD says \"Locked\")");
+        if (entry->attrs.value("protected").toBool()) it->setToolTip(1, "Protected: *RUN only (*LOAD and CHAIN say \"Locked\")");
         it->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
         it->setData(0, RoleParent, 0);
         it->setData(0, RoleName, entry->name);   // the unique name: what a drag or a copy names it by
@@ -1251,18 +1285,18 @@ QString MainWindow::readOnlyReason() const {
 }
 
 void MainWindow::updateActions() {
-    bool has = m_doc.isOpen(), ed = has && m_img.editable();
+    const bool tape = tapeActive();
+    bool has = m_doc.isOpen(), ed = has && (tape ? paneEditable(PaneTape) : m_img.editable());
     int ds = dfsSide();
     bool dosPane = dosActive();
-    const bool tape = tapeActive();
-    bool canEdit = tape ? false : dosPane ? dosEditable() : (ds >= 0 ? dfsEditable(ds) : (ed && m_img.isAdfs() && !m_img.adfsLocked()));
+    bool canEdit = tape ? paneEditable(PaneTape) : dosPane ? dosEditable() : (ds >= 0 ? dfsEditable(ds) : (ed && m_img.isAdfs() && !m_img.adfsLocked()));
     QTreeWidget *ct = currentTree();
-    bool changed = m_img.dirty() || m_img.needsPadding();
+    bool changed = m_doc.dirty() || m_img.needsPadding();
     m_actSave->setEnabled(ed && changed);
-    m_actRevert->setEnabled(ed && m_img.dirty());
+    m_actRevert->setEnabled(ed && m_doc.dirty());
     m_actAddFiles->setEnabled(canEdit);
-    m_actAddFolder->setEnabled(canEdit);
-    m_actNewDir->setEnabled(canEdit && ds < 0);      // DFS has no directories
+    m_actAddFolder->setEnabled(canEdit && !tape);    // a tape has no folders
+    m_actNewDir->setEnabled(canEdit && ds < 0 && !tape);      // DFS and tapes have no directories
     m_actCheck->setEnabled(has);
     m_actExtract->setEnabled(has);
     bool sel = tape ? !m_tapeTree->selectedItems().isEmpty()
@@ -1273,8 +1307,8 @@ void MainWindow::updateActions() {
     m_actProps->setEnabled(canEdit && sel);
     m_actView->setEnabled(has && sel);
     m_actRename->setEnabled(canEdit && !ct->selectedItems().isEmpty());
-    m_actRenameVol->setEnabled(canEdit);
-    m_actBootOpt->setEnabled(canEdit && !dosPane);
+    m_actRenameVol->setEnabled(canEdit && !tape);
+    m_actBootOpt->setEnabled(canEdit && !dosPane && !tape);
     const dw::device::SideOrder &sl = m_img.sideLayout();
     bool twoSides = has && sl.doubleSided() && m_img.isRawFile();     // ImageDisk, DSK: each track says where it is
     m_actReadIl->setEnabled(twoSides);
@@ -1296,7 +1330,7 @@ QStringList MainWindow::statusVariants() const {
         QString s = QString("%1 - %2 file%3, %4 blocks").arg(m_doc.tape().kind() == dw::tape::Kind::Uef ? m_doc.info().description : QString("Tape"))
                         .arg(t.files()).arg(t.files() == 1 ? "" : "s").arg(t.blocks.size());
         if (unread) s += QString("  -  %1 stretch%2 of unrecognised data").arg(unread).arg(unread == 1 ? "" : "es");
-        s += "  -  read-only: " + readOnlyReason();
+        if (!readOnlyReason().isEmpty()) s += "  -  read-only: " + readOnlyReason();
         return {s};
     }
     int ds = dfsSide();
@@ -1348,11 +1382,8 @@ QTreeWidget *MainWindow::currentTree() const {
 // left out, dropSkipsFile): disc images go to dropImages, the rest is imported where they were dropped.
 void MainWindow::droppedOnDisc(dw::ui::VolumePane *pane, QTreeWidgetItem *target, const QStringList &paths) {
     if (pane == m_dosTree) { onDosDropped(paths, target); return; }
-    if (pane == m_tapeTree) {                    // disc images open in their own windows; nothing is added to a tape yet
-        if (!dropImages(PaneTape, paths, [this](const QStringList &) {
-                message("Read-only", "Files can't be added to a tape yet: " + readOnlyReason() + ".");
-            }))
-            message("Read-only", "Files can't be added to a tape yet: " + readOnlyReason() + ".");
+    if (pane == m_tapeTree) {                    // disc images open in their own windows; other files go on the end of the tape
+        if (!dropImages(PaneTape, paths, [this](const QStringList &r) { tapeImportPaths(r); })) tapeImportPaths(paths);
         return;
     }
     if (pane == m_dfsTree) {
@@ -1428,7 +1459,8 @@ void MainWindow::addFilesDialog() {
     QStringList f = QFileDialog::getOpenFileNames(this, "Add files to the image", s.value("addDir").toString());
     if (f.isEmpty()) return;
     s.setValue("addDir", QFileInfo(f.first()).absolutePath());
-    if (dfsSide() >= 0) dfsImportPaths(dfsSide(), f);
+    if (tapeActive()) tapeImportPaths(f);
+    else if (dfsSide() >= 0) dfsImportPaths(dfsSide(), f);
     else if (dosActive()) dosImportPaths(f, dosTargetDir(m_dosTree->currentItem()));
     else importPaths(f, targetDirForItem(m_tree->currentItem()));
 }
@@ -1455,6 +1487,40 @@ void MainWindow::importPaths(const QStringList &paths, quint32 dir) {
         return;
     }
     hostImport(PaneAdfs, dir, paths, m_optReadInf->isChecked());
+}
+
+// Files from the computer onto a tape: added at its end, saved as the MOS saves them (the volume's placeIncoming and
+// fromRetro: a .inf's name and addresses, its access 04 as the protected flag).
+void MainWindow::tapeImportPaths(const QStringList &paths) {
+    if (!paneEditable(PaneTape)) {
+        QMessageBox::warning(this, "Read-only", "This tape is read-only, so nothing can be added: " + readOnlyReason() + ".");
+        return;
+    }
+    hostImport(PaneTape, 0, paths, m_optReadInf->isChecked());
+}
+
+// Rows of the tape dragged within it: moved, in their tape order, to just before the row dropped on (after the last
+// row: to the end), in one transaction. The tape's other files keep their own chunks.
+void MainWindow::moveTapeRows(const QStringList &names, const QString &before) {
+    if (!paneEditable(PaneTape)) { message("Move", "This tape is read-only: " + readOnlyReason() + "."); return; }
+    const int mount = m_doc.tapeMount();
+    QVector<dw::fs::Path> nodes;
+    for (const QString &n : names) nodes << dw::fs::Path({n});
+    QString err;
+    const bool ok = m_doc.disc().transact([&](QString *e) {
+        return m_doc.cfs()->move(nodes, before.isEmpty() ? dw::fs::Path() : dw::fs::Path({before}), e);
+    }, &err);
+    if (!ok) { message("Move", err); return; }
+    refreshChanged({mount});
+    updateUi();
+}
+
+bool MainWindow::tapeRowsFromHere(const QByteArray &payload) const {
+    QDataStream ds(payload);
+    quint64 win = 0;
+    qint32 srcPane = 0;
+    ds >> win >> srcPane;
+    return ds.status() == QDataStream::Ok && win == id() && srcPane == PaneTape;
 }
 
 // ----------------------------------------------------------- new / delete / props
@@ -1506,7 +1572,17 @@ QVector<dw::ui::DiscWindow::Item> MainWindow::deleteItems() const {
     QVector<Item> v;
     const int ds = dfsSide();
     QList<QTreeWidgetItem *> rows;
-    if (ds >= 0) {
+    if (tapeActive()) {
+        // last on the tape first: removing a file never renames one before it (the second GAME is "GAME (2)" only
+        // while the first is there)
+        for (QTreeWidgetItem *it : m_tapeTree->selectedItems()) if (!it->data(0, RoleIsRoot).toBool()) rows << it;
+        std::sort(rows.begin(), rows.end(), [](QTreeWidgetItem *a, QTreeWidgetItem *b) {
+            const QTreeWidgetItem *pa = a->parent(), *pb = b->parent();
+            const int ia = pa ? pa->indexOfChild(a) : a->treeWidget()->indexOfTopLevelItem(a);
+            const int ib = pb ? pb->indexOfChild(b) : b->treeWidget()->indexOfTopLevelItem(b);
+            return ia > ib;
+        });
+    } else if (ds >= 0) {
         for (const FSel &s : dfsSelected()) rows << s.item;
     } else {
         const bool dos = dosActive();
@@ -1529,7 +1605,16 @@ QVector<dw::ui::DiscWindow::Item> MainWindow::deleteItems() const {
 
 bool MainWindow::confirmDelete(const QVector<Item> &items) {
     QString msg;
-    if (dfsSide() >= 0) {
+    if (tapeActive()) {
+        int prot = 0;
+        for (const Item &i : items) {
+            dw::fs::Entry e;
+            QString err;
+            if (m_doc.cfs()->stat(i.path, &e, &err) && e.attrs.value("protected").toBool()) ++prot;
+        }
+        msg = QString("Delete %1 file(s) from the tape?").arg(items.size());
+        if (prot) msg += QString("\n\n%1 of these are protected.").arg(prot);
+    } else if (dfsSide() >= 0) {
         int locked = 0;
         QSet<int> sides;
         for (const Item &i : items) {
@@ -1592,6 +1677,7 @@ QVector<dw::ui::DiscWindow::Item> MainWindow::propertiesItems() const {
 bool MainWindow::propertiesEditor(const QVector<Item> &items, PropertiesEdit *edit) {
     edit->eachOnItsOwn = true;
     const int pane = paneOf(items[0].mount);
+    if (pane == PaneTape) return tapeProperties(items, edit);
     if (pane == PaneDfs0 || pane == PaneDfs1) return dfsProperties(items, edit);
     return pane == PaneDos ? dosProperties(items, edit) : adfsProperties(items, edit);
 }
@@ -1669,6 +1755,65 @@ bool MainWindow::adfsProperties(const QVector<Item> &items, PropertiesEdit *edit
         if (loadEd) c.attrs["load"] = loadEd->text().toUInt(nullptr, 16);
         if (execEd) c.attrs["exec"] = execEd->text().toUInt(nullptr, 16);
         if (nameEd && nameEd->text().trimmed() != e.name()) c.to = items[i].path.parent().child(nameEd->text().trimmed());
+        edit->changes << c;
+    }
+    return true;
+}
+
+// A tape file's properties: its name (one file), the protected flag (*RUN only), load and exec (one file). A file the
+// cassette filing system reads with problems, and unrecognised data, are kept as they are (the volume refuses them).
+bool MainWindow::tapeProperties(const QVector<Item> &items, PropertiesEdit *edit) {
+    QVector<dw::fs::Entry> ents;
+    QString err;
+    for (const Item &i : items) {
+        dw::fs::Entry e;
+        if (!m_doc.cfs()->stat(i.path, &e, &err)) { QMessageBox::warning(this, "Properties", err); return false; }
+        if (!e.problem.isEmpty()) {
+            QMessageBox::warning(this, "Properties", e.shown() + ": " + e.problem + ", so it is kept as it is.");
+            return false;
+        }
+        ents << e;
+    }
+    const bool single = ents.size() == 1;
+    QDialog dlg(this);
+    dlg.setWindowTitle(single ? "Properties - " + ents[0].shown() : QString("Properties - %1 files").arg(ents.size()));
+    QFormLayout *form = new QFormLayout(&dlg);
+    QLineEdit *nameEd = nullptr, *loadEd = nullptr, *execEd = nullptr;
+    if (single) {
+        nameEd = new QLineEdit(ents[0].shown());
+        nameEd->setMaxLength(10);
+        form->addRow("Name:", nameEd);
+    }
+    auto *cbP = new QCheckBox("P  - protected (*RUN only: *LOAD and CHAIN say \"Locked\")");
+    int on = 0;
+    for (const dw::fs::Entry &e : ents) on += e.attrs.value("protected").toBool() ? 1 : 0;
+    if (on == 0) cbP->setCheckState(Qt::Unchecked);
+    else if (on == ents.size()) cbP->setCheckState(Qt::Checked);
+    else { cbP->setTristate(true); cbP->setCheckState(Qt::PartiallyChecked); }
+    form->addRow("Attributes:", cbP);
+    if (single) {
+        auto *v = new QRegularExpressionValidator(QRegularExpression("[0-9A-Fa-f]{1,8}"), &dlg);
+        loadEd = new QLineEdit(hex8(ents[0].attrs.value("load").toUInt())); loadEd->setValidator(v);
+        execEd = new QLineEdit(hex8(ents[0].attrs.value("exec").toUInt())); execEd->setValidator(v);
+        form->addRow("Load address (hex):", loadEd);
+        form->addRow("Exec address (hex):", execEd);
+        form->addRow("Length:", new QLabel(QString("%1 bytes (&%2), %3 block%4").arg(ents[0].size).arg(ents[0].size, 0, 16)
+                                               .arg(ents[0].attrs.value("blocks").toInt()).arg(ents[0].attrs.value("blocks").toInt() == 1 ? "" : "s")));
+        form->addRow("Position:", new QLabel(QString("file %1 on the tape").arg(ents[0].attrs.value("position").toInt())));
+    }
+    auto *bb = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    form->addRow(bb);
+    connect(bb, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+    connect(bb, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+    if (dlg.exec() != QDialog::Accepted) return false;
+    for (int i = 0; i < ents.size(); ++i) {
+        const dw::fs::Entry &e = ents[i];
+        PropertyChange c;
+        c.item = items[i];
+        c.attrs["protected"] = cbP->checkState() == Qt::PartiallyChecked ? e.attrs.value("protected").toBool() : cbP->checkState() == Qt::Checked;
+        if (loadEd) c.attrs["load"] = loadEd->text().toUInt(nullptr, 16);
+        if (execEd) c.attrs["exec"] = execEd->text().toUInt(nullptr, 16);
+        if (nameEd && nameEd->text() != e.shown()) c.to = dw::fs::Path({nameEd->text()});
         edit->changes << c;
     }
     return true;

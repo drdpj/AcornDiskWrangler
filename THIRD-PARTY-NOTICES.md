@@ -60,7 +60,7 @@ These were read for facts about formats or behaviour. No code or text was copied
 | Watford Electronics DFS manual, section 9.2 "Disc Catalogue" (1983; text at bbc.nvg.org `doc/WatfordDFS.txt`) | the 62-file disc's second catalogue in sectors 2-3 and its &AA recognition bytes | facts only |
 | BeebWiki, "Acorn DFS disc format" (<https://beebwiki.mdfs.net/Acorn_DFS_disc_format>) and J.G. Harston's DFS format notes (<https://mdfs.net/Docs/Comp/Disk/Format/DFS>) | the `!.!!!!!!!` guard entry some tools write, and telling a 62-file disc from a file whose data starts with &AA | facts only |
 | Feedback from Rob Smallshire, author of oaknut (GitHub issue #1) | public access, name character set, typed loads | - |
-| Acorn's MOS 1.20 ROM (the BBC Micro's OS; the copy jsbeeb ships, disassembled with MAME's `unidasm` and watched running in jsbeeb; not in the repo) | the cassette filing system: block layout, CRC, flags, how blocks make a file (`docs/disc-formats.md`, "Tapes") | facts only (the ROM is Acorn's) |
+| Acorn's MOS 1.20 ROM (the BBC Micro's OS; the copy jsbeeb ships, disassembled with MAME's `unidasm` and watched running in jsbeeb; not in the repo) | the cassette filing system: block layout, CRC, flags, how blocks make a file, and how `*SAVE` writes a tape (the dummy byte, leader, gaps and trailer) (`docs/disc-formats.md`, "Tapes") | facts only (the ROM is Acorn's) |
 | The UEF specification 0.10 (Thomas Harte, Fraser Ross, Greg Cook; document draft 28, 2006; in PlayUEF's `docs/UEFspecification.html`) | the UEF tape image format, read by DiskWranglerCore's tape module | facts only |
 | The TZX specification 1.20 (World of Spectrum, 2006) and CPCWiki's "Format:CDT tape image file format" page | TZX and CDT files, which the program recognises and names (it doesn't open them) | facts only |
 | PlayUEF (<https://github.com/8bitkick/PlayUEF>, GPL v3) | how another UEF reader takes the `&0112` gap's length (agreeing with the core's reading of the specification) | facts only; no code taken |
@@ -73,8 +73,9 @@ These were read for facts about formats or behaviour. No code or text was copied
   their owners and are not part of this repository; the tests read them from outside it.
 * **jsbeeb** (Matt Godbolt and contributors, <https://github.com/mattgodbolt/jsbeeb>, GPL v3 or later), driven
   through **jsbeeb-mcp** (4.5.0) on **Node.js**: a BBC Micro emulator, used to run MOS 1.20 on the real tapes
-  (`*CAT`, `CHAIN ""`, breakpoints in the cassette code) while the tape format was settled. Nothing of it is in this
-  program.
+  (`*CAT`, `CHAIN ""`, breakpoints in the cassette code) while the tape format was settled, and (jsbeeb 2.22.1, its
+  `MachineSession` driven by a script outside this repository) to load the tapes this program writes and to catch
+  what the MOS sends to the cassette when it saves. Nothing of it is in this program.
 * **dosfstools** (`mkfs.fat`, `fsck.fat`; GPL v3+) and **mtools** (GPL v3+) are run by the tests as independent
   checks; **Xvfb** and **xdotool** drive the real drag-and-drop test on Linux. **Pillow** (HPND licence) made
   `icons/acorndiskwrangler.ico` from the PNGs and was used to check `icons/acorndiskwrangler.icns`.

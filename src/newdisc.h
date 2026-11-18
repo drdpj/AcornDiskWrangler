@@ -31,7 +31,8 @@ namespace dw { namespace fs { class PresetRegistry; } }
 namespace NewDisc {
 
 enum Type { AdfsS, AdfsM, AdfsL, DfsSs40, DfsSs80, DfsDs40, DfsDs80, Acorn800, Acorn640, Pc360, Pc720, Pc1200, Pc1440,
-            WatSs40, WatSs80, WatDs40, WatDs80 };       // Watford DFS 62-file discs
+            WatSs40, WatSs80, WatDs40, WatDs80,         // Watford DFS 62-file discs
+            Uef };                                      // a blank cassette tape: a UEF file (gzip) holding no files
 
 struct TypeInfo {
     Type type;
@@ -50,7 +51,8 @@ void addPresets(dw::fs::PresetRegistry &r);
 const QVector<TypeInfo> &types();       // every format offered, in this program's order (the New image dialog, new --list)
 const TypeInfo &info(Type t);
 
-// Writes a blank, valid image of the given type to path (replacing any file there). Double-sided formats are
+// Writes a blank, valid image of the given type to path (replacing any file there). A tape (Uef) is a gzip UEF file
+// with only its origin chunk ("Acorn Disk Wrangler"), as new tapes are gzip (plan tape.md, question 3). Double-sided formats are
 // written in the requested side order. The title is the ADFS disc name, the DFS title (both sides of a DSD) or
 // the DOS volume label; empty = none.
 // Acorn640 needs bootSource: the boot track (ADFS catalogue + DOSBOOT) is copied exactly from an existing DOS

@@ -35,6 +35,7 @@ quint16 crc(const QByteArray &bytes, quint16 start) {
 }
 
 QString nameText(const QByteArray &name) { return QString::fromLatin1(name); }
+QByteArray nameBytes(const QString &name) { return name.toLatin1(); }
 
 int Tape::files() const {
     int n = 0;
@@ -190,7 +191,8 @@ Tape read(const QVector<Piece> &pieces) {
     auto close = [&]() {
         if (cur >= 0 && !done) files[cur].file.problems << "no last block";
     };
-    for (const Block &b : t.blocks) {
+    for (int bi = 0; bi < t.blocks.size(); ++bi) {
+        const Block &b = t.blocks.at(bi);
         QStringList problems;
         if (!b.headerOk) problems << QString("block %1 header CRC").arg(b.number);
         if (b.cut) problems << QString("block %1 cut short").arg(b.number);
@@ -205,6 +207,7 @@ Tape read(const QVector<Piece> &pieces) {
             it.file.exec = b.exec;
             it.file.flag = b.flag;
             it.file.first = b.first;
+            it.file.firstBlock = bi;
             if (b.number != 0) it.file.problems << QString("starts at block %1").arg(b.number);
             files.append(it);
             cur = files.size() - 1;
@@ -259,6 +262,192 @@ Tape read(const QVector<Piece> &pieces) {
     std::stable_sort(all.begin(), all.end(), [](const Item &a, const Item &b) { return a.first < b.first; });
     t.items = all;
     return t;
+}
+
+// ----------------------------------------------------------------- writing
+
+QByteArray encodeBlock(const QByteArray &name, quint32 load, quint32 exec, int number, const QByteArray &data, quint8 flag,
+                       const QByteArray &spare) {
+    auto le = [](QByteArray *b, quint32 v, int n) { for (int i = 0; i < n; ++i) b->append(char((v >> (8 * i)) & 0xFF)); };
+    QByteArray h = name.left(10);
+    h.append('\0');
+    le(&h, load, 4);
+    le(&h, exec, 4);
+    le(&h, quint32(number), 2);
+    le(&h, quint32(data.size()), 2);
+    h.append(char(flag));
+    h.append((spare + QByteArray(4, '\0')).left(4));
+    const quint16 hc = crc(h);
+    QByteArray b = QByteArray(1, '\x2A') + h + char(hc >> 8) + char(hc & 0xFF);
+    if (!data.isEmpty()) {
+        const quint16 dc = crc(data);
+        b += data + char(dc >> 8) + char(dc & 0xFF);
+    }
+    return b;
+}
+
+QVector<QByteArray> encodeFile(const QByteArray &name, quint32 load, quint32 exec, const QByteArray &data, bool protect) {
+    QVector<QByteArray> out;
+    const int n = data.isEmpty() ? 1 : int((data.size() + 255) / 256);
+    for (int k = 0; k < n; ++k)
+        out << encodeBlock(name, load, exec, k, data.mid(k * 256, 256), quint8((protect ? 0x01 : 0) | (k == n - 1 ? 0x80 : 0)));
+    return out;
+}
+
+QVector<dw::tape::Chunk> saveChunks(const QVector<QByteArray> &blocks, bool afterOthers) {
+    namespace uef = dw::tape::uef;
+    QVector<dw::tape::Chunk> c;
+    if (afterOthers) c << uef::gap(Mos::StopSeconds);
+    c << uef::carrierWithDummy(Mos::DummyLeadCycles, Mos::LeaderCycles);
+    for (int k = 0; k < blocks.size(); ++k) {
+        if (k) c << uef::carrier(Mos::BlockGapCycles);
+        c << uef::data(blocks[k]);
+    }
+    c << uef::carrier(Mos::TrailerCycles);
+    return c;
+}
+
+namespace {
+
+// What the chunks before a point leave set: the base frequency (&0113) and the baud rate (&0117).
+struct Mode {
+    double hz = 1200;
+    int baud = 1200;
+    bool operator==(const Mode &o) const { return hz == o.hz && baud == o.baud; }
+};
+
+Mode modeBefore(const QVector<dw::tape::Chunk> &c, int at) {
+    Mode m;
+    for (int i = 0; i < at && i < c.size(); ++i) {
+        if (c[i].id == 0x0113 && c[i].body.size() >= 4) m.hz = dw::tape::uef::getFloat(c[i].body, 0);
+        if (c[i].id == 0x0117 && c[i].body.size() >= 2) m.baud = uchar(c[i].body[0]) | (uchar(c[i].body[1]) << 8);
+    }
+    return m;
+}
+
+int itemLast(const Item &i) { return i.type == Item::FileItem ? i.file.last : i.last; }
+int itemFirst(const Item &i) { return i.type == Item::FileItem ? i.file.first : i.first; }
+
+} // namespace
+
+Edit::Edit(const QVector<dw::tape::Chunk> &chunks, const Tape &tape)
+    : m_chunks(chunks), m_tape(tape), m_pieces(dw::tape::pieces(dw::tape::Kind::Uef, chunks)) {
+    // the information chunks the tape opens with stay at its start
+    m_lead = chunks.size();
+    for (const Piece &p : m_pieces)
+        if (p.type != Piece::Info) { m_lead = p.first; break; }
+    int from = m_lead;
+    for (const Item &i : m_tape.items) {
+        const int first = itemFirst(i), last = itemLast(i);
+        if (first < from || last < first) m_ok = false;   // items that overlap: never changed
+        m_spans.append({qMin(from, first), last});
+        from = last + 1;
+    }
+}
+
+bool Edit::usable(QString *why) const {
+    if (!m_ok && why) *why = "the tape's files and data overlap, so it can't be changed safely";
+    return m_ok;
+}
+
+// The segments one after another, each played at the base frequency and baud rate it was (new chunks: the defaults,
+// 1200 Hz and 1200 baud, at which the MOS saves).
+QVector<dw::tape::Chunk> Edit::join(const QVector<Seg> &segs) const {
+    QVector<dw::tape::Chunk> out;
+    Mode cur;
+    for (const Seg &s : segs) {
+        if (!s.fresh && s.last < s.first) continue;
+        const Mode need = s.fresh ? Mode() : modeBefore(m_chunks, s.first);
+        if (need.hz != cur.hz) out << dw::tape::uef::baseFrequency(need.hz);
+        if (need.baud != cur.baud) {
+            QByteArray b;
+            b.append(char(need.baud & 0xFF)).append(char((need.baud >> 8) & 0xFF));
+            out << dw::tape::Chunk(0x0117, b);
+        }
+        if (s.fresh) {
+            out += s.chunks;
+            cur = Mode();
+        } else {
+            for (int i = s.first; i <= s.last; ++i) out << m_chunks[i];
+            cur = modeBefore(m_chunks, s.last + 1);
+        }
+    }
+    return out;
+}
+
+bool Edit::append(const QVector<QByteArray> &blocks, QVector<dw::tape::Chunk> *out, QString *why) const {
+    if (!usable(why)) return false;
+    bool before = false;                                 // anything on the tape but information
+    for (const Piece &p : m_pieces) if (p.type != Piece::Info) before = true;
+    *out = join({old(0, m_chunks.size() - 1), made(saveChunks(blocks, before))});
+    return true;
+}
+
+bool Edit::replace(int item, const QVector<QByteArray> &blocks, QVector<dw::tape::Chunk> *out, QString *why) const {
+    if (!usable(why)) return false;
+    if (item < 0 || item >= m_tape.items.size() || m_tape.items[item].type != Item::FileItem) { if (why) *why = "no such file"; return false; }
+    const File &f = m_tape.items[item].file;
+    QVector<Seg> segs;
+    bool oneForOne = blocks.size() == f.blocks;
+    for (int k = 1; oneForOne && k < f.blocks; ++k)
+        if (m_tape.blocks[f.firstBlock + k].first <= m_tape.blocks[f.firstBlock + k - 1].last) oneForOne = false;
+    if (oneForOne) {
+        int at = 0;
+        for (int k = 0; k < f.blocks; ++k) {
+            const Block &b = m_tape.blocks[f.firstBlock + k];
+            segs << old(at, b.first - 1) << made({dw::tape::uef::data(blocks[k])});
+            at = b.last + 1;
+        }
+        segs << old(at, m_chunks.size() - 1);
+    } else {
+        QVector<dw::tape::Chunk> c;
+        for (int k = 0; k < blocks.size(); ++k) {
+            if (k) c << dw::tape::uef::carrier(Mos::BlockGapCycles);
+            c << dw::tape::uef::data(blocks[k]);
+        }
+        segs << old(0, f.first - 1) << made(c) << old(f.last + 1, m_chunks.size() - 1);
+    }
+    *out = join(segs);
+    return true;
+}
+
+bool Edit::remove(int item, QVector<dw::tape::Chunk> *out, QString *why) const {
+    if (!usable(why)) return false;
+    if (item < 0 || item >= m_spans.size()) { if (why) *why = "no such file"; return false; }
+    *out = join({old(0, m_spans[item].first - 1), old(m_spans[item].last + 1, m_chunks.size() - 1)});
+    return true;
+}
+
+bool Edit::move(const QVector<int> &items, int before, QVector<dw::tape::Chunk> *out, QString *why) const {
+    if (!usable(why)) return false;
+    const int n = m_spans.size();
+    QSet<int> moving;
+    for (int i : items) {
+        if (i < 0 || i >= n) { if (why) *why = "no such file"; return false; }
+        moving.insert(i);
+    }
+    if (before < 0 || before > n) { if (why) *why = "no such place on the tape"; return false; }
+    while (before < n && moving.contains(before)) ++before;
+    QVector<int> order;
+    for (int i = 0; i <= n; ++i) {
+        if (i == before)
+            for (int k = 0; k < n; ++k) if (moving.contains(k)) order << k;
+        if (i < n && !moving.contains(i)) order << i;
+    }
+    QVector<Seg> segs;
+    segs << old(0, m_lead - 1);
+    for (int i : order) {
+        const Span &s = m_spans[i];
+        const Item &it = m_tape.items[i];
+        bool lead = false;                               // carrier before its first block, as the MOS needs
+        for (const Piece &p : m_pieces)
+            if (p.type == Piece::Tone && p.first >= s.first && p.last < itemFirst(it)) lead = true;
+        if (it.type == Item::FileItem && !lead) segs << made({dw::tape::uef::carrier(Mos::LeaderCycles)});
+        segs << old(s.first, s.last);
+    }
+    segs << old(n ? m_spans[n - 1].last + 1 : m_lead, m_chunks.size() - 1);
+    *out = join(segs);
+    return true;
 }
 
 } // namespace Cfs

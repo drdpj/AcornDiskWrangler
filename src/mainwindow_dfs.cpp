@@ -85,7 +85,7 @@ int MainWindow::dropPane(const DropTree *t, QTreeWidgetItem *it) const {
 
 bool MainWindow::paneEditable(int pane) const {
     switch (pane) {
-    case PaneTape: return false;                 // tapes can't be changed yet (series cfs-2)
+    case PaneTape: return m_doc.isTape() && m_doc.readOnlyWhy(m_doc.tapeMount()).isEmpty();
     case PaneAdfs: return m_img.editable() && m_img.isAdfs() && !m_img.adfsLocked();
     case PaneDos: return m_dos.attached() && dosEditable();
     default: return dfsEditable(pane == PaneDfs1 ? 1 : 0);
@@ -588,6 +588,7 @@ dw::ui::ImportHooks MainWindow::importHooks(int mount) {
         ++m_run.hooked;
     };
     const int pane = paneOf(mount);
+    if (pane == PaneTape) return h;                  // the tape volume's own rules: placeIncoming, fromRetro (cfsvolume.h)
     if (pane == PaneAdfs) {
         h.place = [this](const dw::TransferItem &it, const dw::fs::Path &target) {
             dw::fs::Placement p;
@@ -794,6 +795,7 @@ void MainWindow::onInternalDrop(int pane, quint32 dir, const QByteArray &payload
     }
     MainWindow *src = byId(win);
     if (!src || refs.isEmpty()) { QMessageBox::warning(this, "Copy", "The source window is no longer open."); return; }
+    if (src == this && srcPane == PaneTape && pane == PaneTape) return;   // (a move within the tape: moveTapeRows)
     if (src == this && (srcPane == PaneDfs0 || srcPane == PaneDfs1) && (pane == PaneDfs0 || pane == PaneDfs1)) {
         int to = pane == PaneDfs1 ? 1 : 0;                // within one window: only from one side to the other
         QVector<DragRef> other;
@@ -847,6 +849,7 @@ void MainWindow::paste() {
     to.retroFiles = [this, pane, dir](const QByteArray &json) { onRetroFilesDrop(pane, dir, json); };
     to.paths = [this, pane, dir](const QStringList &paths) {      // files copied in a file manager: as Add files
         if (pane == PaneAdfs) importPaths(paths, dir);
+        else if (pane == PaneTape) tapeImportPaths(paths);
         else if (pane == PaneDos) dosImportPaths(paths, dir);
         else dfsImportPaths(pane == PaneDfs1 ? 1 : 0, paths);
     };

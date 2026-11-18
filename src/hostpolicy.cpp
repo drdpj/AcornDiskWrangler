@@ -33,6 +33,15 @@ bool readInf(const QString &hostPath, InfData *out) {
     InfData d;
     d.name = i.name;
     d.dir = i.dir;
+    QFile f(dw::dfs::infPathFor(hostPath));
+    if (i.dir.isNull() && f.open(QIODevice::ReadOnly)) {
+        const QString line = QString::fromLatin1(f.readLine()).trimmed();
+        const bool quoted = line.startsWith('"') && line.indexOf('"', 1) > 0;
+        const QString whole = quoted ? line.mid(1, line.indexOf('"', 1) - 1) : line.section(QRegularExpression("\\s"), 0, 0);
+        QString host = QFileInfo(hostPath).fileName();
+        host.remove(QRegularExpression(" \\(\\d+\\)$"));
+        if (whole.contains('.') && (quoted || host == whole)) d.name = whole;
+    }
     d.load = i.load;
     d.exec = i.exec;
     if (i.hasAccess)
@@ -106,8 +115,9 @@ void AcornPolicy::afterFile(const dw::TransferItem &it, const QString &absDir, c
         const quint8 attr = quint8((access.contains('R') ? dw::dfs::InfR : 0) | (access.contains('W') ? dw::dfs::InfW : 0) |
                                    (access.contains('E') ? dw::dfs::InfE : 0) | (access.contains('L') ? dw::dfs::InfL : 0));
         line = dw::dfs::infLineAdfs(it.name, load, exec, quint32(it.data.size()), attr);
-        // a tape file's name may hold a space, which would end the name: such a name is quoted, as the .inf format allows
-        if (tape && it.name.contains(QRegularExpression("\\s")))
+        // a tape file's name may hold a space, which would end the name, or a '.', which a reader takes for ADFS's
+        // levels: such a name is quoted, as the .inf format allows (readInf keeps a quoted name whole)
+        if (tape && it.name.contains(QRegularExpression("[\\s.]")))
             line = QString::asprintf("\"%s\" %08X %08X %08X %02X\n", qPrintable(it.name), load, exec, unsigned(it.data.size()), unsigned(attr));
     }
     QString infName = used.unique(host + ".inf", false);

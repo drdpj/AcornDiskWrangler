@@ -350,9 +350,11 @@ static bool detectTape(const QString &path, dw::fs::Verdict *v) {
                                .arg(files == 1 ? "" : "s");
         c.fsId = "cfs";
         c.name = "Tape";
-        c.tier = r.goodBlocks() > 0 ? dw::fs::Tier::Certain : dw::fs::Tier::Likely;
+        // a tape with no data at all (a new one) is a tape like any other; one whose data holds no block may be another
+        // machine's
+        c.tier = r.goodBlocks() > 0 || r.items.isEmpty() ? dw::fs::Tier::Certain : dw::fs::Tier::Likely;
         c.evidence << QString("%1 cassette filing system blocks, %2 with a good header CRC").arg(r.blocks.size()).arg(r.goodBlocks());
-        if (!r.goodBlocks()) info.notes << "no cassette filing system blocks: everything on it is unrecognised data";
+        if (!r.goodBlocks() && !r.items.isEmpty()) info.notes << "no cassette filing system blocks: everything on it is unrecognised data";
     } else {
         const bool cpc = suffix == "cdt";
         info.kind = DiskInfo::ForeignTape;

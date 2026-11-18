@@ -221,6 +221,7 @@ int main(int argc, char **argv) {
 
     int seed = 1;
     for (const NewDisc::TypeInfo &t : NewDisc::types()) {
+        if (t.type == NewDisc::Uef) continue;             // a tape, not a disc: cfstest makes and checks it
         for (int sq = 0; sq < (t.doubleSided ? 2 : 1); ++sq, seed += 7) {
             QString name = QString("t%1_%2").arg(int(t.type)).arg(sq ? "seq" : "il");
             QString path = out + "/" + name + "." + t.suffix;

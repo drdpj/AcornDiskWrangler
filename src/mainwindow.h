@@ -220,6 +220,10 @@ private:
     bool exportForCopy(const QVector<Item> &items, QVector<dw::TransferItem> *out, QString *err) const;
     bool refItems(int pane, const QVector<DragRef> &refs, QVector<Item> *out, QString *err) const;
     bool renameRow(const dw::ui::PaneRow &row, const dw::fs::Path &to);
+    void tapeImportPaths(const QStringList &paths);
+    void moveTapeRows(const QStringList &names, const QString &before);
+    bool tapeRowsFromHere(const QByteArray &payload) const;     // a drag payload of this window's tape rows
+    bool tapeProperties(const QVector<Item> &items, PropertiesEdit *edit);
     // importing (mainwindow_dfs.cpp): every import ends in importAll, the kit's importItems with this program's hooks
     struct ImportRun {
         int pane = PaneAdfs;

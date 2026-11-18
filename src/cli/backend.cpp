@@ -140,7 +140,7 @@ OpenOutcome Backend::open(const QString &path, const OpenOptions &o) {
             k["kind"] = t.kind() == dw::tape::Kind::Uef ? "uef" : t.kind() == dw::tape::Kind::Tzx ? "tzx" : "tap";
             k["name"] = dw::tape::kindName(t.kind(), t.gzip());
             k["size"] = double(QFileInfo(path).size());
-            k["readOnly"] = true;
+            k["readOnly"] = best.kind == DiskInfo::ForeignTape || !t.readOnlyWhy().isEmpty() || !QFileInfo(path).isWritable();
             k["gzip"] = t.gzip();
             k["version"] = QString("%1.%2").arg(t.majorVersion()).arg(t.minorVersion());
             k["chunks"] = t.chunks().size();
