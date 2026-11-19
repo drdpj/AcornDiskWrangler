@@ -214,6 +214,10 @@ void Backend::prepareIncoming(QVector<dw::TransferItem> *items, dw::fs::Volume *
 
 void Backend::configureTarget(dw::fs::Volume *v, const ImportOptions &o) {
     if (auto *a = dynamic_cast<Adfs::AdfsVolume *>(v)) a->setFlattenLetters(o.letters == "flatten");
+    // a tape: a file of a name already there is added, unless it is identical (a clash: --skip or --replace);
+    // --replace replaces the first file of that name
+    if (auto *t = dynamic_cast<Acorn::CfsVolume *>(v))
+        t->setSameName(o.replace ? Acorn::CfsVolume::SameName::Replace : Acorn::CfsVolume::SameName::AddUnlessIdentical);
 }
 
 } // namespace AcornCli

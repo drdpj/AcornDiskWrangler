@@ -15,7 +15,7 @@ $TOOL get img.uef V1.0 RUNME out --json
 $TOOL new img2.uef --format=uef --quiet
 $TOOL put img2.uef out/V1.0 out/RUNME / --json
 $TOOL ls img2.uef --json
-# tape to tape keeps the protected flag; a name already on the tape is a clash, as on a disc (exit 5)
+# tape to tape keeps the protected flag; a file identical to one on the tape (V1.0, got from it) is a clash (exit 5)
 $TOOL attr img.uef DATA --set protected=true --json
 $TOOL copy img.uef img2.uef DATA --json
 $TOOL copy img.uef img2.uef V1.0 --json
@@ -24,3 +24,7 @@ $TOOL ls img2.uef --json
 # both GAMEs removed (the second goes first, so the first is still GAME when its turn comes)
 $TOOL rm img3.uef GAME 'GAME (2)' --json
 $TOOL ls img3.uef --json
+# a name already on the tape, another file: added at its end under the same name (DATA (2): img2's DATA is the
+# 1200-byte one); an identical file (RUNME, as put before) is a clash (exit 5)
+$TOOL put img2.uef host/DATA / --json
+$TOOL put img2.uef host/RUNME / --json

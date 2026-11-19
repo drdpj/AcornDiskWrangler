@@ -523,12 +523,14 @@ void MainWindow::hostImport(int pane, quint32 dir, const QStringList &paths, boo
 // One import into a pane: what couldn't be read first ("<path>: cannot read (<reason>)"), then the items through the
 // kit's session. internal: the items were copied in this program; refreshAll: every pane is made again before the
 // summary (the drops between discs, retro-files drops and pastes always did that).
-void MainWindow::importAll(int pane, quint32 dir, const QVector<dw::TransferItem> &items,
+void MainWindow::importAll(int pane, quint32 dir, const QVector<dw::TransferItem> &itemsIn,
                            const QVector<dw::xfer::HostReadError> &readProblems, bool internal, bool refreshAll) {
     m_run = ImportRun();
     m_run.pane = pane;
     m_run.internal = internal;
     m_run.refreshAll = refreshAll;
+    QVector<dw::TransferItem> items = itemsIn;
+    if (pane == PaneTape && m_doc.cfs() && paneEditable(PaneTape) && !askTapeDuplicates(&items)) return;
     QVector<dw::xfer::ImportError> readErrors;
     for (const dw::xfer::HostReadError &p : readProblems) {
         dw::xfer::ImportError e;
@@ -545,6 +547,41 @@ void MainWindow::importAll(int pane, quint32 dir, const QVector<dw::TransferItem
         mapImportItem(froms[i], items[i]);
     }
     importItems(mountOf(pane), dirPath(pane, dir), items, froms, readErrors);
+}
+
+// A tape holds any number of files of one name, so a file dropped on it is added at its end (CfsVolume::SameName::Add)
+// and only one identical to a file there (the same name, addresses and bytes) is asked about: "Add another copy?".
+// The ones answered No are taken out of items (counted in m_run.skipped). false: Cancel, nothing is added.
+bool MainWindow::askTapeDuplicates(QVector<dw::TransferItem> *items) {
+    Acorn::CfsVolume *v = m_doc.cfs();
+    v->setSameName(Acorn::CfsVolume::SameName::Add);
+    int all = 0;                                         // 0 ask, 1 add all, 2 skip all
+    bool cancelled = false;
+    std::function<void(QVector<dw::TransferItem> *)> walk = [&](QVector<dw::TransferItem> *list) {
+        for (int k = 0; k < list->size() && !cancelled; ++k) {
+            dw::TransferItem &it = (*list)[k];
+            if (it.isDir) { walk(&it.kids); continue; }
+            const int i = v->identicalTo(it);
+            if (i < 0) continue;
+            bool add = all == 1 || autoAnswer;
+            if (!add && all == 0) {
+                const QString text = QString("'%1' is already on the tape, the same file (name, load and exec addresses "
+                                             "and contents).\nAdd another copy of\n%2 ?")
+                                         .arg(Acorn::Cfs::nameText(v->tapeRead().items[i].file.name), importSrc(it));
+                const auto b = QMessageBox::question(this, "File already on the tape", text,
+                                                     QMessageBox::Yes | QMessageBox::YesToAll | QMessageBox::No |
+                                                         QMessageBox::NoToAll | QMessageBox::Cancel,
+                                                     QMessageBox::No);
+                if (b == QMessageBox::Cancel) { cancelled = true; return; }
+                if (b == QMessageBox::YesToAll) all = 1;
+                if (b == QMessageBox::NoToAll) all = 2;
+                add = b == QMessageBox::Yes || b == QMessageBox::YesToAll;
+            }
+            if (!add) { list->removeAt(k--); ++m_run.skipped; }
+        }
+    };
+    walk(items);
+    return !cancelled;
 }
 
 // A DFS file letter.NAME added under an ADFS directory: in a subdirectory named after the letter (its case kept, one
@@ -754,7 +791,7 @@ void MainWindow::importSummary(const dw::xfer::ImportResult &r) {
     for (int i = m_run.readErrors; i < r.errors.size() - m_run.hooked; ++i) problems << r.errors[i].message;   // the session's own
     QString msg = QString("Added %1 file(s) and %2 folder(s)").arg(r.added).arg(r.dirs);
     if (r.replaced) msg += QString(", replaced %1").arg(r.replaced);
-    if (r.skipped) msg += QString(", skipped %1").arg(r.skipped);
+    if (r.skipped + m_run.skipped) msg += QString(", skipped %1").arg(r.skipped + m_run.skipped);
     msg += problems.isEmpty() ? ". Not saved yet - press Ctrl+S to write to the image."
                               : QString(". %1 problem(s).").arg(problems.size());
     statusBar()->showMessage(msg, 10000);

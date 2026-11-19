@@ -43,6 +43,7 @@
 #include <QTest>
 #include <QToolBar>
 #include <QUrl>
+#include <QDir>
 #include <QFile>
 #include <cstdio>
 #include <functional>
@@ -388,14 +389,23 @@ int main(int argc,char**argv){
         // a DFS file dragged from another window: added too, as K.prog2 (a letter other than $ stays in the name)
         drag(*A,wt::dfsTree(A),{"K.prog2"},*T,tt); settle(6);
         CHECK(rowsOf().value(5)=="K.prog2");
-        // a name on the tape already: asked, as on a disc (No: nothing added)
-        whenModal<QMessageBox>([](QMessageBox* mb){ printf("  asked: %s\n",qPrintable(mb->text())); mb->button(QMessageBox::No)->click(); },"no replace question");
-        drag(*E,wt::dfsTree(E),{"$.LOADER"},*T,tt); pump(); QTest::qWait(200); pump();
-        CHECK(rowsOf().size()==6);
+        // a name on the tape already, another file (a host file LOADER of other bytes): added at the end, no question
+        // (a tape holds any number of files of one name)
+        { QDir().mkpath(d+"/other"); QFile f(d+"/other/LOADER"); CHECK(f.open(QIODevice::WriteOnly) && f.write("another LOADER")==14); }
+        dropFiles(*T,tt,{d+"/other/LOADER"}); settle(7);
+        CHECK(rowsOf().size()==7 && rowsOf().value(6)=="LOADER");
+        { dw::fs::Entry e; QString err; CHECK(T->document()->cfs()->stat(dw::fs::Path({"LOADER (2)"}),&e,&err) &&
+                                               e.label=="LOADER" && e.size==14); }
+        // a file identical to one on the tape (GAME, copied onto ADFS above, back): asked (No: nothing added)
+        static bool askedSame; askedSame=false;   // static: the timer's lambda may outlive this block
+        whenModal<QMessageBox>([](QMessageBox* mb){ printf("  asked: %s\n",qPrintable(mb->text()));
+                                   askedSame=mb->text().contains("already on the tape"); mb->button(QMessageBox::No)->click(); },"no same-file question");
+        drag(*B,wt::adfsTree(B),{"GAME"},*T,tt); pump(); QTest::qWait(200); pump();
+        CHECK(askedSame && rowsOf().size()==7);
         // rows dragged within the tape: EMPTY and hello onto the first GAME, so before it
         drag(*T,tt,{"EMPTY","hello"},*T,tt,"GAME"); pump();
         printf("tape after a move: %s\n",qPrintable(rowsOf().join(",")));
-        CHECK(rowsOf()==QStringList({"EMPTY","hello","GAME","LOADER","GAME","K.prog2"}));
+        CHECK(rowsOf()==QStringList({"EMPTY","hello","GAME","LOADER","GAME","K.prog2","LOADER"}));
         // rename (F2): hello is HELLO
         tt->clearSelection(); if(auto* it=find(tt,"hello")) { tt->setCurrentItem(it); tt->clearSelection(); it->setSelected(true); } pump();
         whenModal<QInputDialog>([](QInputDialog* dlg){ dlg->setTextValue("HELLO"); dlg->accept(); },"no rename dialog");
@@ -414,13 +424,13 @@ int main(int argc,char**argv){
         tt->clearSelection(); for(const char* n:{"GAME","GAME (2)"}) if(auto* it=find(tt,n)) it->setSelected(true); pump();
         autoYes(); T->action(Act::Delete)->trigger(); pump();
         printf("tape after a delete: %s\n",qPrintable(rowsOf().join(",")));
-        CHECK(rowsOf()==QStringList({"EMPTY","HELLO","LOADER","K.prog2"}));
+        CHECK(rowsOf()==QStringList({"EMPTY","HELLO","LOADER","K.prog2","LOADER"}));
         // saved (as it was: plain UEF), and read back from the file
         CHECK(T->save() && !T->document()->dirty());
         { dw::tape::TapeFile f; QString err; CHECK(f.open(d+"/h.uef",&err) && !f.gzip());
           const Acorn::Cfs::Tape r=Acorn::Cfs::read(dw::tape::pieces(f)); QStringList n;
           for(const auto& i:r.items) n<<QString::fromLatin1(i.file.name);
-          CHECK(n==QStringList({"EMPTY","HELLO","LOADER","K.prog2"}) && r.items.value(1).file.isProtected() && r.items.value(1).file.data.size()>0); }
+          CHECK(n==QStringList({"EMPTY","HELLO","LOADER","K.prog2","LOADER"}) && r.items.value(1).file.isProtected() && r.items.value(1).file.data.size()>0); }
     }
 
     // ---------------------------------------------------------------- save everything, check the files

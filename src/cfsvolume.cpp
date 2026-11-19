@@ -248,13 +248,17 @@ bool CfsVolume::write(const Path &dir, const QString &name, const QByteArray &da
         if (!Cfs::Edit(m_tape->chunks(), m_read).appendChunks(raw, &out, err)) return false;
         return apply(out, err);
     }
+    // a new file placed under the unique name it will have (placeIncoming): its real name is the one it came with
+    const QString realName = !replace && !m_placedAs.isEmpty() && name == m_placedAs ? m_placedReal : name;
+    m_placedAs.clear();
+    m_placedReal.clear();
     QString why;
-    if (!m_rules.valid(name, NodeKind::File, &why)) { if (err) *err = name + ": " + why; return false; }
+    if (!m_rules.valid(realName, NodeKind::File, &why)) { if (err) *err = realName + ": " + why; return false; }
     const Cfs::Edit edit(m_tape->chunks(), m_read);
     QVector<dw::tape::Chunk> out;
     int i = -1;
     if (replace && !find(Path({name}), &i, err)) return false;
-    QByteArray real = Cfs::nameBytes(name);
+    QByteArray real = Cfs::nameBytes(realName);
     quint32 load = 0, exec = 0;
     bool prot = false;
     if (i >= 0) {                                        // what isn't given stays as it was
@@ -368,11 +372,54 @@ dw::fs::Placement CfsVolume::placeIncoming(const dw::TransferItem &item, const P
         p.name = item.attrs.contains("acorn") ? item.name + " (damaged)" : QString("unrecognised data");
         return p;
     }
+    p.name = incomingName(item, &p.warning);
+    if (item.isDir || m_sameName == SameName::Replace) return p;
+    int i;
+    if (!find(Path({p.name}), &i, nullptr)) return p;   // a name not on the tape yet
+    if (m_sameName == SameName::AddUnlessIdentical && (i = identicalTo(item)) >= 0) {
+        p.name = m_names[i];                             // the same file: a clash with it
+        return p;
+    }
+    // another file of a name already on the tape: added, under the unique name it will have there
+    m_placedReal = p.name;
+    m_placedAs = p.name = nameWhenAdded(p.name);
+    return p;
+}
+
+// The name an item arrives under: a DFS file in $ without its "$.", then the name rules.
+QString CfsVolume::incomingName(const dw::TransferItem &item, QString *warning) const {
     QString n = item.name;
     if (item.sourceFs == "dfs" && n.startsWith("$.")) n = n.mid(2);
-    p.name = m_rules.fromHost(n, item.isDir ? NodeKind::Dir : NodeKind::File);
-    if (p.name != n) p.warning = QString("%1 is called %2 on the tape").arg(n, p.name);
-    return p;
+    const QString name = m_rules.fromHost(n, item.isDir ? NodeKind::Dir : NodeKind::File);
+    if (warning && name != n) *warning = QString("%1 is called %2 on the tape").arg(n, name);
+    return name;
+}
+
+int CfsVolume::identicalTo(const dw::TransferItem &item) const {
+    if (item.isDir || !rawChunks(item.attrs).isEmpty()) return -1;
+    const QString name = incomingName(item, nullptr);
+    const dw::fs::AttrValues a = fromRetro(item.attrs, NodeKind::File);
+    for (int i = 0; i < m_read.items.size(); ++i) {
+        const Cfs::Item &it = m_read.items[i];
+        if (it.type != Cfs::Item::FileItem || !it.file.problems.isEmpty()) continue;
+        const Cfs::File &f = it.file;
+        if (Cfs::nameText(f.name) != name || f.data != item.data) continue;
+        if (a.contains("load") && a.value("load").toUInt() != f.load) continue;
+        if (a.contains("exec") && a.value("exec").toUInt() != f.exec) continue;
+        return i;
+    }
+    return -1;
+}
+
+// As reload() names an item added at the end: the first of NAME, "NAME (2)", ... no entry has (in any case), and
+// (so that the Importer doesn't take it for a file there) no file's real name.
+QString CfsVolume::nameWhenAdded(const QString &realName) const {
+    QSet<QString> used;
+    for (const QString &n : m_names) used.insert(n.toUpper());
+    QString n = realName;
+    int i;
+    for (int k = 2; used.contains(n.toUpper()) || find(Path({n}), &i, nullptr); ++k) n = QString("%1 (%2)").arg(realName).arg(k);
+    return n;
 }
 
 QMap<QString, QJsonObject> CfsVolume::toRetro(const Entry &e) const {

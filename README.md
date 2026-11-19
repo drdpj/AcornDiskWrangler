@@ -55,7 +55,10 @@ anywhere else they become files of their bytes, to look at. Drag the files
 onto a disc window or out to the computer, or Copy, Paste and Extract them, as from a disc (load and exec go with
 them; a disc copy drops the protected flag; a second `GAME` arrives on the computer as `GAME (2)`, its `.inf` saying
 `GAME`). Files dropped on a tape (from the computer, a disc or another tape), Add files and Paste go on its end,
-saved as the BBC Micro saves them (the MOS's leader, its gaps between blocks, 256-byte blocks); drag rows up and down
+saved as the BBC Micro saves them (the MOS's leader, its gaps between blocks, 256-byte blocks), even when a file of
+that name is on the tape already (a tape can hold many); only a file identical to one there (the same name, addresses
+and contents) is asked about: add another copy, or skip it. Onto a disc, a name already there is a clash as always.
+Drag rows up and down
 to change the order (`CHAIN ""` loads the next file on the tape); Rename, Properties (load, exec, protected) and
 Delete work as on a disc, changing only that file on the tape. Save writes the tape back as it came (compressed or
 not); Save As offers both. **File > New disc image** makes an empty tape (Tape (UEF)). A file with a problem and the
@@ -163,7 +166,9 @@ then `$.ELITE`), never `games.ssd:$.ELITE`.
 A tape is read the same way: `acorndw ls game.uef` lists its files in tape order, `acorndw get game.uef '#3' out/`
 extracts the third file on the tape (a second file called `GAME` is also `'GAME (2)'`), and
 `acorndw copy game.uef games.ssd GAME` puts a tape file onto a disc. `acorndw new tape.uef --format=uef` makes an
-empty tape; `put` adds files to its end, and `rm`, `mv` and `attr` change them, as on a disc.
+empty tape; `put` adds files to its end, and `rm`, `mv` and `attr` change them, as on a disc. A file `put` or `copy`
+onto a tape under a name already there is added too; only a file identical to one there is a clash (`--skip` skips
+it); `--replace` replaces the first file of that name.
 
 `acorndw new --list` lists the formats that `--format` takes.
 

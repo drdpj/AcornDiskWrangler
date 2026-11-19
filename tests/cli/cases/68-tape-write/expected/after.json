@@ -154,6 +154,28 @@
                 "problem": null,
                 "size": 1200,
                 "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "blocks": 3,
+                    "exec": "00003100",
+                    "load": "00003000",
+                    "position": 4,
+                    "protected": false
+                },
+                "created": null,
+                "display": "DATA (2)",
+                "kind": "file",
+                "label": "DATA",
+                "modified": null,
+                "name": "DATA (2)",
+                "path": [
+                    "DATA (2)"
+                ],
+                "problem": null,
+                "size": 700,
+                "sizeExact": true
             }
         ]
     },

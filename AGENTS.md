@@ -107,7 +107,11 @@ files (see Build).
   Extract, View, Copy and drags out work as on a disc. Writable (cfs-2; `paneEditable(PaneTape)` = the document's
   `readOnlyWhy` is empty): host files dropped, added (`tapeImportPaths`) or pasted, and files dropped from other
   windows, go on the end of the tape through the kit's import with no hooks of this program (`importHooks` returns
-  the bare hooks for the tape: the volume's `placeIncoming` and `fromRetro` are the rules); disc images dropped on it
+  the bare hooks for the tape: the volume's `placeIncoming` and `fromRetro` are the rules); a name already on the tape
+  is no clash (`CfsVolume::SameName`: the window's `Add`; `acorndw`'s `AddUnlessIdentical`, or `Replace` for
+  `--replace`, set in `Backend::configureTarget`): the file is placed under the unique name it will have (`GAME (2)`)
+  and `write` gives it its real name; `importAll` asks first only about files identical to one on the tape
+  (`askTapeDuplicates`, `identicalTo`: "Add another copy?", No takes them out); disc images dropped on it
   still open in their own windows. Rows dragged within the tape move (`DropRules::fromItself` for a writable tape;
   the `internalDrop` handler sees `tapeRowsFromHere` and calls `moveTapeRows`, one transaction, before the row
   dropped on, or to the end). Rename (`renameSelected`'s tape branch), Properties (`tapeProperties`: name, P, load,

@@ -234,9 +234,11 @@ private:
         QHash<QString, QString> src, letterSrc;    // an item's Importer "from" -> how messages name it
         QHash<QString, bool> isDir;
         int readErrors = 0, hooked = 0;
+        int skipped = 0;                // files identical to one on the tape, not added (askTapeDuplicates)
     };
     ImportRun m_run;
     void hostImport(int pane, quint32 dir, const QStringList &paths, bool useInf);
+    bool askTapeDuplicates(QVector<dw::TransferItem> *items);
     void importAll(int pane, quint32 dir, const QVector<dw::TransferItem> &items,
                    const QVector<dw::xfer::HostReadError> &readProblems, bool internal, bool refreshAll);
     QString importSrc(const dw::TransferItem &item) const;

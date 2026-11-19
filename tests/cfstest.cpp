@@ -774,6 +774,60 @@ static void writing(const QString &dir, QMap<QString, QByteArray> *written) {
               "chunks that don't unpack: an ordinary file");
     }
 
+    printf("writing: a name already on the tape\n");
+    {
+        // a tape holds any number of files of one name: another file is added under the unique name it will have
+        // and keeps its real name; only an identical file (name, addresses given, bytes) is a clash, and with that file
+        TapeFile dst;
+        dst.createBlank(dw::tape::Kind::Uef, true);
+        CfsVolume to(&dst);
+        CHECK(to.write(dw::fs::Path(), "GAME", bytes(300, 1), {{"load", 0x1900u}, {"exec", 0x8023u}}, QDateTime(), false, &err), "GAME " + err);
+        auto item = [](const QString &name, const QByteArray &data, const QString &load) {
+            dw::TransferItem x;
+            x.name = name;
+            x.data = data;
+            if (!load.isEmpty()) x.attrs["acorn"] = QJsonObject{{"load", load}, {"exec", "00008023"}, {"access", "WR"}};
+            return x;
+        };
+        auto add = [&](const dw::TransferItem &x, const QString &as) {
+            const dw::fs::Placement pl = to.placeIncoming(x, dw::fs::Path());
+            dw::fs::Entry ex;
+            CHECK(pl.name == as && !to.stat(dw::fs::Path({pl.name}), &ex, &err), QString("%1 placed as %2: %3").arg(x.name, as, pl.name));
+            CHECK(to.write(dw::fs::Path(), pl.name, x.data, to.fromRetro(x.attrs, dw::fs::NodeKind::File), QDateTime(), false, &err),
+                  "added " + err);
+        };
+        auto clash = [&](const dw::TransferItem &x, const QString &with) {
+            const dw::fs::Placement pl = to.placeIncoming(x, dw::fs::Path());
+            dw::fs::Entry ex;
+            CHECK(pl.name == with && to.stat(dw::fs::Path({pl.name}), &ex, &err), QString("%1 a clash with %2: %3").arg(x.name, with, pl.name));
+        };
+        add(item("GAME", bytes(300, 2), "00001900"), "GAME (2)");          // other bytes
+        add(item("GAME", bytes(300, 1), "00003000"), "GAME (3)");          // another load address
+        add(item("game", bytes(10, 3), ""), "game (4)");                   // another case: the MOS takes it for GAME
+        clash(item("GAME", bytes(300, 1), "00001900"), "GAME");            // identical to the first
+        clash(item("GAME", bytes(300, 2), ""), "GAME (2)");                // no addresses given: the bytes decide
+        dw::TransferItem dfs = item("$.GAME", bytes(5, 4), "");
+        dfs.sourceFs = "dfs";
+        add(dfs, "GAME (5)");                                               // a DFS file's "$." off first
+        add(item("ABCDEFGHIJ", bytes(5, 5), ""), "ABCDEFGHIJ");
+        add(item("ABCDEFGHIJ", bytes(5, 6), ""), "ABCDEFGHIJ (2)");        // longer than a name can be: only the entry's
+        to.setSameName(CfsVolume::SameName::Add);                          // the window: identical ones too (it asked)
+        add(item("GAME", bytes(300, 1), "00001900"), "GAME (6)");
+        to.setSameName(CfsVolume::SameName::Replace);                      // acorndw --replace: the first of the name
+        clash(item("GAME", bytes(9, 9), ""), "GAME");
+        QStringList real;
+        for (const Cfs::Item &it : to.tapeRead().items) real << Cfs::nameText(it.file.name);
+        CHECK(real == QStringList({"GAME", "GAME", "GAME", "game", "GAME", "ABCDEFGHIJ", "ABCDEFGHIJ", "GAME"}),
+              "each under its own name: " + real.join(","));
+        CHECK(to.tapeRead().items.value(2).file.load == 0x3000 && to.tapeRead().items.value(3).file.data == bytes(10, 3),
+              "the files added are the items");
+        // a write of a name never placed is that name, as before
+        to.setSameName(CfsVolume::SameName::AddUnlessIdentical);
+        CHECK(to.write(dw::fs::Path(), "X (2)", bytes(3, 7), {}, QDateTime(), false, &err) &&
+              Cfs::nameText(to.tapeRead().items.last().file.name) == "X (2)", "X (2) " + err);
+        CHECK(to.check().ok(), "a clean check");
+    }
+
     printf("writing: damaged files copied to another tape stay as they were\n");
     {
         // every file of the damaged sample copied, in order, as a drop copies them: the new tape reads the same,

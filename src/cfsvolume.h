@@ -86,8 +86,27 @@ public:
     QMap<QString, QJsonObject> toRetro(const dw::fs::Entry &e) const override;
     dw::fs::AttrValues fromRetro(const QMap<QString, QJsonObject> &families, dw::fs::NodeKind kind) const override;
     // A DFS file in $ comes without its letter ("$.GAME" -> "GAME"); any other letter stays ("A.GAME", as *SAVE
-    // "A.GAME" names it on a tape); the rest by the name rules (at most 10 characters).
+    // "A.GAME" names it on a tape); the rest by the name rules (at most 10 characters). A tape may hold any number of
+    // files of one name, so a name already there is only a clash as sameName() says: by default only when the item is
+    // identical to a file there (identicalTo), which it then names; otherwise the item is placed under the unique name
+    // it will have once added ("GAME (2)"), and write() gives it its real name.
     dw::fs::Placement placeIncoming(const dw::TransferItem &item, const dw::fs::Path &targetDir) const override;
+
+    // What a file arriving under a name already on the tape is.
+    enum class SameName {
+        AddUnlessIdentical,              // added at the end, unless it is identical to a file there: a clash with that
+                                         // file (acorndw without --replace)
+        Add,                             // always added at the end (the window, which asks about identical files itself)
+        Replace                          // a clash with the first file of that name (acorndw --replace)
+    };
+    void setSameName(SameName s) { m_sameName = s; }
+    SameName sameName() const { return m_sameName; }
+    // The file on the tape this item would duplicate (the same name, load and exec where the item gives them, and the
+    // same bytes; the protected flag isn't compared), as an item index, or -1. Unrecognised data and damaged files
+    // (which travel as chunks) are never a duplicate.
+    int identicalTo(const dw::TransferItem &item) const;
+    // The unique name this item's file has when it is added at the end of the tape.
+    QString nameWhenAdded(const QString &realName) const;
 
     // The item an entry of the root names (by its unique name), or -1.
     int itemIndex(const QString &name) const;
@@ -110,6 +129,11 @@ private:
     Cfs::Tape m_read;
     QStringList m_names;                                    // each item's unique name
     CfsNameRules m_rules;
+    SameName m_sameName = SameName::AddUnlessIdentical;
+    // The last placement of a new file under a name already on the tape: the unique name placeIncoming gave it, and
+    // the real name write() gives the file (the Importer places each item, then writes it).
+    mutable QString m_placedAs, m_placedReal;
+    QString incomingName(const dw::TransferItem &item, QString *warning) const;
 };
 
 } // namespace Acorn
