@@ -19,7 +19,9 @@
 //
 // The formats offered are presets in the core's registry (dw::fs::presets(), <diskwrangler/fs/presets.h>): the DFS
 // module adds DFS and Watford DFS, the FAT module Acorn DOS Plus 800K and the PC floppies, and addPresets() below this
-// program's own (ADFS S, M, L and the DOS Plus 640K hybrid). types() is this program's list, in its own order, read
+// program's own (ADFS S, M, L and the DOS Plus 640K hybrid). The DFS module's Acorn Atom DOS presets are DFS discs
+// whose catalogue is read and written as the Atom's DOS does (isAtom()): Open has to be told (a blank one looks like a
+// blank DFS disc), so the window opens a new one as Atom DOS. types() is this program's list, in its own order, read
 // from the registry; making the blank disc stays here (create()).
 #pragma once
 
@@ -32,7 +34,8 @@ namespace NewDisc {
 
 enum Type { AdfsS, AdfsM, AdfsL, DfsSs40, DfsSs80, DfsDs40, DfsDs80, Acorn800, Acorn640, Pc360, Pc720, Pc1200, Pc1440,
             WatSs40, WatSs80, WatDs40, WatDs80,         // Watford DFS 62-file discs
-            Uef };                                      // a blank cassette tape: a UEF file (gzip) holding no files
+            Uef,                                        // a blank cassette tape: a UEF file (gzip) holding no files
+            AtomSs40, AtomSs80, AtomDs40, AtomDs80 };   // Acorn Atom DOS discs (series atom)
 
 struct TypeInfo {
     Type type;
@@ -50,6 +53,7 @@ void addPresets(dw::fs::PresetRegistry &r);
 
 const QVector<TypeInfo> &types();       // every format offered, in this program's order (the New image dialog, new --list)
 const TypeInfo &info(Type t);
+inline bool isAtom(Type t) { return t == AtomSs40 || t == AtomSs80 || t == AtomDs40 || t == AtomDs80; }
 
 // Writes a blank, valid image of the given type to path (replacing any file there). A tape (Uef) is a gzip UEF file
 // with only its origin chunk ("Acorn Disk Wrangler"), as new tapes are gzip (plan tape.md, question 3). Double-sided formats are

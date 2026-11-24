@@ -36,6 +36,6 @@ int main(int argc, char **argv) {
     info.program.releases = dw::fs::acornDiskWrangler().releases;
     info.program.handsTo = {dw::fs::cpmDiskWrangler()};
     info.backend = &backend;
-    info.options = QStringList{"sides", "sidecars", "title", "dosboot", "to-sides"};
+    info.options = QStringList{"sides", "sidecars", "title", "dosboot", "to-sides", "atominpc"};
     return dw::runCli(argc, argv, info);
 }

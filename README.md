@@ -2,8 +2,8 @@
 
 # Acorn Disk Wrangler
 
-View and edit disc images from Acorn's 8-bit machines - the BBC Micro, Master and Master 512. It opens ADFS hard
-discs and floppies, DFS floppies, Acorn DOS Plus discs, PC floppies and the DOS Plus partition inside an ADFS hard
+View and edit disc images from Acorn's 8-bit machines - the BBC Micro, Master and Master 512, and the Acorn Atom. It
+opens ADFS hard discs and floppies, DFS floppies, Acorn Atom DOS floppies, Acorn DOS Plus discs, PC floppies and the DOS Plus partition inside an ADFS hard
 disc. You can add, extract, rename and delete files, set attributes and boot options, read BASIC programs and text,
 and make new blank discs. Files drag between discs, to and from your desktop, and to and from
 [CP/M Disk Wrangler](https://github.com/drdpj/CPMDiskWrangler) and other tools that speak
@@ -34,6 +34,7 @@ Help > About shows the version; Help > Licences shows the licences of the progra
 | ADFS hard disc (old map) | BeebSCSI `scsi0.dat` and similar | Unzip a zipped image first. A DOS Plus partition (`$.DOS.DRIVE_C`) opens in a second tab. |
 | ADFS S / M / L floppy (160K, 320K, 640K) | `.ads` `.adm` `.adl` | |
 | DFS, single- or double-sided, 40 or 80 track | `.ssd` `.dsd` | The two sides of a `.dsd` are separate discs, shown in one tree as **Drive 0** and **Drive 2**. |
+| Acorn Atom DOS, single- or double-sided, 40 or 80 track | `.ssd` `.dsd` | Read as the Atom's DOS keeps it: files in its default directory are listed by name, 16-bit load and exec addresses, no boot option. A disc with such a file is recognised by itself; a blank one looks like a blank DFS disc, so use Tools > *Read as Acorn Atom DOS* (new Atom discs open that way). |
 | Acorn DOS Plus 800K | `.img` | |
 | Acorn 640K ADFS/DOS Plus hybrid (Master 512 boot disc) | `.adl` | The ADFS side is read-only; the DOS side can be edited. |
 | PC floppy 360K, 720K, 1.2M, 1.44M | `.img` and others | FAT12. |
@@ -80,7 +81,9 @@ it at an existing Master 512 disc image or a DOSBOOT file.
   same way, as their `.inf` keeps the letter.
 * **Add files** by dropping files or folders from your file manager onto the tree (onto a directory row to put
   them there), or by pasting files copied there. On ADFS and DFS discs `.inf` sidecar files are read, so load/exec
-  addresses and attributes come through (Tools > *Read .inf sidecar files when adding*, on by default). The
+  addresses and attributes come through (Tools > *Read .inf sidecar files when adding*, on by default). Acorn Atom
+  `.atm` files are read by their header (name, load and exec); AtomInPC files (a 16-byte header) are read by theirs
+  when they go onto an Atom disc and Tools > *Read AtomInPC headers when adding to an Atom disc* is on. The
   window and `acorndw put` read host files the same way, so a file or folder added in one is read just as in the
   other; a file that can't be read or is too large is reported and the rest are still added.
 * **Discs that belong to CP/M Disk Wrangler.** If you open a disc the other program owns and it can't be found,

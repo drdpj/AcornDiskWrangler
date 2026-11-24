@@ -8,15 +8,17 @@
 # and ends "ALL PASSED" (exit 0) or "FAILED: <list>" (exit 1). Logs, screenshots (<build dir>/shots) and the made test
 # data (<build dir>/td) stay in the build dir. The real images are the owner's (not in the repo): see docs/testing.md.
 # The real tapes (UEF files, from The Stairway to Hell) are read from the third argument, by default the folder UEF
-# beside the real images (testdata/UEF); there must be some.
+# beside the real images (testdata/UEF); there must be some. The real Acorn Atom disc and AtomInPC files (series atom)
+# are read from the folder ATOM beside the real images (testdata/ATOM).
 # It also makes /tmp/drop/proj (the host files guitest2 and screenshot drop): don't run two at once.
 S=$(cd "$(dirname "$0")/.." && pwd)
 W=${1:?usage: run_all.sh <build dir> <real images dir>}; R=${2:?usage: run_all.sh <build dir> <real images dir>}
 for f in scsi0.dat M512_1.ADL M512_3.IMG; do [ -f "$R/$f" ] || { echo "missing $R/$f (the real images: see docs/testing.md)"; exit 2; }; done
 R=$(cd "$R" && pwd); Q=qmake
 U=${3:-$R/UEF}; ls "$U"/*.uef >/dev/null 2>&1 || { echo "no real tapes in $U (*.uef: see docs/testing.md)"; exit 2; }; U=$(cd "$U" && pwd)
+for f in "System BASIC.ssd" FORM40 FORMAT INFALL; do [ -f "$R/ATOM/$f" ] || { echo "missing $R/ATOM/$f (the real Atom data: see docs/testing.md)"; exit 2; }; done
 mkdir -p "$W"; W=$(cd "$W" && pwd); B=$W/b; T=$W/td; fail=()
-for d in td t shots wat side ct vt cv cli sa drag boot xd g2 tp tapes; do rm -rf "${W:?}/$d"; done; rm -f "$W"/*.log
+for d in td t shots wat side ct vt cv cli sa drag boot xd g2 tp tapes atom; do rm -rf "${W:?}/$d"; done; rm -f "$W"/*.log
 mkdir -p "$B" "$T" "$W/t"
 echo "$($Q --version | tail -1)"
 for p in "$S"/tests/*.pro "$S"/core/tests/settingstest.pro "$S"/core/tests/xfertest.pro "$S"/core/tests/uitest.pro "$S"/core/tests/devicetest.pro \
@@ -78,6 +80,9 @@ if [ -x "$S/tests/cli/run_cli.sh" ]; then
   # its manual page (the .deb's /usr/share/man/man1/acorndw.1.gz) names every command and option it has, and only those
   bash "$S/core/ci/check-manpage.sh" "$B/acorndw/acorndw" "$S/man/acorndw.1" >"$W/man.log" 2>&1 && echo "pass $(cat "$W/man.log")" || { cat "$W/man.log"; fail+=(acorndw-manpage); }
 fi
+# Acorn Atom DOS (series atom): the real disc and AtomInPC files, checked by an independent reader
+timeout 300 bash "$S/tests/atom_real.sh" "$B/acorndw/acorndw" "$R/ATOM" "$W/atom" >"$W/atom_real.log" 2>&1 && tail -1 "$W/atom_real.log" | grep -q "^ALL OK" \
+  && echo "pass atom_real" || { echo "FAIL atom_real (see $W/atom_real.log)"; fail+=(atom_real); }
 # step 5j: File > Save As writes ImageDisk, DSK, extended DSK and raw, the same bytes as acorndw convert (needs acorndw and $W/ct's TeleDisk files)
 [ -f "$S/tests/saveastest.pro" ] && { mkdir -p "$W/sa"; run saveastest "$B/saveastest/saveastest" "$W/sa" "$B/acorndw/acorndw" "$R/M512_1.ADL" "$W/ct"; rm -rf "$W/sa"; }
 rm -rf "$W/ct"                                       # ImageDisk, DSK and TeleDisk copies of Acorn discs (DiskWranglerCore v0.3.0 on)

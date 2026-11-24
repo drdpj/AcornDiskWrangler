@@ -50,8 +50,22 @@ bool readInf(const QString &hostPath, InfData *out);
 // name and attributes from it: "D.NAME" gives a DFS item (sourceFs "dfs", name "D.NAME", so it is placed by the DFS
 // letter rules), anything else an ADFS item; load, exec and access go in the "acorn" attributes. Without: plain
 // host files. No size limit.
+// Acorn Atom files with a header (series atom): atm, a file named *.atm (any case) - MAME's quickload and the Atom
+// software archives: a 16-byte name (NULs after it), load, exec and length (2 bytes each, low byte first), then the
+// data - is read by its header; one whose length is more than follows is a plain file. atomInPc: every file is
+// AtomInPC's - load and exec (2 bytes each), the data's length (4 bytes; 0 = the rest of the file), 8 reserved bytes,
+// then the data - and one whose length is more than follows is an error. A file read by its .inf isn't. The hook only
+// marks the item (attrs family "atomhdr"); applyAtomHeaders takes the header off once the data is read.
 bool isSidecar(const QString &hostPath, bool useInf);
-dw::xfer::HostReadOptions acornHostRead(bool useInf);
+dw::xfer::HostReadOptions acornHostRead(bool useInf, bool atm = false, bool atomInPc = false);
+
+// After readHost (items and their folders' kids): the items whose header was bad are taken out and listed in errors
+// (CannotRead, the reason "not an AtomInPC file: ..."). Returns false if there were any.
+bool takeAtomHeaderErrors(QVector<dw::TransferItem> *items, QVector<dw::xfer::HostReadError> *errors);
+// apply: the header taken off the data, the item named by it (an .atm file's own name, if it has one) and given its
+// load and exec ("acorn" attributes, sourceFs "adfs", as an .inf without a letter); otherwise the file left as it was
+// read (a DOS disc). The mark is taken off either way.
+void applyAtomHeaders(QVector<dw::TransferItem> *items, bool apply);
 
 namespace RetroFiles {
 

@@ -344,11 +344,20 @@ MainWindow::MainWindow(QWidget *parent) : DiscWindow(parent) {
     m_optReadInf = mk("Read .inf sidecar files when adding");
     m_optWriteInf = mk("Write .inf sidecar files when extracting");
     m_optBackup = mk("Keep a .bak copy when saving");
+    m_actReadAtom = mk("Read as Acorn &Atom DOS (DFS discs)");
+    m_actReadAtom->setCheckable(true);
+    m_actReadAtom->setStatusTip("Read this DFS disc as the Acorn Atom's DOS keeps it (default directory a space, 16-bit "
+                                "addresses, no boot option); nothing is written");
+    m_actReadAtom->setToolTip(m_actReadAtom->statusTip());
+    m_optAtomInPc = mk("Read AtomInPC headers when adding to an Atom disc");
+    m_optAtomInPc->setStatusTip("On: a file added to an Atom disc starts with AtomInPC's 16-byte header (load, exec, "
+                                "length), which is taken off; .atm files are always read by their header");
     m_optLetterDirs = mk("DFS directories become ADFS directories");
     m_optLetterDirs->setStatusTip("On: a DFS file A.NAME copied to ADFS goes into subdirectory A; off: flattened to NAME");
-    for (QAction *a : {m_optReadInf, m_optWriteInf, m_optBackup, m_optLetterDirs}) a->setCheckable(true);
+    for (QAction *a : {m_optReadInf, m_optAtomInPc, m_optWriteInf, m_optBackup, m_optLetterDirs}) a->setCheckable(true);
     AppSettings st;
     m_optReadInf->setChecked(st.value("readInf", true).toBool());
+    m_optAtomInPc->setChecked(st.value("atomInPc", false).toBool());
     m_optWriteInf->setChecked(st.value("writeInf", true).toBool());
     m_optBackup->setChecked(st.value("backup", true).toBool());
     m_optLetterDirs->setChecked(st.value("dfsLetterDirs", true).toBool());
@@ -377,8 +386,9 @@ MainWindow::MainWindow(QWidget *parent) : DiscWindow(parent) {
     ms->addActions({m_actReadIl, m_actReadSeq});
     ms->addSeparator();
     ms->addAction(m_actConvertSides);
+    mt->addAction(m_actReadAtom);
     mt->addSeparator();
-    mt->addActions({m_optReadInf, m_optWriteInf, m_optBackup, m_optLetterDirs});
+    mt->addActions({m_optReadInf, m_optAtomInPc, m_optWriteInf, m_optBackup, m_optLetterDirs});
     QMenu *mh = menuBar()->addMenu("&Help");
     mh->addAction("&About Acorn Disk Wrangler...", this, &MainWindow::about);
     mh->addAction("About &Qt...", qApp, &QApplication::aboutQt);
@@ -392,6 +402,7 @@ MainWindow::MainWindow(QWidget *parent) : DiscWindow(parent) {
     connect(m_actBootOpt, &QAction::triggered, this, &MainWindow::bootOptionDialog);
     connect(m_actReadIl, &QAction::triggered, this, [this] { readWithSideOrder(false); });
     connect(m_actReadSeq, &QAction::triggered, this, [this] { readWithSideOrder(true); });
+    connect(m_actReadAtom, &QAction::triggered, this, [this](bool on) { readAsAtom(on); });
     connect(m_actConvertSides, &QAction::triggered, this, [this] {
         if (m_doc.convertPending()) {                     // the action reads "Cancel ..." while one is staged
             QString e;
@@ -443,10 +454,11 @@ MainWindow::MainWindow(QWidget *parent) : DiscWindow(parent) {
             statusBar()->showMessage("Nothing was dragged out: the drop wasn't taken, or no file was asked for.", 6000);
         });
     }
-    for (QAction *a : {m_optReadInf, m_optWriteInf, m_optBackup, m_optLetterDirs})
+    for (QAction *a : {m_optReadInf, m_optAtomInPc, m_optWriteInf, m_optBackup, m_optLetterDirs})
         connect(a, &QAction::toggled, this, [this] {
             AppSettings s;
             s.setValue("readInf", m_optReadInf->isChecked());
+            s.setValue("atomInPc", m_optAtomInPc->isChecked());
             s.setValue("writeInf", m_optWriteInf->isChecked());
             s.setValue("backup", m_optBackup->isChecked());
             s.setValue("dfsLetterDirs", m_optLetterDirs->isChecked());
@@ -484,9 +496,33 @@ dw::ui::DiscWindow *MainWindow::createWindow() { return makeWindow<MainWindow>()
 // confirmDiscard (beforeOpen) -> detectImage -> the kit asks when two readings are equally likely, and hands a CP/M
 // disc to CP/M Disk Wrangler (handOverMessage: this program's words) -> openDocument -> afterOpen (the notices).
 
+// Readings asked for before the file is opened (openNextAs): absolute path -> fsId.
+static QHash<QString, QString> &pendingReadings() {
+    static QHash<QString, QString> h;
+    return h;
+}
+
+void MainWindow::openNextAs(const QString &path, const QString &fsId) {
+    pendingReadings()[QFileInfo(path).absoluteFilePath()] = fsId;
+}
+
 bool MainWindow::detectImage(const QString &path, int force, dw::fs::Verdict *verdict) {
     m_unknown = DiskInfo();
     *verdict = detectCandidates(path, force, &m_unknown);     // never refuses: a file nothing reads is opened as ADFS
+    // the reading asked for (Tools > Read as Acorn Atom DOS, a new Atom disc): it holds for this file in this window
+    const QString abs = QFileInfo(path).absoluteFilePath();
+    if (pendingReadings().contains(abs)) { m_readAs = pendingReadings().take(abs); m_readAsPath = abs; }
+    else if (abs != m_readAsPath) { m_readAs.clear(); m_readAsPath.clear(); }
+    if (!m_readAs.isEmpty()) {
+        for (int i = 0; i < verdict->ranked.size(); ++i) {
+            if (verdict->ranked[i].fsId != m_readAs || verdict->ranked[i].foreign()) continue;
+            verdict->ranked.move(i, 0);
+            verdict->best = 0;
+            verdict->rival = -1;
+            verdict->action = dw::fs::Verdict::Open;
+            break;
+        }
+    }
     return true;
 }
 
@@ -595,6 +631,23 @@ bool MainWindow::readWithSideOrder(bool sequential) {
     return ok;
 }
 
+bool MainWindow::atomDisc() const {
+    return m_doc.isOpen() && !m_doc.isTape() && m_doc.dfs(0).attached() && m_doc.dfs(0).atom();
+}
+
+bool MainWindow::readAsAtom(bool atom) {
+    if (!m_doc.isOpen() || m_doc.isTape() || !m_doc.dfs(0).attached()) { updateUi(); return false; }
+    if (atomDisc() == atom) { updateUi(); return true; }
+    const dw::device::SideOrder &sl = m_img.sideLayout();
+    const int force = sl.doubleSided() && m_img.isRawFile() ? (sl.sequential ? 1 : 0) : -1;   // the side order kept
+    const QString path = m_img.path();
+    openNextAs(path, atom ? "atom" : "dfs");
+    const bool ok = openFile(path, force);              // read again (nothing is written; unsaved changes are asked about)
+    pendingReadings().remove(QFileInfo(path).absoluteFilePath());   // not taken when the open was cancelled
+    updateUi();
+    return ok && atomDisc() == atom;
+}
+
 bool MainWindow::convertSideOrder(bool toSequential, bool confirm) {
     if (!m_img.isOpen() || !m_img.sideLayout().doubleSided() || !m_img.isRawFile()) return false;
     if (confirm) {
@@ -679,7 +732,8 @@ bool MainWindow::volumeEditor(int mount, const QString &key, VolumeEdit *edit) {
         edit->values["label"] = n;
         edit->title = "Rename volume";
     } else if (dfs) {
-        QString n = QInputDialog::getText(this, "Rename DFS disc", "Disc title (max 12 characters):", QLineEdit::Normal,
+        QString n = QInputDialog::getText(this, m_doc.dfs(side).atom() ? "Rename Atom disc" : "Rename DFS disc",
+                                          "Disc title (max 12 characters):", QLineEdit::Normal,
                                           m_doc.dfs(side).title(), &ok);
         if (!ok) return false;
         edit->values["title"] = n.trimmed();
@@ -772,16 +826,19 @@ void MainWindow::saveAsDialog() {
         QApplication::restoreOverrideCursor();
         if (!ok) { QMessageBox::warning(this, "Save as", "Not saved: " + err); return; }
         m_doc.revert();                                  // the changes are in the copy, which this window now shows
+        if (!m_readAs.isEmpty()) openNextAs(p, m_readAs);  // read as this disc was (an Atom disc)
         openFile(p);
         return;
     }
     if (!m_img.dirty() || !m_img.editable()) {          // nothing to write, or opened read-only: copy, then open the copy
         if (!QFile::exists(p) || QFile::remove(p)) QFile::copy(m_img.path(), p);
         QFile(p).setPermissions(QFile(p).permissions() | QFile::WriteOwner);
+        if (!m_readAs.isEmpty()) openNextAs(p, m_readAs);
         openFile(p);
         return;
     }
     if (!m_img.moveToCopy(p, &err)) { QMessageBox::warning(this, "Save as", err); return; }
+    if (!m_readAs.isEmpty()) m_readAsPath = abs;         // the window now shows the copy, read as before
     save();                                              // writes the staged changes into the copy
     updateUi();                                          // title now shows the new name
 }
@@ -883,6 +940,7 @@ void MainWindow::newImageDialog() {
         return;
     }
     st.setValue("lastDir", QFileInfo(path).absolutePath());
+    if (NewDisc::isAtom(t.type)) openNextAs(path, "atom");   // a blank Atom disc looks like a blank DFS disc
     openInWindow(path);                          // in this window if it is empty, else in a new one
 }
 
@@ -1201,10 +1259,13 @@ void MainWindow::decorateRow(QTreeWidgetItem *it, int mount, const dw::fs::Path 
         const int i = m_doc.dfs(side).indexOf(dir, name);
         if (i < 0) return;
         const dw::dfs::File f = m_doc.dfs(side).files()[i];
-        it->setText(0, f.fullName());
+        const bool atom = m_doc.dfs(side).atom();
+        // an Atom disc as its *CAT shows it: its default directory's files by name alone, 16-bit addresses
+        it->setText(0, atom && f.dir == '$' && !f.atomDollar ? f.name : f.fullName());
         it->setText(1, f.locked ? "L" : "");
-        dw::setNumCell(it, 2, dw::dfs::addrText(f.load));
-        dw::setNumCell(it, 3, dw::dfs::addrText(f.exec));
+        auto addr = [atom](quint32 v) { return atom ? QString("%1").arg(v, 4, 16, QChar('0')).toUpper() : dw::dfs::addrText(v); };
+        dw::setNumCell(it, 2, addr(f.load));
+        dw::setNumCell(it, 3, addr(f.exec));
         dw::setNumCell(it, 4, QString::number(f.length));
         dw::setNumCell(it, 5, QString::number(f.start));
         it->setIcon(0, style()->standardIcon(QStyle::SP_FileIcon));
@@ -1308,7 +1369,15 @@ void MainWindow::updateActions() {
     m_actView->setEnabled(has && sel);
     m_actRename->setEnabled(canEdit && !ct->selectedItems().isEmpty());
     m_actRenameVol->setEnabled(canEdit && !tape);
-    m_actBootOpt->setEnabled(canEdit && !dosPane && !tape);
+    m_actBootOpt->setEnabled(canEdit && !dosPane && !tape && !(ds >= 0 && m_doc.dfs(ds).atom()));   // the Atom has none
+    const bool dfsDisc = has && !tape && m_doc.dfs(0).attached();
+    // a disc with a file in the Atom's default directory (a space) has no DFS reading to go back to
+    bool marked = false;
+    for (int k = 0; k < 2; ++k)
+        if (atomDisc() && m_doc.dfs(k).attached())
+            for (const dw::dfs::File &f : m_doc.dfs(k).files()) marked = marked || (f.dir == '$' && !f.atomDollar);
+    m_actReadAtom->setEnabled(dfsDisc && (atomDisc() ? !marked : !m_doc.dfs(0).watford()));
+    m_actReadAtom->setChecked(atomDisc());
     const dw::device::SideOrder &sl = m_img.sideLayout();
     bool twoSides = has && sl.doubleSided() && m_img.isRawFile();     // ImageDisk, DSK: each track says where it is
     m_actReadIl->setEnabled(twoSides);
@@ -1343,12 +1412,14 @@ QStringList MainWindow::statusVariants() const {
                                               dw::fmtBytes(quint64(m_dos.totalClusters()) * m_dos.clusterBytes()));
     } else if (ds >= 0) {
         int n = m_doc.dfs(1).attached() ? 2 : 1;
-        s = n > 1 ? QString("DFS (a disc on each side)") : QString("DFS");
+        const bool atom = atomDisc();
+        const QString what = atom ? "Atom DOS" : "DFS";
+        s = n > 1 ? what + " (a disc on each side)" : what;
         for (int k = 0; k < n; ++k)
-            s += QString(" - %1%2, %3 free of %4, boot %5").arg(n > 1 ? QString("drive %1: ").arg(k * 2) : QString())
+            s += QString(" - %1%2, %3 free of %4%5").arg(n > 1 ? QString("drive %1: ").arg(k * 2) : QString())
                      .arg((m_doc.dfs(k).watford() ? QString("62-file catalogue, ") : QString()) + files(m_doc.dfs(k).files().size()),
                           fmtSectors(m_doc.dfs(k).freeSectors()), fmtSectors(m_doc.dfs(k).sectors()))
-                     .arg(Adfs::bootOptionName(m_doc.dfs(k).bootOption()).mid(4));
+                     .arg(atom ? QString() : ", boot " + Adfs::bootOptionName(m_doc.dfs(k).bootOption()).mid(4));
     } else if (m_img.isAdfs()) {
         s = QString("%1 - %2 free of %3 (largest block %4), boot %5")
                 .arg(m_doc.info().description.isEmpty() ? QString("ADFS") : m_doc.info().description,

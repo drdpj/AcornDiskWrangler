@@ -29,7 +29,10 @@ TYPES = {0: ('adfs', 4096, 40, False), 1: ('adfs', 4096, 80, False), 2: ('adfs',
          3: ('dfs', 2560, 40, False), 4: ('dfs', 2560, 80, False), 5: ('dfs', 2560, 40, True), 6: ('dfs', 2560, 80, True),
          7: ('a800', 5120, 80, True), 8: ('h640', 4096, 80, True),
          9: ('pc', 4608, 40, False), 10: ('pc', 4608, 80, False), 11: ('pc', 7680, 80, False), 12: ('pc', 9216, 80, False),   # PC: always interleaved
-         13: ('dfs', 2560, 40, False), 14: ('dfs', 2560, 80, False), 15: ('dfs', 2560, 40, True), 16: ('dfs', 2560, 80, True)}  # Watford 62-file
+         13: ('dfs', 2560, 40, False), 14: ('dfs', 2560, 80, False), 15: ('dfs', 2560, 40, True), 16: ('dfs', 2560, 80, True),  # Watford 62-file
+         # (17: a tape, no side order) Acorn Atom DOS: DFS's catalogue (sidetest reopens the blank disc as DFS, so its
+         # files are in $); the catalogues and side order are the same
+         18: ('dfs', 2560, 40, False), 19: ('dfs', 2560, 80, False), 20: ('dfs', 2560, 40, True), 21: ('dfs', 2560, 80, True)}
 
 def to_interleaved(data, tb, cyl):
     out = bytearray(data)

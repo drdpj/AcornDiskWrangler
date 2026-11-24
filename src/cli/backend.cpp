@@ -196,13 +196,17 @@ std::shared_ptr<dw::xfer::HostPolicy> Backend::hostPolicy(const GetOptions &o, Q
 bool Backend::readHost(const QStringList &paths, const PutOptions &o, QVector<dw::TransferItem> *items, QStringList *, QString *err, int *exit) {
     if (o.sidecars != "inf" && o.sidecars != "none" && !o.sidecars.isEmpty()) { *err = "--sidecars is inf or none"; *exit = ExitUsage; return false; }
     QVector<dw::xfer::HostReadError> errors;
-    const QVector<dw::TransferItem> got = dw::xfer::readHost(paths, acornHostRead(o.sidecars != "none"), &errors);
+    // .atm files by their header, and with --atominpc every file by AtomInPC's (series atom); the header is taken off
+    // in prepareIncoming, when the target is known (a DOS disc takes the file as it is)
+    QVector<dw::TransferItem> got = dw::xfer::readHost(paths, acornHostRead(o.sidecars != "none", true, o.atomInPc), &errors);
+    takeAtomHeaderErrors(&got, &errors);
     if (hostReadFailed(errors, err, exit)) return false;      // the first file that can't be read, or isn't there
     *items += got;
     return true;
 }
 
 void Backend::prepareIncoming(QVector<dw::TransferItem> *items, dw::fs::Volume *target) {
+    applyAtomHeaders(items, !target || target->fsId() != "fat");
     if (!target || target->fsId() == "cfs") return;
     for (dw::TransferItem &it : *items) {
         if (it.sourceFs != "cfs" || !it.attrs.contains("acorn")) continue;

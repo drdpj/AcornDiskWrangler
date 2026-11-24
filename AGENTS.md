@@ -10,7 +10,8 @@ the window works and how to build and test. Two companion documents hold the det
 ## What this is
 A Qt 6 / Qt 5.15 (C++17) desktop tool for editing Acorn 8-bit disc images: ADFS old-map hard discs and S/M/L
 floppies, DFS (.ssd/.dsd), PC FAT floppies, Acorn DOS Plus 800K, the Acorn 640K ADFS/DOS hybrid, and the FAT16 DOS
-Plus partition in `$.DOS.DRIVE_C` on an ADFS hard disc; and (series cfs-1 and cfs-2) BBC Micro and Electron cassette
+Plus partition in `$.DOS.DRIVE_C` on an ADFS hard disc, Acorn Atom DOS discs (series atom: DFS's catalogue as the Atom's
+DOS keeps it, `dw::dfs::Layout::atom`); and (series cfs-1 and cfs-2) BBC Micro and Electron cassette
 tapes in UEF files, whose files can be copied onto discs and the computer, and which can be made and changed (files
 added, replaced, renamed, removed and moved, saved as the BBC's MOS saves them). One disc per window; files can be dragged between windows.
 Its sibling is CP/M Disk Wrangler (github.com/drdpj/CPMDiskWrangler): the two look and behave alike and share some
@@ -44,7 +45,7 @@ files (see Build).
 | `mainwindow_dos.cpp` | the DOS pane: its selection, DOS Properties, Rename and the viewer |
 | `mainwindow_dfs.cpp` | the DFS pane (both sides in one tree), DFS Properties and the letter mover, copying out (`exportForCopy`, `exportRefs`), **every import** on the kit's import session (`importAll`, `importHooks`, `askReplace`, `importSummary`), drops between windows, Copy / Paste |
 | `mainwindow_p.h` | shared private header: item roles, `Pane`, `DragRef`, `fmtSectors` |
-| `hostpolicy.h/.cpp` | QtCore only, shared with `acorndw`: the `.inf` reader, `acornHostRead` (how the core's one host reader, `dw::xfer::readHost`, reads files for this program: `.inf` sidecars by Tools > Read .inf files / `--sidecars`), and `RetroFiles::AcornPolicy`, how items become host files (Extract, drags) |
+| `hostpolicy.h/.cpp` | QtCore only, shared with `acorndw`: the `.inf` reader, `acornHostRead` (how the core's one host reader, `dw::xfer::readHost`, reads files for this program: `.inf` sidecars by Tools > Read .inf files / `--sidecars`; Acorn Atom `.atm` files and, with Tools > Read AtomInPC headers / `--atominpc`, AtomInPC files by their header: the hook marks the item, `takeAtomHeaderErrors` and `applyAtomHeaders` act once the data is read), and `RetroFiles::AcornPolicy`, how items become host files (Extract, drags) |
 | `dragout.h/.cpp` | the retro-files drag format's Acorn side (spec in `core/docs/retro-files-format.md`; the format itself is the core's `dw::xfer` and `dw::DragOutMime`): `RetroFiles::dragSpec` (how this program's drags are written out), and the drag folders' prefix and clean-up) |
 | `cli/` | `acorndw`, the console program: `AcornCli::Backend` (how an image is opened, made and converted, and how host files become items); the commands are DiskWranglerCore's `diskwrangler/cli` |
 | `man/acorndw.1` (top level) | `acorndw`'s manual page (man(7) macros), installed by the `.deb`. `core/ci/check-manpage.sh` (in `tests/run_all.sh` and the Linux workflow) fails until every command has its `.SS` and every option `acorndw` takes, and only those, is in it: give a new option or command its place here |
@@ -145,6 +146,17 @@ files (see Build).
   unsaved changes is `Image::moveToCopy()` then `save()` into the copy; with none (or read-only) the file is copied
   and the copy opened. A hard disc (or a disc nothing recognised) gets only a copy of its own kind. `guitest2` and
   `saveastest` check them.
+- **Acorn Atom DOS** (series atom): a DFS disc whose catalogue the core reads as the Atom's DOS does (`Disc::atom()`;
+  detection's reading `"atom"`, the volume's `fsId` still `"dfs"`). The Atom's default directory (a space) is `$`
+  everywhere but the DFS pane's Name column, which shows such a file by name alone (`decorateRow`); load and exec are
+  4 hex digits and 16 bits (DFS Properties); no boot option (`m_actBootOpt` greyed); the status bar says "Atom DOS".
+  Tools > *Read as Acorn Atom DOS* (`readAsAtom`, checkable) opens the file again with that reading first
+  (`detectImage` puts `m_readAs` first; `openNextAs(path, fsId)` asks for the next open of a file, as New image does
+  for an Atom preset and Save As for a copy of an Atom disc); it holds for the file in that window until another
+  is opened there, and is greyed on a disc with a file in the space directory (no DFS reading). Host files:
+  `hostImport` reads `.atm` headers onto every pane but DOS, and AtomInPC headers onto an Atom disc when Tools >
+  *Read AtomInPC headers* (`m_optAtomInPc`, setting `atomInPc`, off) is on; ADFS's attributes hook takes such a file's
+  load and exec from its `acorn` attributes when it has no `.inf`. Files copied out get `.inf`s as DFS files do.
 - Side order (Tools > Side order): *Read as* opens the file again through `openFile(path, 0|1)` (nothing written);
   *Convert* is `OpenedDisc::setConvertSides`, done on Save. The status bar shows "sides ..." with how it was settled.
   New image: `newImageDialog()` -> `NewDisc::create()` (formats from the core's presets registry, `NewDisc::types()`)

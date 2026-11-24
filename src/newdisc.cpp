@@ -104,6 +104,7 @@ static const struct { Type type; const char *id; } offered[] = {
     {AdfsS, "adfs-s"}, {AdfsM, "adfs-m"}, {AdfsL, "adfs-l"},
     {DfsSs40, "dfs-ss40"}, {DfsSs80, "dfs-ss80"}, {DfsDs40, "dfs-ds40"}, {DfsDs80, "dfs-ds80"},
     {WatSs40, "wat-ss40"}, {WatSs80, "wat-ss80"}, {WatDs40, "wat-ds40"}, {WatDs80, "wat-ds80"},
+    {AtomSs40, "atom-ss40"}, {AtomSs80, "atom-ss80"}, {AtomDs40, "atom-ds40"}, {AtomDs80, "atom-ds80"},
     {Acorn800, "dos-800"}, {Acorn640, "dos-640"},
     {Pc360, "pc-360"}, {Pc720, "pc-720"}, {Pc1200, "pc-1200"}, {Pc1440, "pc-1440"}, {Uef, "uef"}};
 
@@ -257,10 +258,14 @@ bool create(const QString &path, Type t, const QString &titleIn, bool sequential
         kind = DiskInfo::Adfs;
         break;
     case DfsSs40: case DfsSs80: case DfsDs40: case DfsDs80:
-    case WatSs40: case WatSs80: case WatDs40: case WatDs80: {
-        bool ds = t == DfsDs40 || t == DfsDs80 || t == WatDs40 || t == WatDs80;
+    case WatSs40: case WatSs80: case WatDs40: case WatDs80:
+    case AtomSs40: case AtomSs80: case AtomDs40: case AtomDs80: {
+        // an Atom disc's catalogue is the one the Atom's FORMAT writes: no files and the size (its title bytes are
+        // whatever its buffer held; zeros here)
+        bool ds = t == DfsDs40 || t == DfsDs80 || t == WatDs40 || t == WatDs80 || t == AtomDs40 || t == AtomDs80;
         bool wat = t == WatSs40 || t == WatSs80 || t == WatDs40 || t == WatDs80;
-        quint32 tracks = (t == DfsSs40 || t == DfsDs40 || t == WatSs40 || t == WatDs40) ? 40 : 80, sec = tracks * 10;
+        quint32 tracks = (t == DfsSs40 || t == DfsDs40 || t == WatSs40 || t == WatDs40 || t == AtomSs40 || t == AtomDs40) ? 40 : 80,
+                sec = tracks * 10;
         img = QByteArray(int(sec * 256 * (ds ? 2 : 1)), 0);
         for (int side = 0; side < (ds ? 2 : 1); ++side) {
             char *cat = img.data() + (side ? 10 * 256 : 0);      // each side's catalogue is on its own track 0
@@ -330,7 +335,8 @@ bool create(const QString &path, Type t, const QString &titleIn, bool sequential
             dw::dfs::Layout lay;
             lay.doubleSided = sides.doubleSided();
             lay.interleaved = true;
-            lay.sectorsPerSide = (t == DfsSs40 || t == DfsDs40 || t == WatSs40 || t == WatDs40) ? 400 : 800;
+            lay.sectorsPerSide = (t == DfsSs40 || t == DfsDs40 || t == WatSs40 || t == WatDs40 || t == AtomSs40 || t == AtomDs40) ? 400 : 800;
+            lay.atom = isAtom(t);                                // the Atom DOS's *TITLE
             for (int side = 0; side < (lay.doubleSided ? 2 : 1); ++side) {
                 dw::dfs::Disc d;
                 if (!d.attach(&im, side, lay, &e) || !d.setTitle(title, &e)) return fail(e);

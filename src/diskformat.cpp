@@ -234,8 +234,10 @@ public:
     }
 };
 
-// DFS (SSD / DSD, Watford 62-file catalogues) and Acorn Z80 CP/M's catalogue: DiskWranglerCore's DFS module. A
-// catalogue that lists files is Likely; an empty one (it is only a disc size and a title) Possible.
+// DFS (SSD / DSD, Watford 62-file catalogues), Acorn Atom DOS and Acorn Z80 CP/M's catalogue: DiskWranglerCore's DFS
+// module. A DFS catalogue that lists files is Likely; an empty one (it is only a disc size and a title) Possible. The
+// Atom DOS reading ("atom", series atom) keeps the module's tier: Likely when the catalogue holds a file in the Atom's
+// default directory (a space), otherwise Possible, after DFS (Tools > Read as Acorn Atom DOS, acorndw --fs=atom).
 class DfsProbe : public dw::fs::Probe {
 public:
     QString id() const override { return "dfs"; }
@@ -259,7 +261,8 @@ public:
             info.fullSize = f.fullSize;
             info.notes = f.notes;
             const bool files = f.watford || quint8(ctx.stored(256 + 5, 1)[0]) != 0;
-            Candidate a = candidate("dfs", c.name, files ? Tier::Likely : Tier::Possible, info);
+            const Tier tier = c.fsId == "atom" ? c.tier : files ? Tier::Likely : Tier::Possible;
+            Candidate a = candidate(c.fsId, c.name, tier, info);
             a.evidence = c.evidence;
             out << a;
         }

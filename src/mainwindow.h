@@ -95,6 +95,15 @@ public:
     // in the other order (done on Save). confirm = false skips the explanation box (tests).
     bool readWithSideOrder(bool sequential);
     bool convertSideOrder(bool toSequential, bool confirm = true);
+    // Tools > Read as Acorn Atom DOS (series atom): re-read a DFS disc as the Atom's DOS keeps it, or as DFS again
+    // (nothing is written; the side order is kept). A disc with a file in the Atom's default directory opens as Atom
+    // DOS by itself; a blank one can't be told from DFS. The choice holds for this window and file (Revert, side
+    // order) until another file is opened in it.
+    bool readAsAtom(bool atom);
+    bool atomDisc() const;                               // the DFS disc open is read as Atom DOS
+    // The next openFile of path in any window reads it as fsId ("atom", "dfs") when detection offers that reading
+    // (a new Atom disc, Save As of one).
+    static void openNextAs(const QString &path, const QString &fsId);
     // Boot option of the disc in the current pane (ADFS floppy or hard disc, or one DFS side): -1 if it has none.
     int bootOption() const;
     bool setBootOption(int opt);                     // staged like any edit; shows a message on failure
@@ -285,6 +294,9 @@ private:
     QAction *m_actNewImage = nullptr;
     QAction *m_actBootOpt = nullptr;
     QAction *m_actReadIl = nullptr, *m_actReadSeq = nullptr, *m_actConvertSides = nullptr;
+    QAction *m_actReadAtom = nullptr;      // Tools > Read as Acorn Atom DOS (checkable)
+    QAction *m_optAtomInPc = nullptr;      // Tools > Read AtomInPC headers when adding to an Atom disc
+    QString m_readAs, m_readAsPath;        // the reading asked for ("atom", "dfs"; "" = detection's) and its file
     QString m_sidesHow;            // how the side order was settled: "" (detected), "assumed", "set by hand"
     DiskInfo m_unknown;            // what detection says of a disc nothing recognised (opened as ADFS)
     DiskInfo m_opened;             // the reading just opened, for afterOpen's notices

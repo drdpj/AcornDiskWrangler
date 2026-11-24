@@ -128,6 +128,31 @@ writes, validation, atomic edits) are in [AGENTS.md](../AGENTS.md); the tests na
   read with the right geometry - an ADFS L floppy needs its side-first numbering even to be inspected
   (`dragtest` caught this: before, such a disc read scrambled beyond the first track).
 - **ADFS D/E (new map)** is detected and refused; Watford 62-file DFS is supported (above); Watford's double-density DDFS is not.
+- **Acorn Atom DOS discs** (series `atom`, core v1.6.0; checked against the Atom DOS ROM, 4K at &E000, disassembled
+  with MAME's `unidasm`, and a real 80-track disc from an Acorn System; neither in the repo, both in the owner's
+  `testdata/ATOM`). The catalogue is DFS's (sectors 0-1 of each side; a double-sided disc has one on each side, as a
+  BBC .dsd), with these differences, all handled by the core's `dw::dfs::Disc` with `Layout::atom`:
+  the default directory (the Atom's "qualifier", set by `*SET`) is a **space**, shown as `$` everywhere in the
+  program (paths, drags, `.inf` files, the DFS letter rules), and listed in the window by name alone as the Atom's
+  `*CAT` does (a file stored with a real `$` keeps it: `File::atomDollar`); the lock flag is bit 7 of that byte, as on
+  DFS; sector 1 byte 4 is the **13th title character**, not a cycle number (the Atom's `*TITLE`, &E578, fills 13
+  bytes with spaces and copies up to 12 characters; `*CAT` prints 13), so it is never counted on and only Rename disc
+  sets it, to a space; sector 1 byte 6's low nibble holds the sector count's high bits (`AND #&0F`) and there is
+  **no boot option** (the high nibble is kept as found); an entry's byte 6 holds the start sector's high bits in its
+  low nibble and the length's in its high nibble, and **load and exec are 16 bits** (a BBC address such as FF1900
+  becomes 1900: written as DFS writes it, its high bits would be read as start sector bits). A new file goes in the
+  first gap big enough, from the lowest sector up (`*SAVE`, &E61A), as on DFS; 31 files a side. The Atom's own
+  FORMAT (BM-Soft's `FORM40`) writes 0 files and 400 sectors and leaves the title as its buffer held it (sector
+  IDs), so **a blank Atom disc can't be told from a blank DFS disc**: detection offers "Atom DOS" as the only reading
+  when a catalogue holds a file in the space directory, otherwise as a possible reading after DFS. A new Atom disc
+  (File > New image, presets `atom-ss40` ... `atom-ds80`) opens as Atom DOS; another blank one is read so with
+  Tools > Read as Acorn Atom DOS, or `acorndw --fs=atom`.
+  **Atom files on the computer:** a `.atm` file (MAME's quickload, the Atom software archives) has a 22-byte
+  header - a 16-byte name, then load, exec and length, 2 bytes each - and is always read by it (onto every pane but
+  DOS); an AtomInPC file has a 16-byte header - load and exec (2 bytes each), the data's length (4 bytes; the owner's
+  three samples have 0, read as "the rest of the file"), 8 reserved bytes - and is read by it only with Tools > Read
+  AtomInPC headers on, onto an Atom disc (`acorndw put --atominpc`). Files copied off an Atom disc get an `.inf`, as
+  DFS files do (the owner: "for now").
 - **Acorn Z80 CP/M discs** carry a DFS catalogue on side 0 (title "Acorn CP/M", one locked file `$.CPMDISC` from
   sector 2 to the end of the side; seen on a real disc) so that DFS leaves them alone. Detection reports them as
   `AcornCpm` and Open refuses them, pointing at CP/M Disk Wrangler: editing one as DFS, or writing on side 1 (no
@@ -229,6 +254,9 @@ real tapes (17 Nov 2026). The Electron's OS 1.00 has **not** been checked (no co
 ## Behaviour that follows from the formats
 User-visible behaviour the README doesn't spell out:
 
+* **Atom DOS**: Tools > Read as Acorn Atom DOS re-reads a DFS disc as the Atom's DOS keeps it, or back (nothing is
+  written). It holds for that file in that window (a re-read, Revert, Save As) until another file is opened there; a
+  disc with a file in the Atom's default directory is always Atom DOS.
 * **Side order** that can't be told (a blank ADFS L or DOS Plus 800K disc, or one with only a few files in the
   root) falls back to the format's usual order - interleaved for every Acorn format - and the status bar says
   "Sides: interleaved (assumed)". *Read as* applies to this window only; the next open detects again.

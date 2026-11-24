@@ -3,6 +3,10 @@
 .\" Checked against the program by core/ci/check-manpage.sh (tests/run_all.sh): every command has a .SS of its own,
 .\" and every option the program takes, and only those, is named here.
 .TH ACORNDW 1 2026-11-24 "Acorn Disk Wrangler" "User Commands"
+.\" left-aligned (no stretched spaces), one space after a full stop, no hyphenation
+.ds AD l
+.ad l
+.ss 12 0
 .nh
 .SH NAME
 acorndw \- list, extract, add and change files on Acorn disc and tape images
@@ -29,6 +33,17 @@ DFS discs, single- or double-sided, 40 or 80 track
 .RI ( .ssd ,
 .IR .dsd ),
 the two sides of a double-sided disc being two separate discs;
+.IP \(bu
+Acorn Atom DOS discs
+.RI ( .ssd ,
+.IR .dsd ,
+40 or 80 track, one or two sides): DFS's catalogue with a space for the default directory (shown as
+.BR $ ),
+16-bit load and exec addresses and no boot option.
+A disc with a file in that directory is read as Atom DOS by itself; a blank one can't be told from a DFS disc, so
+give
+.B \-\-fs=atom
+until it holds one;
 .IP \(bu
 Acorn DOS Plus 800K discs, the Master 512's 640K ADFS/DOS Plus hybrid (its ADFS side read-only), and PC floppies
 (FAT12: 360K, 720K, 1.2M, 1.44M);
@@ -98,6 +113,15 @@ Files extracted from ADFS, DFS and tapes get an
 file beside them holding the name, load and exec addresses and attributes, and
 .B put
 reads them back, as other Acorn tools do.
+.PP
+.B put
+reads an Acorn Atom
+.I .atm
+file (any case; a 16-byte name, then load, exec and length, two bytes each) by its header: the name, load and exec
+come from it and the header is not put on the disc (a DOS disc takes the file as it is).
+With
+.BR \-\-atominpc ,
+every host file named is read as an AtomInPC file.
 .SH GLOBAL OPTIONS
 .TP
 .B \-\-json
@@ -258,6 +282,14 @@ Read
 .I .inf
 files for load and exec addresses and attributes (the default), or ignore them.
 .TP
+.B \-\-atominpc
+Every host file (except one read by its
+.I .inf
+file) is an AtomInPC file: a 16-byte header (load and exec, two bytes each; the data's length, four bytes, 0 meaning
+the rest of the file; eight bytes reserved), then the data.
+Load and exec come from the header, which is not put on the disc.
+A file whose header gives more data than follows stops the run.
+.TP
 .BR \-\-replace ", " \-\-skip
 What to do when a file of that name is there (on a tape: the first file of that name).
 Without either, the run stops with exit status 5.
@@ -363,6 +395,7 @@ Show or set the boot option of an ADFS or DFS disc:
 (*RUN !BOOT) or
 .B 3
 (*EXEC !BOOT).
+Acorn Atom DOS discs and tapes have none.
 .SS new
 .B acorndw new
 .I file
@@ -551,18 +584,46 @@ If set, the time used for FAT entries and ImageDisk headers, so that a run gives
 In a folder holding the files
 .I HELLO
 and
-.IR ELITE :
+.I ELITE
+(and the AtomInPC files
+.I FORM40
+and
+.I FORMAT
+for the Atom example):
 .PP
 .EX
-acorndw new games.ssd \-\-format=dfs\-ss80      # a blank 80\-track DFS disc
+# a blank 80\-track DFS disc
+acorndw new games.ssd \-\-format=dfs\-ss80
+
+# add two files to its root
 acorndw put games.ssd HELLO ELITE \(aq$\(aq
+
+# list it
 acorndw ls games.ssd
-acorndw get games.ssd ELITE out/              # out/ELITE and out/ELITE.inf
+
+# extract ELITE: out/ELITE and out/ELITE.inf
+acorndw get games.ssd ELITE out/
+
+# check the disc
 acorndw check games.ssd
+
+# write it as an ImageDisk file
 acorndw convert games.ssd games.imd \-\-container=imd
+
+# see what a delete would do, without doing it
 acorndw \-\-dry\-run rm games.ssd \(aq$.HELLO\(aq
-acorndw get game.uef \(aq#3\(aq out/              # the third file on a tape
-acorndw copy game.uef games.ssd GAME          # a tape file onto a disc
+
+# the third file on a tape
+acorndw get game.uef \(aq#3\(aq out/
+
+# a tape file onto a disc
+acorndw copy game.uef games.ssd GAME
+
+# Atom files with AtomInPC headers onto a new Atom disc
+acorndw new atom.ssd \-\-format=atom\-ss40
+acorndw put atom.ssd \-\-fs=atom \-\-atominpc FORM40 FORMAT \(aq$\(aq
+
+# the listing as JSON, for a script
 acorndw \-\-json ls games.ssd
 .EE
 .SH SEE ALSO
@@ -575,10 +636,11 @@ the other Disk Wranglers' console programs.
 .PP
 The full reference, with the JSON schema:
 .UR https://github.com/drdpj/DiskWranglerCore/blob/main/docs/cli.md
-.UE .
+.UE
+.PP
 The program:
 .UR https://github.com/drdpj/AcornDiskWrangler
-.UE .
+.UE
 .SH AUTHOR
 Daniel Jameson.
 Acorn Disk Wrangler is free software under the GNU General Public License, version 3 or later.

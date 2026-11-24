@@ -433,6 +433,71 @@ int main(int argc,char**argv){
           CHECK(n==QStringList({"EMPTY","HELLO","LOADER","K.prog2","LOADER"}) && r.items.value(1).file.isProtected() && r.items.value(1).file.data.size()>0); }
     }
 
+    // ---------------------------------------------------------------- Acorn Atom DOS discs (series atom)
+    {
+        auto toolsAction=[](MainWindow* w,const QString& text)->QAction*{
+            for(QAction* m : w->menuBar()->actions()) if(m->menu() && m->text()=="&Tools")
+                for(QAction* a : m->menu()->actions()) if(a->text().remove('&')==text) return a;
+            return nullptr; };
+        auto statusOf=[](MainWindow* w){ QString t; for(QLabel* l : w->statusBar()->findChildren<QLabel*>()) t+=l->text()+"|"; return t; };
+        // a disc as the Atom's DOS writes it: BASIC in its default directory (a space), 16-bit addresses
+        QByteArray img(400*256,0);
+        img.replace(0,8,"ATOMDISC"); img.replace(8,8,QByteArray("BASIC  ")+' ');
+        img[256+5]=8; img[256+6]=1; img[256+7]=char(0x90);
+        const char e[8]={0x00,char(0xC0),char(0xB2),char(0xC2),0x00,0x01,0x00,0x02};    // C000 C2B2 256 bytes at 2
+        img.replace(256+8,8,QByteArray(e,8));
+        { QFile f(d+"/atom.ssd"); f.open(QIODevice::WriteOnly); f.write(img); }
+        QByteArray blank(400*256,0); blank[256+6]=1; blank[256+7]=char(0x90);         // what the Atom's FORMAT leaves
+        { QFile f(d+"/blank.ssd"); f.open(QIODevice::WriteOnly); f.write(blank); }
+        QByteArray prog; prog.append(char(0x00)).append(char(0x29)).append(char(0xB2)).append(char(0xC2));   // AtomInPC: 2900 C2B2
+        prog.append(QByteArray(12,0)).append(QByteArray(300,'p'));                       // length 0: the rest of the file
+        { QFile f(d+"/PROG"); f.open(QIODevice::WriteOnly); f.write(prog); }
+        MainWindow* M=openWin(d+"/atom.ssd");
+        M->tabWidget()->setCurrentWidget(wt::dfsTree(M)); pump();
+        QTreeWidgetItem* b=find(wt::dfsTree(M),"$.BASIC");
+        CHECK(b && b->text(0)=="BASIC" && b->text(2).trimmed()=="C000" && b->text(3).trimmed()=="C2B2");   // as the Atom's *CAT
+        CHECK(statusOf(M).contains("Atom DOS - 1 file") && !statusOf(M).contains("boot"));
+        QAction* readAtom=toolsAction(M,"Read as Acorn Atom DOS (DFS discs)");
+        QAction* inPc=toolsAction(M,"Read AtomInPC headers when adding to an Atom disc");
+        CHECK(readAtom && readAtom->isChecked() && !readAtom->isEnabled());   // a file in its directory: no DFS reading
+        for(QAction* m : M->menuBar()->actions()) if(m->menu() && m->text()=="&Edit")
+            for(QAction* a : m->menu()->actions()) if(a->text()=="&Boot option...") CHECK(!a->isEnabled());
+        // AtomInPC: off, the header stays; on, it is taken off and gives the addresses
+        CHECK(inPc && !inPc->isChecked());
+        dropFiles(*M,wt::dfsTree(M),{d+"/PROG"});
+        QTreeWidgetItem* p1=find(wt::dfsTree(M),"$.PROG");
+        CHECK(p1 && p1->text(4).trimmed()=="316" && p1->text(2).trimmed()=="0000");
+        inPc->setChecked(true);
+        autoYes(); dropFiles(*M,wt::dfsTree(M),{d+"/PROG"}); pump();          // it exists: replace
+        p1=find(wt::dfsTree(M),"$.PROG");
+        CHECK(p1 && p1->text(4).trimmed()=="300" && p1->text(2).trimmed()=="2900" && p1->text(3).trimmed()=="C2B2");
+        inPc->setChecked(false);
+        CHECK(M->save());
+        { QFile f(d+"/atom.ssd"); f.open(QIODevice::ReadOnly); const QByteArray c=f.read(512);
+          int at=-1; for(int i=1;i<=quint8(c[256+5])/8;++i) if(c.mid(i*8,7)=="PROG   ") at=i;
+          CHECK(at>0 && c[at*8+7]==' ' && quint8(c[256+4])==0 && quint8(c[256+6])==1); }       // a space; byte 4 never counted
+        M->close(); pump();
+        // a blank disc reads as DFS until told; Read as Acorn Atom DOS, then back (nothing written)
+        MainWindow* N=openWin(d+"/blank.ssd");
+        N->tabWidget()->setCurrentWidget(wt::dfsTree(N)); pump();
+        readAtom=toolsAction(N,"Read as Acorn Atom DOS (DFS discs)");
+        CHECK(statusOf(N).contains("DFS - 0 files") && readAtom && readAtom->isEnabled() && !readAtom->isChecked());
+        readAtom->trigger(); pump();
+        CHECK(N->atomDisc() && readAtom->isChecked() && readAtom->isEnabled() && statusOf(N).contains("Atom DOS - 0 files"));
+        CHECK(N->openFile(d+"/blank.ssd")); pump();
+        CHECK(N->atomDisc());                                                 // still Atom DOS when the file is read again
+        readAtom->trigger(); pump();
+        CHECK(!N->atomDisc() && !readAtom->isChecked());
+        { QFile f(d+"/blank.ssd"); f.open(QIODevice::ReadOnly); CHECK(f.readAll()==blank); }
+        N->close(); pump();
+        // a new Atom disc opens as Atom DOS (MainWindow::openNextAs, as File > New image does)
+        QFile::copy(d+"/blank.ssd",d+"/new.ssd");
+        MainWindow::openNextAs(d+"/new.ssd","atom");
+        MainWindow* O=openWin(d+"/new.ssd");
+        CHECK(O->atomDisc());
+        O->close(); pump();
+    }
+
     // ---------------------------------------------------------------- save everything, check the files
     for(MainWindow* w : {A,B,C,D,E,F,G}){ CHECK(w->save()); }
     CHECK(QFile(d+"/e.ssd").size()==102400);      // the truncated image was padded to a full disc

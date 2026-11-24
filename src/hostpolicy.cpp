@@ -51,17 +51,89 @@ bool readInf(const QString &hostPath, InfData *out) {
     return true;
 }
 
+bool takeAtomHeaderErrors(QVector<dw::TransferItem> *items, QVector<dw::xfer::HostReadError> *errors) {
+    bool ok = true;
+    for (int i = 0; i < items->size(); ++i) {
+        dw::TransferItem &it = (*items)[i];
+        if (it.isDir) { ok = takeAtomHeaderErrors(&it.kids, errors) && ok; continue; }
+        const QString why = it.attrs.value("atomhdr").value("error").toString();
+        if (why.isEmpty()) continue;
+        dw::xfer::HostReadError e;
+        e.kind = dw::xfer::HostReadError::CannotRead;
+        e.path = it.hostPath;
+        e.reason = why;
+        if (errors) errors->append(e);
+        items->removeAt(i--);
+        ok = false;
+    }
+    return ok;
+}
+
+void applyAtomHeaders(QVector<dw::TransferItem> *items, bool apply) {
+    for (dw::TransferItem &it : *items) {
+        if (it.isDir) { applyAtomHeaders(&it.kids, apply); continue; }
+        if (!it.attrs.contains("atomhdr")) continue;
+        const QJsonObject m = it.attrs.take("atomhdr");
+        if (!apply || m.contains("error")) continue;
+        it.data = it.data.mid(m["offset"].toInt(), int(m["length"].toDouble()));
+        it.name = m["name"].toString();
+        it.sourceFs = "adfs";
+        QJsonObject a;
+        a["load"] = RetroFiles::hex8(quint32(m["load"].toInt()));
+        a["exec"] = RetroFiles::hex8(quint32(m["exec"].toInt()));
+        a["access"] = "WR";
+        it.attrs["acorn"] = a;
+    }
+}
+
 bool isSidecar(const QString &p, bool useInf) {
     return useInf && p.endsWith(".inf", Qt::CaseInsensitive) && QFileInfo::exists(p.left(p.size() - 4));
 }
 
-dw::xfer::HostReadOptions acornHostRead(bool useInf) {
+// The header of an Atom file (acornHostRead): the mark applyAtomHeaders acts on.
+static void markAtomHeader(const QString &p, bool atm, bool atomInPc, dw::TransferItem *it) {
+    const bool isAtm = atm && p.endsWith(".atm", Qt::CaseInsensitive);
+    if (!isAtm && !atomInPc) return;
+    QFile f(p);
+    if (!f.open(QIODevice::ReadOnly)) return;                  // readHost reports it
+    const qint64 size = f.size();
+    const QByteArray h = f.read(22);
+    auto u16 = [&](int o) { return quint32(quint8(h[o])) | quint32(quint8(h[o + 1])) << 8; };
+    QJsonObject m;
+    if (isAtm) {
+        if (h.size() < 22 || qint64(u16(20)) > size - 22) return;   // not one: a plain file
+        QByteArray nm = h.left(16);
+        const int nul = nm.indexOf('\0');
+        if (nul >= 0) nm.truncate(nul);
+        QString name = QString::fromLatin1(nm).trimmed();
+        if (name.isEmpty()) name = it->name.left(it->name.size() - 4);
+        m["offset"] = 22;
+        m["length"] = qint64(u16(20));
+        m["name"] = name;
+        m["load"] = qint64(u16(16));
+        m["exec"] = qint64(u16(18));
+    } else {
+        const quint32 len = h.size() < 16 ? 0 : u16(4) | u16(6) << 16;
+        if (h.size() < 16 || qint64(len) > size - 16) {
+            m["error"] = h.size() < 16 ? QString("not an AtomInPC file: shorter than its 16-byte header")
+                                       : QString("not an AtomInPC file: its header says %1 bytes, but %2 follow").arg(len).arg(size - 16);
+        } else {
+            m["offset"] = 16;
+            m["length"] = len ? qint64(len) : size - 16;
+            m["name"] = it->name;
+            m["load"] = qint64(u16(0));
+            m["exec"] = qint64(u16(2));
+        }
+    }
+    it->attrs["atomhdr"] = m;
+}
+
+dw::xfer::HostReadOptions acornHostRead(bool useInf, bool atm, bool atomInPc) {
     dw::xfer::HostReadOptions o;
-    o.fileHook = [useInf](const QString &p, bool, dw::TransferItem *it) {
+    o.fileHook = [useInf, atm, atomInPc](const QString &p, bool, dw::TransferItem *it) {
         if (isSidecar(p, useInf)) return false;
-        if (!useInf) return true;
         InfData inf;
-        if (!readInf(p, &inf)) return true;
+        if (!useInf || !readInf(p, &inf)) { markAtomHeader(p, atm, atomInPc, it); return true; }
         if (!inf.name.isEmpty()) it->name = inf.name;
         if (!inf.dir.isNull() && dw::dfs::validDir(inf.dir)) { it->name = QString(inf.dir) + "." + it->name; it->sourceFs = "dfs"; }
         else it->sourceFs = "adfs";

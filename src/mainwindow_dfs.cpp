@@ -175,6 +175,8 @@ bool MainWindow::dfsProperties(const QVector<Item> &items, PropertiesEdit *edit)
         sides.append(side);
     }
     bool single = files.size() == 1;
+    const bool atom = m_doc.dfs(sides.isEmpty() ? 0 : sides[0]).atom();     // an Atom disc: 16-bit addresses
+    auto addr = [atom](quint32 v) { return atom ? QString("%1").arg(v, 4, 16, QChar('0')).toUpper() : dw::dfs::addrText(v); };
     QDialog dlg(this);
     dlg.setWindowTitle(single ? "Properties - " + files[0].fullName() : QString("Properties - %1 files").arg(files.size()));
     auto *form = new QFormLayout(&dlg);
@@ -184,6 +186,7 @@ bool MainWindow::dfsProperties(const QVector<Item> &items, PropertiesEdit *edit)
         nameEd->setMaxLength(dw::dfs::MaxName);
         dirEd = new QLineEdit(QString(files[0].dir));
         dirEd->setMaxLength(1);
+        if (atom) dirEd->setToolTip("$ is the Atom's default directory (a space on the disc)");
         form->addRow("Name (max 7 characters):", nameEd);
         form->addRow("Directory letter:", dirEd);
     } else {                                    // several files: move them all into one directory (a rename)
@@ -202,11 +205,12 @@ bool MainWindow::dfsProperties(const QVector<Item> &items, PropertiesEdit *edit)
     form->addRow("Attributes:", cbL);
     if (single) {
         auto *v = new QRegularExpressionValidator(QRegularExpression("[0-9A-Fa-f]{1,8}"), &dlg);
-        loadEd = new QLineEdit(dw::dfs::addrText(files[0].load));
-        execEd = new QLineEdit(dw::dfs::addrText(files[0].exec));
+        loadEd = new QLineEdit(addr(files[0].load));
+        execEd = new QLineEdit(addr(files[0].exec));
         loadEd->setValidator(v);
         execEd->setValidator(v);
-        loadEd->setToolTip("18-bit DFS address: up to 3FFFF; FFxxxx (or FFFFxxxx) is the I/O processor, the same as 3xxxx");
+        loadEd->setToolTip(atom ? "16-bit Atom address: up to FFFF"
+                                : "18-bit DFS address: up to 3FFFF; FFxxxx (or FFFFxxxx) is the I/O processor, the same as 3xxxx");
         execEd->setToolTip(loadEd->toolTip());
         form->addRow("Load address (hex):", loadEd);
         form->addRow("Exec address (hex):", execEd);
@@ -224,6 +228,16 @@ bool MainWindow::dfsProperties(const QVector<Item> &items, PropertiesEdit *edit)
     // DFS keeps 18 bits: accept up to 3FFFF, or FFxxxx / FFFFxxxx for 3xxxx; nothing else
     quint32 newLoad = 0, newExec = 0;
     for (QLineEdit *ed : {loadEd, execEd}) {
+        if (ed && atom) {                                // the Atom keeps 16 bits: up to FFFF
+            bool ok = false;
+            const quint32 a = ed->text().toUInt(&ok, 16);
+            if (!ok || a > 0xFFFF) {
+                QMessageBox::warning(this, "Properties", QString("%1 is not an Atom address: use up to FFFF.").arg(ed->text().toUpper()));
+                return false;
+            }
+            (ed == loadEd ? newLoad : newExec) = a;
+            continue;
+        }
         if (ed && !dw::dfs::parseAddr(ed->text(), ed == loadEd ? &newLoad : &newExec)) {
             QMessageBox::warning(this, "Properties", QString("%1 is not a DFS address: use up to 3FFFF, or FFxxxx "
                                                          "(the same as 3xxxx).").arg(ed->text().toUpper()));
@@ -514,9 +528,15 @@ dw::fs::Path MainWindow::dirPath(int pane, quint32 dir) const {
     return dw::fs::Path();
 }
 
+// Host files: .atm files are read by their header onto every pane but DOS (a PC disc takes the file as it is), and
+// AtomInPC files by theirs onto an Atom disc when Tools > Read AtomInPC headers is on (series atom).
 void MainWindow::hostImport(int pane, quint32 dir, const QStringList &paths, bool useInf) {
     QVector<dw::xfer::HostReadError> problems;
-    const QVector<dw::TransferItem> items = dw::xfer::readHost(paths, acornHostRead(useInf), &problems);
+    const bool dfs = pane == PaneDfs0 || pane == PaneDfs1;
+    const bool atomInPc = dfs && m_doc.dfs(pane == PaneDfs1 ? 1 : 0).atom() && m_optAtomInPc->isChecked();
+    QVector<dw::TransferItem> items = dw::xfer::readHost(paths, acornHostRead(useInf, pane != PaneDos, atomInPc), &problems);
+    takeAtomHeaderErrors(&items, &problems);
+    applyAtomHeaders(&items, true);
     importAll(pane, dir, items, problems, false, false);
 }
 
@@ -652,6 +672,12 @@ dw::ui::ImportHooks MainWindow::importHooks(int mount) {
                 InfData inf;
                 given = m_optReadInf->isChecked() && readInf(it.hostPath, &inf);
                 if (given) { load = inf.load; exec = inf.exec; flags = inf.flags; }
+                else if (it.attrs.contains("acorn")) {   // no .inf: an Atom file's header (applyAtomHeaders)
+                    const QJsonObject a = it.attrs.value("acorn");
+                    RetroFiles::parseHex(a["load"], &load);
+                    RetroFiles::parseHex(a["exec"], &exec);
+                    given = true;
+                }
             } else {
                 quint32 l = 0, e = 0;
                 acornAddr(it, &l, &e);                // (an address not given reads as 0, as it always did)
