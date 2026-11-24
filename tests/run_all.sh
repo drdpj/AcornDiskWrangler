@@ -75,6 +75,8 @@ mkdir -p "$W/cv"; run convtest "$B/convtest/convtest" "$W/cv" "$R/M512_1.ADL" "$
 if [ -x "$S/tests/cli/run_cli.sh" ]; then
   TD0_DIR=$W/ct "$S/tests/cli/run_cli.sh" "$B/acorndw/acorndw" "$W/cli" "$R" >"$W/cli.log" 2>&1; tail -1 "$W/cli.log" | grep -q "^ALL PASSED" && echo "pass acorndw golden ($(grep -c '^pass' "$W/cli.log") cases)" || { echo "FAIL acorndw golden (see $W/cli.log)"; fail+=(acorndw-golden); }
   ldd "$B/acorndw/acorndw" | grep -qiE "QtGui|QtWidgets" && { echo "FAIL acorndw links QtGui/QtWidgets"; fail+=(acorndw-ldd); } || echo "pass acorndw links neither QtGui nor QtWidgets"
+  # its manual page (the .deb's /usr/share/man/man1/acorndw.1.gz) names every command and option it has, and only those
+  bash "$S/core/ci/check-manpage.sh" "$B/acorndw/acorndw" "$S/man/acorndw.1" >"$W/man.log" 2>&1 && echo "pass $(cat "$W/man.log")" || { cat "$W/man.log"; fail+=(acorndw-manpage); }
 fi
 # step 5j: File > Save As writes ImageDisk, DSK, extended DSK and raw, the same bytes as acorndw convert (needs acorndw and $W/ct's TeleDisk files)
 [ -f "$S/tests/saveastest.pro" ] && { mkdir -p "$W/sa"; run saveastest "$B/saveastest/saveastest" "$W/sa" "$B/acorndw/acorndw" "$R/M512_1.ADL" "$W/ct"; rm -rf "$W/sa"; }

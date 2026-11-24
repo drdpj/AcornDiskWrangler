@@ -47,6 +47,7 @@ files (see Build).
 | `hostpolicy.h/.cpp` | QtCore only, shared with `acorndw`: the `.inf` reader, `acornHostRead` (how the core's one host reader, `dw::xfer::readHost`, reads files for this program: `.inf` sidecars by Tools > Read .inf files / `--sidecars`), and `RetroFiles::AcornPolicy`, how items become host files (Extract, drags) |
 | `dragout.h/.cpp` | the retro-files drag format's Acorn side (spec in `core/docs/retro-files-format.md`; the format itself is the core's `dw::xfer` and `dw::DragOutMime`): `RetroFiles::dragSpec` (how this program's drags are written out), and the drag folders' prefix and clean-up) |
 | `cli/` | `acorndw`, the console program: `AcornCli::Backend` (how an image is opened, made and converted, and how host files become items); the commands are DiskWranglerCore's `diskwrangler/cli` |
+| `man/acorndw.1` (top level) | `acorndw`'s manual page (man(7) macros), installed by the `.deb`. `core/ci/check-manpage.sh` (in `tests/run_all.sh` and the Linux workflow) fails until every command has its `.SS` and every option `acorndw` takes, and only those, is in it: give a new option or command its place here |
 | `viewtext.*` | text / hex / BBC BASIC detokeniser (pure QtCore, no GUI) |
 | `viewer.*` | the read-only viewer window |
 | `main.cpp` | the window kit's start-up (`core/diskwrangler/ui/startup.h`): settings' names, icon, stale drag folders, the Finder's filter, each command-line image in its own window |

@@ -150,7 +150,7 @@ then `$.ELITE`), never `games.ssd:$.ELITE`.
   there, or add that folder to your PATH.
 * **macOS:** inside the app, at `Contents/MacOS/acorndw`. To run it from Terminal, make a link:
   `sudo ln -s "/Applications/Acorn Disk Wrangler.app/Contents/MacOS/acorndw" /usr/local/bin/acorndw`
-* **Linux, `.deb`:** `/usr/bin/acorndw`, installed with the program.
+* **Linux, `.deb`:** `/usr/bin/acorndw`, installed with the program, with its manual page: `man acorndw`.
 * **Linux, AppImage:** the AppImage runs the console program when it is started under the name `acorndw`, so make a
   link to it: `ln -s acorndiskwrangler-<version>-linux-x86_64.AppImage acorndw`, then run `./acorndw`.
 
@@ -201,7 +201,8 @@ the envelope for detail. The full schema is in
 | 9 | unrecognised | Nothing recognised the disc (`--fs=ID` tries a reading anyway) |
 | 10 | save | The checked save failed; the original is untouched |
 
-The full reference, with every command and option, is in
+`acorndw COMMAND --help` lists a command's options. The full reference, with every command and option, is the manual
+page (`man acorndw`, from the `.deb`; [man/acorndw.1](man/acorndw.1) here) and
 [docs/cli.md](https://github.com/drdpj/DiskWranglerCore/blob/main/docs/cli.md).
 
 ## Limitations

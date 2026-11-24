@@ -1,0 +1,584 @@
+.\" acorndw(1) - Acorn Disk Wrangler's console program
+.\" Copyright (C) 2026 Daniel Jameson. GPL v3 or later.
+.\" Checked against the program by core/ci/check-manpage.sh (tests/run_all.sh): every command has a .SS of its own,
+.\" and every option the program takes, and only those, is named here.
+.TH ACORNDW 1 2026-11-24 "Acorn Disk Wrangler" "User Commands"
+.nh
+.SH NAME
+acorndw \- list, extract, add and change files on Acorn disc and tape images
+.SH SYNOPSIS
+.B acorndw
+.RI [ "global options" ]
+.I command
+.RI [ options ]
+.IR arguments ...
+.SH DESCRIPTION
+.B acorndw
+is the console version of Acorn Disk Wrangler: the same detection, the same checks and the same checked save as the
+window, with no display needed, so it works in scripts.
+It reads and writes:
+.IP \(bu 2
+ADFS hard discs (old map, BeebSCSI
+.I scsi0.dat
+and similar) and ADFS S, M and L floppies
+.RI ( .ads ,
+.IR .adm ,
+.IR .adl );
+.IP \(bu
+DFS discs, single- or double-sided, 40 or 80 track
+.RI ( .ssd ,
+.IR .dsd ),
+the two sides of a double-sided disc being two separate discs;
+.IP \(bu
+Acorn DOS Plus 800K discs, the Master 512's 640K ADFS/DOS Plus hybrid (its ADFS side read-only), and PC floppies
+(FAT12: 360K, 720K, 1.2M, 1.44M);
+.IP \(bu
+BBC Micro and Electron cassette tapes
+.RI ( .uef ,
+compressed or not).
+.PP
+A floppy may also be in an ImageDisk
+.RI ( .imd ),
+DSK or extended DSK file, or a TeleDisk
+.RI ( .td0 )
+file, which can only be read.
+.PP
+Global options may come before or after the command.
+An image and a path on it are always separate arguments
+.RB ( "acorndw get games.ssd \(aq$.ELITE\(aq out/" ),
+never
+.IR image : path .
+Quote paths that start with
+.B $
+or
+.B #
+from the shell.
+.PP
+Each run opens the image, makes its changes as one transaction and saves once: every filesystem is checked first,
+the new file is written beside the old one and read back, then put in its place.
+If anything fails, the image is left exactly as it was.
+.SS Paths
+Paths are written as Acorn's machines write them.
+ADFS:
+.B $.Games.Elite
+or
+.B Games.Elite
+(a dot separates the levels;
+.B /
+is an ordinary character in a name).
+DFS:
+.B $.ELITE
+or
+.BR A.PROG ,
+the letter before the dot being the file's directory.
+DOS and FAT:
+.B /GAMES/ELITE.COM
+(either slash).
+Tape:
+.B GAME
+or
+.BR #3 ,
+the third file on the tape; a second file called
+.B GAME
+is also
+.BR "GAME (2)" .
+The wildcards
+.B *
+and
+.B ?\&
+expand in
+.BR get ,
+.BR rm ,
+.B attr
+and
+.BR ls .
+.SS Sidecar files
+Files extracted from ADFS, DFS and tapes get an
+.I .inf
+file beside them holding the name, load and exec addresses and attributes, and
+.B put
+reads them back, as other Acorn tools do.
+.SH GLOBAL OPTIONS
+.TP
+.B \-\-json
+Write one JSON document on standard output (see
+.BR "JSON OUTPUT" )
+and nothing else there.
+.TP
+.B \-\-dry\-run
+Do everything, including every check, but write nothing.
+.TP
+.BI \-\-vol= NAME
+Which volume of the image:
+.BR adfs ,
+.B dos
+(a hybrid disc's DOS side, or a hard disc's DOS Plus partition),
+.B drive0
+and
+.B drive2
+(the two sides of a double-sided DFS disc),
+.BR tape .
+.B all
+lists every volume, for
+.B ls
+and
+.BR info .
+.TP
+.BI \-\-fs= ID
+Read the image as this filesystem, whatever detection says
+.RB ( info
+lists the readings and their ids).
+.TP
+.B \-\-backup
+Keep the old file as
+.IB name .bak
+when saving.
+.TP
+.BR \-q ", " \-\-quiet
+No output on success.
+.TP
+.BI \-\-sides= auto | interleaved | sequential
+The side order of a double-sided image: track by track, both sides
+.RB ( interleaved ),
+or all of side 0, then all of side 1
+.RB ( sequential ).
+.B auto
+(the default) works it out.
+On
+.BR new ,
+the order to make.
+.TP
+.BR \-f " \fINAME\fR, " \-\-format= \fINAME\fR
+On
+.BR new ,
+the format to make (one of those
+.B new \-\-list
+gives).
+.TP
+.BR \-h ", " \-\-help
+Print the commands and global options;
+.IB command " \-\-help"
+prints that command's own options.
+.TP
+.B \-\-version
+Print the version and the DiskWranglerCore version.
+.SH COMMANDS
+.SS info
+.B acorndw info
+.I image
+.PP
+What the image is: the container, the detection result and the other readings, a double-sided disc's side order
+and how it was found, and each volume with its title and free space.
+.SS check
+.B acorndw check
+.I image
+.RB [ \-\-strict ]
+.PP
+Check every filesystem on the image.
+Exit status 4 if one fails;
+.B \-\-strict
+counts warnings as failures too.
+.SS ls
+.B acorndw ls
+.I image
+.RI [ path ]
+.RB [ \-R ]
+.RB [ \-d ]
+.PP
+List a directory: name, type
+.RB ( D
+for a directory), attributes, size and date.
+ADFS shows
+.B L
+(locked),
+.B W
+(write),
+.B R
+(read),
+.B E
+(execute only); DFS
+.BR L ;
+FAT
+.B R
+(read-only),
+.B H
+(hidden),
+.B S
+(system),
+.B A
+(archive).
+A tape is listed in its own order, not sorted.
+.BR \-R ", " \-\-recursive
+lists every directory below the path;
+.BR \-d ", " \-\-directory
+shows the path itself.
+.SS get
+.B acorndw get
+.I image path... hostdir
+.PP
+Extract files and directories into the host folder
+.IR hostdir ,
+or, with
+.B \-
+as
+.IR hostdir ,
+write one file to standard output.
+.RS
+.TP
+.BI \-\-sidecars= inf | none
+Write an
+.I .inf
+file beside each file (the default), or none.
+.TP
+.BI \-\-manifest= FILE
+Also write a retro-files manifest of what was extracted.
+.TP
+.BR \-\-replace ", " \-\-skip
+What to do with a host file of the same name: replace it, or leave it and go on.
+Without either, the run stops with exit status 5.
+.RE
+.SS put
+.B acorndw put
+.I image host... dir
+.PP
+Add host files and folders to the directory
+.I dir
+.RB ( $
+for the root).
+Names are made valid for the filesystem; a name that clashes within one
+.B put
+gets
+.BR ~1 ,
+.BR ~2 ...
+On a tape the files go on its end; a name already on the tape is no clash, only a file identical to one there is.
+.RS
+.TP
+.BI \-\-sidecars= inf | none
+Read
+.I .inf
+files for load and exec addresses and attributes (the default), or ignore them.
+.TP
+.BR \-\-replace ", " \-\-skip
+What to do when a file of that name is there (on a tape: the first file of that name).
+Without either, the run stops with exit status 5.
+.TP
+.B \-\-force
+Replace a locked file too.
+.TP
+.BI \-\-retro= FILE
+Take names, addresses and attributes from a retro-files manifest or JSON file (the drag-and-drop format shared with
+CP/M Disk Wrangler and FLEX Disk Wrangler); may be given more than once.
+.TP
+.BI \-\-letters= dirs | flatten
+DFS files arriving on ADFS: a file's directory letter becomes an ADFS directory
+.RB ( dirs ,
+the default:
+.B P.GAME
+arrives as
+.BR $.P.GAME ),
+or is dropped
+.RB ( flatten :
+.BR $.GAME ).
+.RE
+.SS rm
+.B acorndw rm
+.I image path...
+.RB [ \-r ]
+.RB [ \-\-force ]
+.PP
+Delete files.
+.BR \-r ", " \-\-recursive
+deletes directories with everything in them;
+.B \-\-force
+deletes locked files too.
+On a tape, files are removed last first.
+.SS mkdir
+.B acorndw mkdir
+.I image path...
+.RB [ \-p ]
+.PP
+Make ADFS or FAT directories;
+.BR \-p ", " \-\-parents
+makes the ones above too.
+.SS mv
+.B acorndw mv
+.I image from to
+.PP
+Rename a file or directory, or move it to another directory where the filesystem can (on DFS, to another directory
+letter).
+.SS attr
+.B acorndw attr
+.I image path...
+.RB [ \-\-set
+.IR key = value ]...
+.PP
+Show a file's attributes, or change them with
+.BR \-\-set ,
+which may be given more than once.
+The keys are, on ADFS:
+.BR read ,
+.BR write ,
+.BR locked ,
+.BR execute ,
+.BR load ,
+.BR exec ;
+on DFS:
+.BR locked ,
+.BR load ,
+.BR exec ;
+on FAT:
+.BR readonly ,
+.BR hidden ,
+.BR system ,
+.BR archive ;
+on a tape:
+.BR load ,
+.BR exec ,
+.BR protected .
+Addresses are hexadecimal; yes/no values are
+.BR yes / no ,
+.BR on / off ,
+.BR true / false
+or
+.BR 1 / 0 .
+An unknown key is refused with the list of the filesystem's keys.
+.SS title
+.B acorndw title
+.I image
+.RI [ text ]
+.PP
+Show or set the disc title (ADFS, DFS) or volume label (FAT).
+Tapes have none (exit status 6).
+.SS boot
+.B acorndw boot
+.I image
+.RI [ option ]
+.PP
+Show or set the boot option of an ADFS or DFS disc:
+.B 0
+(off),
+.B 1
+(*LOAD !BOOT),
+.B 2
+(*RUN !BOOT) or
+.B 3
+(*EXEC !BOOT).
+.SS new
+.B acorndw new
+.I file
+.BI \-\-format= ID
+.RI [ options ]
+.br
+.B acorndw new \-\-list
+.PP
+Make a blank disc, or an empty tape
+.RB ( \-\-format=uef ).
+The disc is checked and opened again before it is kept.
+Discs are made as raw images; to make an ImageDisk or DSK file,
+.B convert
+the new one.
+.RS
+.TP
+.B \-\-list
+List the formats.
+.TP
+.BI \-\-title= TEXT
+The disc title.
+.TP
+.BI \-\-dosboot= FILE
+The boot code for the
+.B dos\-640
+hybrid disc, from a real Master 512 boot disc (Acorn's code can't be built in, so this format needs it).
+.TP
+.BI \-\-container= KIND
+.B raw
+only (see above).
+.TP
+.B \-\-replace
+Replace the file if it exists.
+.RE
+.SS convert
+.B acorndw convert
+.I image
+.RI [ out ]
+.RB [ \-\-container= \fIKIND\fR]
+.RB [ \-\-to\-sides= \fIORDER\fR]
+.PP
+Write a floppy in another container
+.RB ( raw ,
+.BR imd ,
+.B dsk
+or
+.BR edsk ),
+to
+.I out
+or over the image.
+TeleDisk files can't be written, so convert one to change it.
+.RS
+.TP
+.BI \-\-to\-sides= interleaved | sequential
+Change a double-sided raw image's side order (in place, without
+.IR out ).
+.TP
+.B \-\-replace
+Replace
+.I out
+if it exists.
+.RE
+.SS copy
+.B acorndw copy
+.I src dest path...
+.RB [ \-\-into= \fIDIR\fR]
+.RB [ \-\-to\-vol= \fINAME\fR]
+.PP
+Copy files from one image to another (or within one), mapping names, addresses and attributes as drag and drop
+does: disc to tape, tape to disc, DFS to ADFS, and so on.
+.B \-\-into
+names the directory they go to,
+.B \-\-to\-vol
+the volume of
+.IR dest .
+.BR \-\-replace ,
+.BR \-\-skip ,
+.B \-\-force
+and
+.B \-\-letters
+are as for
+.BR put .
+.SS script
+.B acorndw script
+.I image
+.RI [ file | \- ]
+.PP
+Run many commands on one image with one save.
+Each line of
+.I file
+(or standard input) is a command without
+.B acorndw
+and the image
+.RB ( "put host/ELITE $" );
+lines starting
+.B #
+are comments.
+Global options go on the
+.B script
+command itself;
+.BR new ,
+.B convert
+and
+.B script
+can't be used in a script.
+It stops at the first line that fails, and then nothing is saved.
+.SH JSON OUTPUT
+With
+.BR \-\-json ,
+standard output is one JSON document (schema 1):
+.BR schema ,
+.BR tool ,
+.BR command ,
+.BR image ,
+.BR vol ,
+.BR ok ,
+.BR exit ,
+.BR dryRun ,
+.BR saved ,
+.B result
+(which depends on the command),
+.B changes
+(one per file added, deleted, renamed or changed),
+.B warnings
+and
+.B error
+(null, or
+.BR code ,
+.BR kind ,
+.B message
+and
+.BR path ).
+Scripts should read
+.B exit
+for the outcome and the rest for detail.
+Text output is for people and may change between versions; the JSON only gains fields.
+.SH EXIT STATUS
+.TP 4
+.B 0
+Success.
+.TP
+.B 1
+The operation failed (the disc is full, a bad name, a file that can't be read).
+.TP
+.B 2
+Wrong arguments.
+.TP
+.B 3
+The image, a path on it, or a host file isn't there.
+.TP
+.B 4
+The disc fails its check, so nothing was written.
+.TP
+.B 5
+A name exists and neither
+.B \-\-replace
+nor
+.B \-\-skip
+was given.
+.TP
+.B 6
+Unsupported, or read-only: a TeleDisk file, a hybrid disc's ADFS side, something the filesystem can't do (a move
+between FAT directories).
+.TP
+.B 7
+The disc belongs to another Disk Wrangler (a CP/M or FLEX disc;
+.B info
+names it).
+.TP
+.B 8
+Two readings are equally likely: choose one with
+.BR \-\-fs .
+.TP
+.B 9
+Nothing recognised the disc
+.RB ( \-\-fs
+tries a reading anyway).
+.TP
+.B 10
+The checked save failed; the original file is untouched.
+.SH ENVIRONMENT
+.TP
+.B SOURCE_DATE_EPOCH
+If set, the time used for FAT entries and ImageDisk headers, so that a run gives the same bytes every time.
+.SH EXAMPLES
+In a folder holding the files
+.I HELLO
+and
+.IR ELITE :
+.PP
+.EX
+acorndw new games.ssd \-\-format=dfs\-ss80      # a blank 80\-track DFS disc
+acorndw put games.ssd HELLO ELITE \(aq$\(aq
+acorndw ls games.ssd
+acorndw get games.ssd ELITE out/              # out/ELITE and out/ELITE.inf
+acorndw check games.ssd
+acorndw convert games.ssd games.imd \-\-container=imd
+acorndw \-\-dry\-run rm games.ssd \(aq$.HELLO\(aq
+acorndw get game.uef \(aq#3\(aq out/              # the third file on a tape
+acorndw copy game.uef games.ssd GAME          # a tape file onto a disc
+acorndw \-\-json ls games.ssd
+.EE
+.SH SEE ALSO
+.BR acorndiskwrangler ,
+the program with a window;
+.BR cpmdw (1)
+and
+.BR flexdw (1),
+the other Disk Wranglers' console programs.
+.PP
+The full reference, with the JSON schema:
+.UR https://github.com/drdpj/DiskWranglerCore/blob/main/docs/cli.md
+.UE .
+The program:
+.UR https://github.com/drdpj/AcornDiskWrangler
+.UE .
+.SH AUTHOR
+Daniel Jameson.
+Acorn Disk Wrangler is free software under the GNU General Public License, version 3 or later.
