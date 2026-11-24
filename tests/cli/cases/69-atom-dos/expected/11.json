@@ -1,0 +1,47 @@
+{
+    "changes": [
+        {
+            "from": "$.PROG",
+            "note": null,
+            "op": "add",
+            "path": "PROG",
+            "vol": "drive 0"
+        },
+        {
+            "from": null,
+            "note": "sidecar",
+            "op": "add",
+            "path": "PROG.inf",
+            "vol": "drive 0"
+        }
+    ],
+    "command": "get",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.ssd",
+    "ok": true,
+    "result": {
+        "manifest": null,
+        "written": [
+            {
+                "from": "$.PROG",
+                "host": "PROG",
+                "sidecar": false,
+                "size": 510
+            },
+            {
+                "from": null,
+                "host": "PROG.inf",
+                "sidecar": true,
+                "size": 40
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

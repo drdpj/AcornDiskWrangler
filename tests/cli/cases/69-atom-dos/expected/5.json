@@ -1,0 +1,23 @@
+{
+    "changes": [
+    ],
+    "command": "put",
+    "dryRun": false,
+    "error": {
+        "code": 1,
+        "kind": "failed",
+        "message": "host/BAD: cannot read (not an AtomInPC file: its header says 9999 bytes, but 510 follow)",
+        "path": null
+    },
+    "exit": 1,
+    "image": "img.ssd",
+    "ok": false,
+    "result": {
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

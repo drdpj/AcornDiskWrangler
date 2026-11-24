@@ -1,0 +1,77 @@
+{
+    "changes": [
+    ],
+    "command": "ls",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.ssd",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "C2B2",
+                    "load": "D000",
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.ONLINE",
+                "kind": "file",
+                "modified": null,
+                "name": "$.ONLINE",
+                "path": [
+                    "$.ONLINE"
+                ],
+                "problem": null,
+                "size": 1716,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "C2B2",
+                    "load": "D000",
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.FP",
+                "kind": "file",
+                "modified": null,
+                "name": "$.FP",
+                "path": [
+                    "$.FP"
+                ],
+                "problem": null,
+                "size": 4096,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "C2B2",
+                    "load": "C000",
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.BASIC",
+                "kind": "file",
+                "modified": null,
+                "name": "$.BASIC",
+                "path": [
+                    "$.BASIC"
+                ],
+                "problem": null,
+                "size": 4096,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

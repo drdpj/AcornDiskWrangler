@@ -1,0 +1,40 @@
+#!/bin/bash
+# Acorn Atom DOS (series atom): a disc as the Atom's DOS writes it (made here: no third-party image in the repo) - an
+# 80-track single-sided catalogue, files in the default directory (a space), sector 1 byte 4 zero (the 13th title
+# character, never a cycle number), byte 6 0x03; a BBC DFS disc to copy from; host files with an AtomInPC header (PROG:
+# its length 0, the rest of the file; DATA: its length shorter than what follows), an .atm file (a 16-byte name), one
+# whose AtomInPC header gives more than follows (BAD) and a .inf naming a BBC I/O processor address
+python3 -I - <<'PY'
+import struct
+def cat(title, sectors, files):
+    s0 = bytearray(256); s1 = bytearray(256)
+    t = title.ljust(12, b' ')
+    s0[0:8] = t[:8]; s1[0:4] = t[8:12]
+    s1[5] = len(files) * 8; s1[6] = (sectors >> 8) & 0x0F; s1[7] = sectors & 0xFF
+    for i, (name, d, load, exe, length, start) in enumerate(files, 1):
+        s0[i*8:i*8+7] = name.ljust(7, b' '); s0[i*8+7] = d
+        s1[i*8:i*8+8] = struct.pack('<HHH', load, exe, length & 0xFFFF) + bytes([((start >> 8) & 0xF) | ((length >> 16) << 4), start & 0xFF])
+    return bytes(s0 + s1)
+img = bytearray(800 * 256)
+img[0:512] = cat(b'System Basic', 800, [(b'ONLINE', 0x20, 0xD000, 0xC2B2, 0x6B4, 0x22),
+                                       (b'FP', 0x20, 0xD000, 0xC2B2, 0x1000, 0x12),
+                                       (b'BASIC', 0x20, 0xC000, 0xC2B2, 0x1000, 0x02)])
+img[256 + 4] = 0
+for s, n in ((0x02, 16), (0x12, 16), (0x22, 7)):
+    for k in range(n * 256): img[s * 256 + k] = (k * 7 + s) & 0xFF
+open('img.ssd', 'wb').write(img)
+bbc = bytearray(400 * 256)
+bbc[0:512] = cat(b'BBC', 400, [(b'ELITE', ord('$'), 0x1900, 0x8023, 300, 2)])
+bbc[256 + 2*8 + 6 - 8] |= 0x0C      # ELITE's load: FF1900 (the I/O processor)
+bbc[512:512 + 300] = bytes((k * 3) & 0xFF for k in range(300))
+open('img_bbc.ssd', 'wb').write(bbc)
+import os
+os.makedirs('host', exist_ok=True)
+body = bytes((k * 13 + 5) & 0xFF for k in range(510))
+open('host/PROG', 'wb').write(struct.pack('<HHI', 0x2900, 0xC2B2, 0) + bytes(8) + body)
+open('host/DATA', 'wb').write(struct.pack('<HHI', 0x3000, 0x3000, 100) + bytes(8) + body)
+open('host/GAME.ATM', 'wb').write(b'GALAXIAN'.ljust(16, b'\0') + struct.pack('<HHH', 0x2900, 0xC2B2, len(body)) + body)
+open('host/BAD', 'wb').write(struct.pack('<HHI', 0x2900, 0xC2B2, 9999) + bytes(8) + body)
+open('host/IOP', 'wb').write(b'x' * 40)
+open('host/IOP.inf', 'w').write('$.IOP FFFF1900 FFFF8023\n')
+PY

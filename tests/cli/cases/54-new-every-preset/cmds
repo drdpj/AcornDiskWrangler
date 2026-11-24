@@ -54,3 +54,16 @@ $TOOL check img_pc-1440.img --json
 $TOOL new tape_uef.uef --format=uef --json
 $TOOL check tape_uef.uef --json
 $TOOL ls tape_uef.uef --json
+# the Acorn Atom DOS presets (series atom): a blank one reads as DFS first, Atom DOS possible
+$TOOL new img_atom-ss40.img --format=atom-ss40 --title=Tatom-ss40 --json
+$TOOL info img_atom-ss40.img --json
+$TOOL check img_atom-ss40.img --json
+$TOOL new img_atom-ss80.img --format=atom-ss80 --title=Tatom-ss80 --json
+$TOOL info img_atom-ss80.img --json
+$TOOL check img_atom-ss80.img --json
+$TOOL new img_atom-ds40.img --format=atom-ds40 --title=Tatom-ds40 --json
+$TOOL info img_atom-ds40.img --json
+$TOOL check img_atom-ds40.img --json
+$TOOL new img_atom-ds80.img --format=atom-ds80 --title=Tatom-ds80 --json
+$TOOL info img_atom-ds80.img --json
+$TOOL check img_atom-ds80.img --json

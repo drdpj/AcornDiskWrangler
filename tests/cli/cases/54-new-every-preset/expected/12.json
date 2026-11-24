@@ -35,6 +35,20 @@
                 "safeToWrite": true,
                 "supported": true,
                 "tier": "possible"
+            },
+            {
+                "description": "Acorn Atom DOS single-sided 40-track (100K per side)",
+                "evidence": [
+                    "a DFS catalogue in sectors 0-1, which the Acorn Atom's DOS writes too"
+                ],
+                "fsId": "atom",
+                "name": "Atom DOS",
+                "notes": [
+                ],
+                "probe": "dfs",
+                "safeToWrite": true,
+                "supported": true,
+                "tier": "possible"
             }
         ],
         "chosen": {

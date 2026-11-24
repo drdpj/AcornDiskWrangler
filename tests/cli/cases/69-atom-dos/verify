@@ -1,0 +1,28 @@
+#!/bin/bash
+# the catalogue bytes, as the Atom's DOS keeps them
+python3 -I - <<'PY'
+import sys
+d = open('img.ssd', 'rb').read()
+s0, s1 = d[0:256], d[256:512]
+n = s1[5] // 8
+names = {bytes(s0[i*8:i*8+7]).rstrip(): i for i in range(1, n + 1)}
+bad = []
+for nm in (b'PROG', b'DATA', b'GALAXIA', b'IOP', b'ELITE', b'BASIC'):
+    i = names.get(nm)
+    if i is None: bad.append('missing %s' % nm); continue
+    if s0[i*8+7] != 0x20: bad.append('%s: directory byte %02x, not a space' % (nm, s0[i*8+7]))
+    if s1[i*8+6] & 0xF0: bad.append('%s: entry byte 6 %02x has length or address bits' % (nm, s1[i*8+6]))
+if s1[4] != 0x20: bad.append('sector 1 byte 4 %02x: *TITLE makes it a space' % s1[4])
+if s1[6] != 0x03 or s1[7] != 0x20: bad.append('sector 1 bytes 6-7 %02x %02x, not 03 20' % (s1[6], s1[7]))
+if d[0:8] + d[256:260] != b'Atom Games  ': bad.append('title %r' % (d[0:8] + d[256:260]))
+starts = [s1[i*8+7] | (s1[i*8+6] & 0x0F) << 8 for i in range(1, n + 1)]
+if starts != sorted(starts, reverse=True): bad.append('not in descending sector order: %s' % starts)
+i = names[b'IOP']
+if s1[i*8:i*8+4] != bytes([0x00, 0x19, 0x23, 0x80]): bad.append('IOP load/exec %s' % s1[i*8:i*8+4].hex())
+body = bytes((k * 13 + 5) & 0xFF for k in range(510))
+if open('out/PROG', 'rb').read() != body: bad.append('PROG read back differs')
+d2 = open('img2.dsd', 'rb').read()
+if d2[0x107] != 0x90 or (d2[10*256 + 256 + 7]) != 0x90: bad.append('img2: both sides 400 sectors')
+print('\n'.join(bad) or 'ok')
+sys.exit(1 if bad else 0)
+PY

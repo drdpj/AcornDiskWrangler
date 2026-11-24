@@ -1,5 +1,6 @@
 container: raw, 409600 bytes
 detection: open: DFS double-sided 80-track (200K per side), sequential sides (likely)
+  also: Acorn Atom DOS double-sided 80-track (200K per side), sequential sides (possible)
 sides: sequential, detected
 reading: likely, safe to write
 volume drive0: drive 0 (dfs)

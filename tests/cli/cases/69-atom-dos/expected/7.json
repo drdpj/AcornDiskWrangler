@@ -1,0 +1,96 @@
+{
+    "changes": [
+    ],
+    "command": "attr",
+    "dryRun": false,
+    "error": null,
+    "exit": 0,
+    "image": "img.ssd",
+    "ok": true,
+    "result": {
+        "entries": [
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "C2B2",
+                    "load": "2900",
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.PROG",
+                "kind": "file",
+                "modified": null,
+                "name": "$.PROG",
+                "path": [
+                    "$.PROG"
+                ],
+                "problem": null,
+                "size": 510,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "3000",
+                    "load": "3000",
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.DATA",
+                "kind": "file",
+                "modified": null,
+                "name": "$.DATA",
+                "path": [
+                    "$.DATA"
+                ],
+                "problem": null,
+                "size": 100,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "C2B2",
+                    "load": "2900",
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.GALAXIA",
+                "kind": "file",
+                "modified": null,
+                "name": "$.GALAXIA",
+                "path": [
+                    "$.GALAXIA"
+                ],
+                "problem": null,
+                "size": 510,
+                "sizeExact": true
+            },
+            {
+                "accessed": null,
+                "attrs": {
+                    "exec": "8023",
+                    "load": "1900",
+                    "locked": false
+                },
+                "created": null,
+                "display": "$.IOP",
+                "kind": "file",
+                "modified": null,
+                "name": "$.IOP",
+                "path": [
+                    "$.IOP"
+                ],
+                "problem": null,
+                "size": 40,
+                "sizeExact": true
+            }
+        ]
+    },
+    "saved": false,
+    "schema": 1,
+    "tool": "acorndw",
+    "vol": "drive 0",
+    "warnings": [
+    ]
+}

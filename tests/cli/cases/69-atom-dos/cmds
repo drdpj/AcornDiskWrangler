@@ -1,0 +1,22 @@
+# the disc is the Atom's: its default directory shown as $
+$TOOL info img.ssd --json
+$TOOL ls img.ssd --json
+# AtomInPC files: header taken off (PROG's length 0 is the rest; DATA's 100 bytes of 510); an .atm by its own name
+$TOOL put img.ssd host/PROG host/DATA --atominpc / --json
+$TOOL put img.ssd host/GAME.ATM / --json
+$TOOL put img.ssd host/BAD --atominpc / --json
+# a BBC I/O processor address: 16 bits on the Atom
+$TOOL put img.ssd host/IOP / --json
+$TOOL attr img.ssd PROG DATA GALAXIA IOP --json
+# no boot option; the title as the Atom's *TITLE writes it
+$TOOL boot img.ssd 2 --json
+$TOOL title img.ssd "Atom Games" --json
+# from a BBC DFS disc: $ is the Atom's default directory, the load cut to 16 bits
+$TOOL copy img_bbc.ssd img.ssd '$.ELITE' --json
+# out again: plain data and an .inf
+$TOOL get img.ssd PROG out --json
+# a new Atom disc: read as DFS until it holds a file in the default directory (--fs=atom), then as Atom DOS
+$TOOL new img2.dsd --format=atom-ds40 --json
+$TOOL info img2.dsd --json
+$TOOL put img2.dsd host/PROG --atominpc --fs=atom / --json
+$TOOL info img2.dsd --json
