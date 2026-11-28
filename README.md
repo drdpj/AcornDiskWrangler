@@ -43,6 +43,11 @@ Any floppy above can also be in an **ImageDisk** (`.imd`), **DSK** or extended D
 (`.td0`) file instead of a plain sector dump: it opens the same way and saves back in the same kind of file
 (TeleDisk files can only be read).
 
+If an ImageDisk file from another program isn't recognised, try
+[`fix_imd_header.py`](https://github.com/drdpj/DiskWranglerCore/blob/main/tools/fix_imd_header.py), a small Python
+script in DiskWranglerCore. It repairs the two faults seen so far: a first line that doesn't start `IMD`, and empty
+junk tracks at the end of the file.
+
 **File > Save As** writes any floppy as an ImageDisk, DSK, extended DSK or raw sector copy, whatever kind it was
 opened as (a TeleDisk file included); the file type chosen in the dialog decides the kind, not the name you type.
 A hard disc is saved as a same-kind copy.
